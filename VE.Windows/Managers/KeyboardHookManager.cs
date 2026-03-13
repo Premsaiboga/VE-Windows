@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Runtime.InteropServices;
+using System.Windows.Threading;
 using VE.Windows.Helpers;
 using VE.Windows.Models;
 
@@ -7,8 +8,9 @@ namespace VE.Windows.Managers;
 
 /// <summary>
 /// Global keyboard hook for modifier key detection.
-/// Equivalent to macOS LowLevelKeyTap + KeyboardMonitor.
 /// Uses Win32 SetWindowsHookEx with WH_KEYBOARD_LL.
+/// Hold detection uses a DispatcherTimer since LL hook doesn't send
+/// repeated keydown events for modifier keys.
 /// </summary>
 public sealed class KeyboardHookManager : IDisposable
 {
@@ -64,9 +66,17 @@ public sealed class KeyboardHookManager : IDisposable
 
     private IntPtr _hookId = IntPtr.Zero;
     private LowLevelKeyboardProc? _hookProc;
-    private readonly Dictionary<int, DateTime> _keyDownTimes = new();
+
+    // Hold detection via timer
+    private int _heldModifierKey;
+    private DateTime _heldModifierStartTime;
+    private DispatcherTimer? _holdTimer;
+    private bool _holdFired;
+
+    // Double-tap detection
     private DateTime _lastTapTime = DateTime.MinValue;
     private int _lastTapKey;
+
     private const int HoldThresholdMs = 350;
     private const int DoubleTapThresholdMs = 500;
 
@@ -101,21 +111,63 @@ public sealed class KeyboardHookManager : IDisposable
 
         if (_hookId == IntPtr.Zero)
         {
-            FileLogger.Instance.Error("KeyboardHook", "Failed to install keyboard hook");
+            FileLogger.Instance.Error("KeyboardHook", $"Failed to install hook. Error: {Marshal.GetLastWin32Error()}");
         }
         else
         {
-            FileLogger.Instance.Info("KeyboardHook", "Keyboard hook installed");
+            FileLogger.Instance.Info("KeyboardHook", "Keyboard hook installed successfully");
         }
+
+        // Timer to detect modifier hold (checks every 50ms)
+        _holdTimer = new DispatcherTimer(DispatcherPriority.Input)
+        {
+            Interval = TimeSpan.FromMilliseconds(50)
+        };
+        _holdTimer.Tick += HoldTimer_Tick;
     }
 
     public void Stop()
     {
+        _holdTimer?.Stop();
         if (_hookId != IntPtr.Zero)
         {
             UnhookWindowsHookEx(_hookId);
             _hookId = IntPtr.Zero;
             FileLogger.Instance.Info("KeyboardHook", "Keyboard hook removed");
+        }
+    }
+
+    private void HoldTimer_Tick(object? sender, EventArgs e)
+    {
+        if (_heldModifierKey == 0 || _holdFired) return;
+
+        var elapsed = (DateTime.UtcNow - _heldModifierStartTime).TotalMilliseconds;
+        if (elapsed < HoldThresholdMs) return;
+
+        _holdFired = true;
+        _holdTimer?.Stop();
+
+        var settings = SettingsManager.Instance;
+
+        if (IsModifierKey(_heldModifierKey, settings.PredictionModifierKey) && CurrentAction == ActiveAction.None)
+        {
+            CurrentAction = ActiveAction.Prediction;
+            IsControlHeld = true;
+            FileLogger.Instance.Info("KeyboardHook", "Prediction triggered");
+            OnPredictionTriggered?.Invoke(this, EventArgs.Empty);
+        }
+        else if (IsModifierKey(_heldModifierKey, settings.DictationModifierKey) && CurrentAction == ActiveAction.None)
+        {
+            CurrentAction = ActiveAction.Dictation;
+            FileLogger.Instance.Info("KeyboardHook", "Dictation triggered");
+            OnDictationTriggered?.Invoke(this, EventArgs.Empty);
+        }
+        else if (IsModifierKey(_heldModifierKey, settings.InstructionModifierKey) && CurrentAction == ActiveAction.None)
+        {
+            CurrentAction = ActiveAction.Instruction;
+            IsAltHeld = true;
+            FileLogger.Instance.Info("KeyboardHook", "Instruction triggered");
+            OnInstructionTriggered?.Invoke(this, EventArgs.Empty);
         }
     }
 
@@ -125,16 +177,18 @@ public sealed class KeyboardHookManager : IDisposable
         {
             var hookStruct = Marshal.PtrToStructure<KBDLLHOOKSTRUCT>(lParam);
             var vkCode = (int)hookStruct.vkCode;
-            var isKeyDown = (int)wParam == WM_KEYDOWN || (int)wParam == WM_SYSKEYDOWN;
-            var isKeyUp = (int)wParam == WM_KEYUP || (int)wParam == WM_SYSKEYUP;
+            var msg = (int)wParam;
+            var isKeyDown = msg == WM_KEYDOWN || msg == WM_SYSKEYDOWN;
+            var isKeyUp = msg == WM_KEYUP || msg == WM_SYSKEYUP;
 
-            if (isKeyDown)
+            try
             {
-                HandleKeyDown(vkCode);
+                if (isKeyDown) HandleKeyDown(vkCode);
+                else if (isKeyUp) HandleKeyUp(vkCode);
             }
-            else if (isKeyUp)
+            catch (Exception ex)
             {
-                HandleKeyUp(vkCode);
+                FileLogger.Instance.Error("KeyboardHook", $"Error: {ex.Message}");
             }
         }
 
@@ -143,79 +197,49 @@ public sealed class KeyboardHookManager : IDisposable
 
     private void HandleKeyDown(int vkCode)
     {
-        // Track key press time
-        if (!_keyDownTimes.ContainsKey(vkCode))
-        {
-            _keyDownTimes[vkCode] = DateTime.UtcNow;
-        }
-
-        // Escape
+        // Escape - immediate, dispatch to UI thread
         if (vkCode == VK_ESCAPE)
         {
-            OnEscapePressed?.Invoke(this, EventArgs.Empty);
+            System.Windows.Application.Current?.Dispatcher.BeginInvoke(() =>
+                OnEscapePressed?.Invoke(this, EventArgs.Empty));
             return;
         }
 
-        // Enter
+        // Enter - immediate
         if (vkCode == VK_RETURN)
         {
-            OnEnterPressed?.Invoke(this, EventArgs.Empty);
+            System.Windows.Application.Current?.Dispatcher.BeginInvoke(() =>
+                OnEnterPressed?.Invoke(this, EventArgs.Empty));
             return;
         }
 
-        // Check for modifier key holds
-        var settings = SettingsManager.Instance;
-        var predKey = settings.PredictionModifierKey;
-        var dictKey = settings.DictationModifierKey;
-        var instrKey = settings.InstructionModifierKey;
+        // Only track modifier keys
+        if (!IsAnyModifierKey(vkCode)) return;
 
-        if (IsModifierKey(vkCode, predKey) && CurrentAction == ActiveAction.None)
-        {
-            var elapsed = (DateTime.UtcNow - _keyDownTimes.GetValueOrDefault(vkCode, DateTime.UtcNow)).TotalMilliseconds;
-            if (elapsed >= HoldThresholdMs)
-            {
-                CurrentAction = ActiveAction.Prediction;
-                IsControlHeld = true;
-                OnPredictionTriggered?.Invoke(this, EventArgs.Empty);
-            }
-        }
-        else if (IsModifierKey(vkCode, dictKey) && CurrentAction == ActiveAction.None)
-        {
-            var elapsed = (DateTime.UtcNow - _keyDownTimes.GetValueOrDefault(vkCode, DateTime.UtcNow)).TotalMilliseconds;
-            if (elapsed >= HoldThresholdMs)
-            {
-                CurrentAction = ActiveAction.Dictation;
-                OnDictationTriggered?.Invoke(this, EventArgs.Empty);
-            }
-        }
-        else if (IsModifierKey(vkCode, instrKey) && CurrentAction == ActiveAction.None)
-        {
-            var elapsed = (DateTime.UtcNow - _keyDownTimes.GetValueOrDefault(vkCode, DateTime.UtcNow)).TotalMilliseconds;
-            if (elapsed >= HoldThresholdMs)
-            {
-                CurrentAction = ActiveAction.Instruction;
-                IsAltHeld = true;
-                OnInstructionTriggered?.Invoke(this, EventArgs.Empty);
-            }
-        }
+        // Already tracking this key or a related one
+        if (_heldModifierKey != 0 && IsRelatedModifierKey(vkCode, _heldModifierKey)) return;
+
+        // Start hold tracking
+        _heldModifierKey = vkCode;
+        _heldModifierStartTime = DateTime.UtcNow;
+        _holdFired = false;
+
+        System.Windows.Application.Current?.Dispatcher.BeginInvoke(() =>
+            _holdTimer?.Start());
     }
 
     private void HandleKeyUp(int vkCode)
     {
-        var holdDuration = _keyDownTimes.TryGetValue(vkCode, out var downTime)
-            ? (DateTime.UtcNow - downTime).TotalMilliseconds
-            : 0;
-        _keyDownTimes.Remove(vkCode);
-
         var settings = SettingsManager.Instance;
 
-        // Check for double-tap (meeting toggle) - using F1 as configurable meeting key
-        if (vkCode == VK_F1 && holdDuration < HoldThresholdMs)
+        // Double-tap F1 for meeting toggle
+        if (vkCode == VK_F1)
         {
             var now = DateTime.UtcNow;
             if (_lastTapKey == vkCode && (now - _lastTapTime).TotalMilliseconds < DoubleTapThresholdMs)
             {
-                OnMeetingToggled?.Invoke(this, EventArgs.Empty);
+                System.Windows.Application.Current?.Dispatcher.BeginInvoke(() =>
+                    OnMeetingToggled?.Invoke(this, EventArgs.Empty));
                 _lastTapTime = DateTime.MinValue;
             }
             else
@@ -225,26 +249,60 @@ public sealed class KeyboardHookManager : IDisposable
             }
         }
 
-        // Release prediction
-        if (IsModifierKey(vkCode, settings.PredictionModifierKey) && CurrentAction == ActiveAction.Prediction)
+        // Stop hold timer if this is the tracked modifier
+        if (_heldModifierKey != 0 && (vkCode == _heldModifierKey || IsRelatedModifierKey(vkCode, _heldModifierKey)))
         {
-            CurrentAction = ActiveAction.None;
-            IsControlHeld = false;
-            OnPredictionReleased?.Invoke(this, EventArgs.Empty);
+            _heldModifierKey = 0;
+            System.Windows.Application.Current?.Dispatcher.BeginInvoke(() =>
+                _holdTimer?.Stop());
         }
-        // Release dictation
-        else if (IsModifierKey(vkCode, settings.DictationModifierKey) && CurrentAction == ActiveAction.Dictation)
+
+        // Release active actions on UI thread
+        System.Windows.Application.Current?.Dispatcher.BeginInvoke(() =>
         {
-            CurrentAction = ActiveAction.None;
-            OnDictationReleased?.Invoke(this, EventArgs.Empty);
-        }
-        // Release instruction
-        else if (IsModifierKey(vkCode, settings.InstructionModifierKey) && CurrentAction == ActiveAction.Instruction)
+            if (IsModifierKey(vkCode, settings.PredictionModifierKey) && CurrentAction == ActiveAction.Prediction)
+            {
+                CurrentAction = ActiveAction.None;
+                IsControlHeld = false;
+                OnPredictionReleased?.Invoke(this, EventArgs.Empty);
+            }
+            else if (IsModifierKey(vkCode, settings.DictationModifierKey) && CurrentAction == ActiveAction.Dictation)
+            {
+                CurrentAction = ActiveAction.None;
+                OnDictationReleased?.Invoke(this, EventArgs.Empty);
+            }
+            else if (IsModifierKey(vkCode, settings.InstructionModifierKey) && CurrentAction == ActiveAction.Instruction)
+            {
+                CurrentAction = ActiveAction.None;
+                IsAltHeld = false;
+                OnInstructionReleased?.Invoke(this, EventArgs.Empty);
+            }
+        });
+    }
+
+    private static bool IsAnyModifierKey(int vkCode)
+    {
+        return vkCode is VK_CONTROL or VK_LCONTROL or VK_RCONTROL
+            or VK_MENU or VK_LMENU or VK_RMENU
+            or VK_SHIFT or VK_LSHIFT or VK_RSHIFT
+            or VK_LWIN or VK_RWIN;
+    }
+
+    private static bool IsRelatedModifierKey(int vk1, int vk2)
+    {
+        return GetModifierFamily(vk1) == GetModifierFamily(vk2) && GetModifierFamily(vk1) != 0;
+    }
+
+    private static int GetModifierFamily(int vkCode)
+    {
+        return vkCode switch
         {
-            CurrentAction = ActiveAction.None;
-            IsAltHeld = false;
-            OnInstructionReleased?.Invoke(this, EventArgs.Empty);
-        }
+            VK_CONTROL or VK_LCONTROL or VK_RCONTROL => VK_CONTROL,
+            VK_MENU or VK_LMENU or VK_RMENU => VK_MENU,
+            VK_SHIFT or VK_LSHIFT or VK_RSHIFT => VK_SHIFT,
+            VK_LWIN or VK_RWIN => VK_LWIN,
+            _ => 0
+        };
     }
 
     private static bool IsModifierKey(int vkCode, ModifierKeyOption option)

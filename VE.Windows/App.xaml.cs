@@ -1,4 +1,6 @@
 using System.Diagnostics;
+using System.IO;
+using System.IO.Pipes;
 using System.Threading;
 using System.Windows;
 using Hardcodet.Wpf.TaskbarNotification;
@@ -17,6 +19,8 @@ public partial class App : Application
     private static Mutex? _mutex;
     private TaskbarIcon? _notifyIcon;
     private MainWindow? _mainWindow;
+    private CancellationTokenSource? _pipeCts;
+    private const string PipeName = "VE.Windows.SingleInstance.Pipe";
 
     protected override void OnStartup(StartupEventArgs e)
     {
@@ -25,8 +29,8 @@ public partial class App : Application
         _mutex = new Mutex(true, mutexName, out bool createdNew);
         if (!createdNew)
         {
-            // Another instance is running - activate it and exit
-            MessageBox.Show("VE is already running.", "VE", MessageBoxButton.OK, MessageBoxImage.Information);
+            // Another instance is running — forward args via named pipe and exit
+            ForwardArgsToRunningInstance(e.Args);
             Current.Shutdown();
             return;
         }
@@ -69,6 +73,9 @@ public partial class App : Application
         // Handle URI activation (ve:// protocol)
         HandleCommandLineArgs(e.Args);
 
+        // Start listening for args from other instances (OAuth callbacks)
+        StartPipeServer();
+
         // Pre-warm services if authenticated
         if (AuthManager.Instance.IsAuthenticated)
         {
@@ -82,6 +89,69 @@ public partial class App : Application
         KeyboardHookManager.Instance.Start();
 
         FileLogger.Instance.Info("App", "Application started successfully");
+    }
+
+    /// <summary>
+    /// Send command-line args to the already-running instance via named pipe.
+    /// This is how OAuth ve:// callbacks reach the first instance.
+    /// </summary>
+    private static void ForwardArgsToRunningInstance(string[] args)
+    {
+        if (args.Length == 0) return;
+
+        try
+        {
+            using var client = new NamedPipeClientStream(".", PipeName, PipeDirection.Out);
+            client.Connect(2000); // 2s timeout
+            using var writer = new StreamWriter(client);
+            writer.WriteLine(args[0]);
+            writer.Flush();
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Failed to forward args: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Listen for args from new instances (OAuth callbacks) via named pipe.
+    /// </summary>
+    private void StartPipeServer()
+    {
+        _pipeCts = new CancellationTokenSource();
+        var ct = _pipeCts.Token;
+
+        Task.Run(async () =>
+        {
+            while (!ct.IsCancellationRequested)
+            {
+                try
+                {
+                    using var server = new NamedPipeServerStream(PipeName, PipeDirection.In, 1,
+                        PipeTransmissionMode.Byte, PipeOptions.Asynchronous);
+
+                    await server.WaitForConnectionAsync(ct);
+
+                    using var reader = new StreamReader(server);
+                    var message = await reader.ReadLineAsync();
+
+                    if (!string.IsNullOrEmpty(message))
+                    {
+                        FileLogger.Instance.Info("App", $"Received from pipe: {message}");
+                        await Dispatcher.InvokeAsync(() => HandleCommandLineArgs(new[] { message }));
+                    }
+                }
+                catch (OperationCanceledException)
+                {
+                    break;
+                }
+                catch (Exception ex)
+                {
+                    FileLogger.Instance.Error("App", $"Pipe server error: {ex.Message}");
+                    await Task.Delay(500, ct);
+                }
+            }
+        }, ct);
     }
 
     private void CreateNotifyIcon()
@@ -233,12 +303,18 @@ public partial class App : Application
             var uri = args[0];
             if (uri.StartsWith("ve://"))
             {
-                Task.Run(async () =>
+                FileLogger.Instance.Info("App", $"Handling URI: {uri}");
+                _ = Dispatcher.InvokeAsync(async () =>
                 {
-                    await Dispatcher.InvokeAsync(async () =>
+                    await ProtocolHandler.HandleUri(uri);
+
+                    // After successful auth, activate the main window
+                    if (AuthManager.Instance.IsAuthenticated && _mainWindow != null)
                     {
-                        await ProtocolHandler.HandleUri(uri);
-                    });
+                        _mainWindow.Activate();
+                        _mainWindow.Topmost = true;
+                        _mainWindow.Topmost = false;
+                    }
                 });
             }
         }
@@ -286,6 +362,7 @@ public partial class App : Application
     protected override void OnExit(ExitEventArgs e)
     {
         FileLogger.Instance.Info("App", "Application shutting down");
+        _pipeCts?.Cancel();
         KeyboardHookManager.Instance.Stop();
         WebSocketRegistry.Instance.DisconnectAll();
         _notifyIcon?.Dispose();
