@@ -11,38 +11,37 @@
                     <GradientStop x:Name="Stop3" Color="#007CEC" Offset="1" />
                 </LinearGradientBrush>
             </Rectangle.Fill>
+            <Rectangle.Triggers>
+                <EventTrigger RoutedEvent="Rectangle.Loaded">
+                    <BeginStoryboard>
+                        <Storyboard RepeatBehavior="Forever">
+                            <!-- Animate gradient colors -->
+                            <ColorAnimation Storyboard.TargetName="Stop1"
+                                            Storyboard.TargetProperty="Color"
+                                            From="#007CEC" To="#6C5CE7"
+                                            Duration="0:0:3" AutoReverse="True" />
+                            <ColorAnimation Storyboard.TargetName="Stop2"
+                                            Storyboard.TargetProperty="Color"
+                                            From="#00CA48" To="#007CEC"
+                                            Duration="0:0:4" AutoReverse="True" />
+                            <ColorAnimation Storyboard.TargetName="Stop3"
+                                            Storyboard.TargetProperty="Color"
+                                            From="#007CEC" To="#00CA48"
+                                            Duration="0:0:5" AutoReverse="True" />
+
+                            <!-- Rotate gradient -->
+                            <PointAnimation Storyboard.TargetName="GradientBrush"
+                                            Storyboard.TargetProperty="StartPoint"
+                                            From="0,0" To="1,0"
+                                            Duration="0:0:6" AutoReverse="True" />
+                            <PointAnimation Storyboard.TargetName="GradientBrush"
+                                            Storyboard.TargetProperty="EndPoint"
+                                            From="1,1" To="0,1"
+                                            Duration="0:0:6" AutoReverse="True" />
+                        </Storyboard>
+                    </BeginStoryboard>
+                </EventTrigger>
+            </Rectangle.Triggers>
         </Rectangle>
-
-        <Rectangle.Triggers>
-            <EventTrigger RoutedEvent="Loaded">
-                <BeginStoryboard>
-                    <Storyboard RepeatBehavior="Forever">
-                        <!-- Animate gradient colors -->
-                        <ColorAnimation Storyboard.TargetName="Stop1"
-                                        Storyboard.TargetProperty="Color"
-                                        From="#007CEC" To="#6C5CE7"
-                                        Duration="0:0:3" AutoReverse="True" />
-                        <ColorAnimation Storyboard.TargetName="Stop2"
-                                        Storyboard.TargetProperty="Color"
-                                        From="#00CA48" To="#007CEC"
-                                        Duration="0:0:4" AutoReverse="True" />
-                        <ColorAnimation Storyboard.TargetName="Stop3"
-                                        Storyboard.TargetProperty="Color"
-                                        From="#007CEC" To="#00CA48"
-                                        Duration="0:0:5" AutoReverse="True" />
-
-                        <!-- Rotate gradient -->
-                        <PointAnimation Storyboard.TargetName="GradientBrush"
-                                        Storyboard.TargetProperty="StartPoint"
-                                        From="0,0" To="1,0"
-                                        Duration="0:0:6" AutoReverse="True" />
-                        <PointAnimation Storyboard.TargetName="GradientBrush"
-                                        Storyboard.TargetProperty="EndPoint"
-                                        From="1,1" To="0,1"
-                                        Duration="0:0:6" AutoReverse="True" />
-                    </Storyboard>
-                </BeginStoryboard>
-            </EventTrigger>
-        </Rectangle.Triggers>
     </Grid>
 </UserControl>
