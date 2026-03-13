@@ -4,6 +4,7 @@ using System.Windows;
 using Hardcodet.Wpf.TaskbarNotification;
 using VE.Windows.Helpers;
 using VE.Windows.Managers;
+using VE.Windows.Models;
 using VE.Windows.Services;
 using VE.Windows.Theme;
 using VE.Windows.Views;

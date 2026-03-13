@@ -144,7 +144,7 @@ public partial class OnboardingWindow : Window
         }
         else
         {
-            Managers.SettingsManager.Instance.Set("OnboardingCompleted", true);
+            Models.SettingsManager.Instance.Set("OnboardingCompleted", true);
             Close();
         }
     }

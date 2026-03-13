@@ -2,6 +2,7 @@ using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using NAudio.Wave;
 using VE.Windows.Helpers;
+using VE.Windows.Models;
 
 namespace VE.Windows.Managers;
 
