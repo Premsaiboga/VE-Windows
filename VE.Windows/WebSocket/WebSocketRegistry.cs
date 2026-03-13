@@ -28,8 +28,23 @@ public sealed class WebSocketRegistry : IDisposable
 
     public async Task ConnectUnifiedAudioTransport()
     {
-        var url = BaseURLService.Instance.GetBaseUrl("unified_audio_ws_api");
-        if (url == null) return;
+        var baseUrl = BaseURLService.Instance.GetBaseUrl("unified_audio_ws_api");
+        if (baseUrl == null) return;
+
+        var tenantId = AuthManager.Instance.Storage.TenantId;
+        if (string.IsNullOrEmpty(tenantId))
+        {
+            FileLogger.Instance.Warning("WebSocketRegistry", "Tenant ID not available for unified audio WebSocket URL");
+            return;
+        }
+
+        // Generate a unique session ID (hex string like macOS BSON ObjectId)
+        var sessionId = Guid.NewGuid().ToString("N").Substring(0, 24);
+
+        // Construct URL: wss://cursor-intelligence.{region}.ve.ai/{tenantId}/{sessionId}/invoke-predictor
+        var url = $"{baseUrl}/{tenantId}/{sessionId}/invoke-predictor";
+
+        FileLogger.Instance.Info("WebSocketRegistry", $"Connecting unified audio to: {url}");
 
         _unifiedAudioTransport?.Dispose();
         _unifiedAudioTransport = new WebSocketTransport(url);

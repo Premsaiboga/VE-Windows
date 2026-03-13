@@ -5,6 +5,7 @@ using System.Windows.Media.Animation;
 using VE.Windows.Helpers;
 using VE.Windows.Managers;
 using VE.Windows.ViewModels;
+using VE.Windows.Views.FloatingWindow;
 
 namespace VE.Windows.Views;
 
@@ -13,6 +14,7 @@ public partial class MainWindow : Window
     private readonly MainViewModel _vm = new();
     private bool _isHovering;
     private CancellationTokenSource? _hoverCts;
+    private FloatingPanelWindow? _floatingPanel;
 
     public MainWindow()
     {
@@ -25,6 +27,7 @@ public partial class MainWindow : Window
             Dispatcher.Invoke(() =>
             {
                 if (_vm.IsOpen) AnimateClose();
+                if (_floatingPanel?.IsVisible == true) _floatingPanel.Hide();
             });
         };
 
@@ -46,6 +49,11 @@ public partial class MainWindow : Window
         KeyboardHookManager.Instance.OnDictationReleased += (s, e) =>
         {
             Dispatcher.Invoke(() => OnDictationReleased());
+        };
+
+        KeyboardHookManager.Instance.OnInstructionTriggered += (s, e) =>
+        {
+            Dispatcher.Invoke(() => ShowFloatingPanel());
         };
 
         // Auth state changes
@@ -81,10 +89,14 @@ public partial class MainWindow : Window
     {
         if (e.ChangedButton == MouseButton.Left && !_vm.IsOpen)
         {
-            // Only open on click when not authenticated
             if (!AuthManager.Instance.IsAuthenticated)
             {
                 AnimateOpen();
+            }
+            else
+            {
+                // When authenticated, clicking notch toggles floating panel
+                ShowFloatingPanel();
             }
         }
     }
@@ -100,7 +112,7 @@ public partial class MainWindow : Window
     private void NotchBorder_MouseEnter(object sender, MouseEventArgs e)
     {
         _isHovering = true;
-        if (!AuthManager.Instance.IsAuthenticated && !_vm.IsOpen)
+        if (!_vm.IsOpen)
         {
             _hoverCts?.Cancel();
             _hoverCts = new CancellationTokenSource();
@@ -121,9 +133,9 @@ public partial class MainWindow : Window
         _isHovering = false;
         _hoverCts?.Cancel();
 
-        if (!AuthManager.Instance.IsAuthenticated && _vm.IsOpen)
+        if (_vm.IsOpen)
         {
-            Task.Delay(150).ContinueWith(_ =>
+            Task.Delay(500).ContinueWith(_ =>
             {
                 if (!_isHovering)
                 {
@@ -259,5 +271,24 @@ public partial class MainWindow : Window
     private void OnDictationReleased()
     {
         _ = Services.DictationService.Instance.StopDictation();
+    }
+
+    private void ShowFloatingPanel()
+    {
+        if (!AuthManager.Instance.IsAuthenticated) return;
+
+        if (_floatingPanel == null)
+        {
+            _floatingPanel = new FloatingPanelWindow();
+        }
+
+        if (_floatingPanel.IsVisible)
+        {
+            _floatingPanel.Hide();
+        }
+        else
+        {
+            _floatingPanel.ShowAndActivate();
+        }
     }
 }

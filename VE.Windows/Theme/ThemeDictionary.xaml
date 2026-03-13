@@ -180,6 +180,35 @@
                          From="0" To="1" Duration="0:0:0.25" />
     </Storyboard>
 
+    <!-- Floating Panel Tab Button -->
+    <Style x:Key="FloatingTabButton" TargetType="Button">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Foreground" Value="#878E92" />
+        <Setter Property="FontFamily" Value="{StaticResource VEFont}" />
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="Padding" Value="10,6" />
+        <Setter Property="Margin" Value="2,0" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="border"
+                            Background="{TemplateBinding Background}"
+                            CornerRadius="6"
+                            Padding="{TemplateBinding Padding}">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="border" Property="Background" Value="#33FFFFFF" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
     <Storyboard x:Key="SpringOpen">
         <DoubleAnimation Storyboard.TargetProperty="Height"
                          Duration="0:0:0.4">

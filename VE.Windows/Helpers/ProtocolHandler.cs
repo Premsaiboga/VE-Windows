@@ -59,16 +59,15 @@ public static class ProtocolHandler
             if (parsedUri.Host == "callback" || parsedUri.Host == "oauth")
             {
                 var query = System.Web.HttpUtility.ParseQueryString(parsedUri.Query);
-                var code = query["code"];
-                var state = query["state"];
+                var sessionId = query["sessionId"];
 
-                if (!string.IsNullOrEmpty(code))
+                if (!string.IsNullOrEmpty(sessionId))
                 {
-                    await AuthManager.Instance.HandleOAuthCallback(code, state);
+                    await AuthManager.Instance.HandleOAuthCallback(sessionId);
                 }
                 else
                 {
-                    FileLogger.Instance.Warning("ProtocolHandler", "No code in callback URI");
+                    FileLogger.Instance.Warning("ProtocolHandler", "No sessionId in callback URI");
                 }
             }
         }

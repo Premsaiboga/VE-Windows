@@ -118,28 +118,32 @@ public sealed class AuthManager : INotifyPropertyChanged
         Process.Start(new ProcessStartInfo(authUrl) { UseShellExecute = true });
     }
 
-    public async Task HandleOAuthCallback(string code, string? state = null)
+    public async Task HandleOAuthCallback(string sessionId)
     {
         if (_isProcessingCallback) return;
         _isProcessingCallback = true;
 
         try
         {
-            FileLogger.Instance.Info("AuthManager", "Processing OAuth callback...");
+            FileLogger.Instance.Info("AuthManager", $"Processing OAuth callback with sessionId: {sessionId.Substring(0, Math.Min(8, sessionId.Length))}...");
             var baseUrl = BaseURLService.Instance.GetGlobalUrl("auth");
             var response = await NetworkService.Instance.PostRawAsync(
-                $"{baseUrl}/token/exchange",
-                new { code, redirectUri = "ve://oauth/callback" });
+                $"{baseUrl}/exchange-one-time-token",
+                new { sessionId });
 
             if (response == null)
             {
+                FileLogger.Instance.Error("AuthManager", "Token exchange returned null response");
                 AuthState = AuthState.Error;
                 return;
             }
 
+            FileLogger.Instance.Info("AuthManager", $"Token exchange response received ({response.Length} chars)");
+
             var result = JsonConvert.DeserializeObject<TokenExchangeResponse>(response);
             if (result?.AccessToken == null)
             {
+                FileLogger.Instance.Error("AuthManager", "No accessToken in exchange response");
                 AuthState = AuthState.Error;
                 return;
             }
@@ -147,8 +151,22 @@ public sealed class AuthManager : INotifyPropertyChanged
             // Store tokens
             Storage.UserToken = result.AccessToken;
             Storage.CSRFToken = result.CsrfToken;
-            Storage.WorkspaceId = result.WorkspaceId;
-            Storage.Region = result.Region;
+
+            // Extract workspace info from accessibleWorkspaces
+            if (result.AccessibleWorkspaces != null && result.AccessibleWorkspaces.Length > 0)
+            {
+                var workspace = result.AccessibleWorkspaces[0];
+                Storage.WorkspaceId = workspace.WorkspaceId;
+                Storage.Region = workspace.Region ?? result.Region ?? "us-east-1";
+                Storage.WorkspaceMode = workspace.WorkspaceMode;
+                Storage.TenantId = workspace.TenantId ?? workspace.Tenant_id;
+                if (workspace.IsOnboard.HasValue)
+                    Storage.IsOnboard = workspace.IsOnboard.Value;
+            }
+            else
+            {
+                Storage.Region = result.Region ?? "us-east-1";
+            }
 
             // Schedule token refresh
             TokenRefreshService.Instance.ScheduleRefresh(result.AccessToken);
@@ -230,8 +248,20 @@ public sealed class AuthManager : INotifyPropertyChanged
     {
         [JsonProperty("accessToken")] public string? AccessToken { get; set; }
         [JsonProperty("csrfToken")] public string? CsrfToken { get; set; }
+        [JsonProperty("region")] public string? Region { get; set; }
+        [JsonProperty("accessibleWorkspaces")] public WorkspaceInfo[]? AccessibleWorkspaces { get; set; }
+        [JsonProperty("accessTokenExpiry")] public object? AccessTokenExpiry { get; set; }
+        [JsonProperty("refreshTokenExpiry")] public object? RefreshTokenExpiry { get; set; }
+    }
+
+    private class WorkspaceInfo
+    {
         [JsonProperty("workspaceId")] public string? WorkspaceId { get; set; }
         [JsonProperty("region")] public string? Region { get; set; }
+        [JsonProperty("workspaceMode")] public string? WorkspaceMode { get; set; }
+        [JsonProperty("tenantId")] public string? TenantId { get; set; }
+        [JsonProperty("tenant_id")] public string? Tenant_id { get; set; }
+        [JsonProperty("isOnboard")] public bool? IsOnboard { get; set; }
     }
 }
 
