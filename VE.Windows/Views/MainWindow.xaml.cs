@@ -174,26 +174,8 @@ public partial class MainWindow : Window
 
         Color bgColor;
 
-        if (auth.AuthState != Models.AuthState.Authorized)
-        {
-            bgColor = Theme.ThemeManager.Instance.LoginBackground;
-        }
-        else if (coord.MeetingState != Services.MeetingState.Inactive)
-        {
-            bgColor = Colors.Black;
-        }
-        else if (coord.DictationState != Services.DictationState.Inactive)
-        {
-            bgColor = Theme.ThemeManager.Instance.Blue;
-        }
-        else if (coord.CombinedPredictionState != CombinedPredictionState.Inactive)
-        {
-            bgColor = Colors.Black;
-        }
-        else
-        {
-            bgColor = Color.FromRgb(13, 13, 13); // #0D0D0D
-        }
+        // Always black notch background
+        bgColor = Colors.Black;
 
         NotchBg.Color = bgColor;
     }

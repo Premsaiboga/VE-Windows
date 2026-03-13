@@ -19,39 +19,43 @@
         <converters:BoolToVisibilityConverter x:Key="BoolToVis" />
         <converters:InverseBoolConverter x:Key="InverseBool" />
 
-        <!-- Spring-like open animation -->
+        <!-- Smooth open animation with gentle easing -->
         <Storyboard x:Key="OpenAnimation">
             <DoubleAnimation Storyboard.TargetName="NotchBorder"
                              Storyboard.TargetProperty="Width"
-                             Duration="0:0:0.4">
+                             Duration="0:0:0.45">
                 <DoubleAnimation.EasingFunction>
-                    <ElasticEase EasingMode="EaseOut" Oscillations="1" Springiness="5" />
+                    <CubicEase EasingMode="EaseOut" />
                 </DoubleAnimation.EasingFunction>
             </DoubleAnimation>
             <DoubleAnimation Storyboard.TargetName="NotchBorder"
                              Storyboard.TargetProperty="Height"
-                             Duration="0:0:0.42">
+                             Duration="0:0:0.5">
                 <DoubleAnimation.EasingFunction>
-                    <ElasticEase EasingMode="EaseOut" Oscillations="1" Springiness="5" />
+                    <CubicEase EasingMode="EaseOut" />
                 </DoubleAnimation.EasingFunction>
             </DoubleAnimation>
             <DoubleAnimation Storyboard.TargetName="NotchBorder"
                              Storyboard.TargetProperty="Opacity"
-                             From="0.9" To="1" Duration="0:0:0.2" />
+                             From="0.9" To="1" Duration="0:0:0.3">
+                <DoubleAnimation.EasingFunction>
+                    <QuadraticEase EasingMode="EaseOut" />
+                </DoubleAnimation.EasingFunction>
+            </DoubleAnimation>
         </Storyboard>
 
         <!-- Smooth close animation -->
         <Storyboard x:Key="CloseAnimation">
             <DoubleAnimation Storyboard.TargetName="NotchBorder"
                              Storyboard.TargetProperty="Width"
-                             Duration="0:0:0.35">
+                             Duration="0:0:0.4">
                 <DoubleAnimation.EasingFunction>
                     <CubicEase EasingMode="EaseInOut" />
                 </DoubleAnimation.EasingFunction>
             </DoubleAnimation>
             <DoubleAnimation Storyboard.TargetName="NotchBorder"
                              Storyboard.TargetProperty="Height"
-                             Duration="0:0:0.35">
+                             Duration="0:0:0.4">
                 <DoubleAnimation.EasingFunction>
                     <CubicEase EasingMode="EaseInOut" />
                 </DoubleAnimation.EasingFunction>
@@ -63,7 +67,7 @@
         <!-- Shadow effect -->
         <Border x:Name="ShadowBorder" Margin="12">
             <Border.Effect>
-                <DropShadowEffect Color="#0D0D0D" BlurRadius="12" ShadowDepth="6" Opacity="0.4" Direction="270" />
+                <DropShadowEffect Color="Black" BlurRadius="12" ShadowDepth="6" Opacity="0.4" Direction="270" />
             </Border.Effect>
         </Border>
 
@@ -77,7 +81,7 @@
                 MouseEnter="NotchBorder_MouseEnter"
                 MouseLeave="NotchBorder_MouseLeave">
             <Border.Background>
-                <SolidColorBrush x:Name="NotchBg" Color="#0D0D0D" />
+                <SolidColorBrush x:Name="NotchBg" Color="Black" />
             </Border.Background>
 
             <!-- Glass border overlay -->
