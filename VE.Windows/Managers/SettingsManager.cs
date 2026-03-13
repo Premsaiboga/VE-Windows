@@ -24,6 +24,45 @@ public sealed class SettingsManager
         _settings = LoadSettings();
     }
 
+    // Convenience properties for keyboard modifier keys
+    public string PredictionModifierKey
+    {
+        get => Get("PredictionModifierKey", "Ctrl");
+        set => Set("PredictionModifierKey", value);
+    }
+
+    public string DictationModifierKey
+    {
+        get => Get("DictationModifierKey", "Shift");
+        set => Set("DictationModifierKey", value);
+    }
+
+    public string InstructionModifierKey
+    {
+        get => Get("InstructionModifierKey", "Alt");
+        set => Set("InstructionModifierKey", value);
+    }
+
+    // Theme
+    public string ThemePreference
+    {
+        get => Get("ThemePreference", "system");
+        set => Set("ThemePreference", value);
+    }
+
+    // Microphone
+    public string SelectedMicrophoneUID
+    {
+        get => Get("SelectedMicrophoneUID", "system-default");
+        set => Set("SelectedMicrophoneUID", value);
+    }
+
+    public string SelectedMicrophoneName
+    {
+        get => Get("SelectedMicrophoneName", "Default");
+        set => Set("SelectedMicrophoneName", value);
+    }
+
     public T Get<T>(string key, T defaultValue)
     {
         lock (_lock)

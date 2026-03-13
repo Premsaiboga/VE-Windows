@@ -50,7 +50,7 @@ public sealed class AudioService : INotifyPropertyChanged, IDisposable
         }
 
         // Select based on settings
-        var selectedUid = Models.SettingsManager.Instance.SelectedMicrophoneUID;
+        var selectedUid = SettingsManager.Instance.SelectedMicrophoneUID;
         if (selectedUid == "system-default" || selectedUid == null)
         {
             SelectedMicrophone = AvailableMicrophones.FirstOrDefault(d => d.IsDefault)
@@ -58,7 +58,7 @@ public sealed class AudioService : INotifyPropertyChanged, IDisposable
         }
         else
         {
-            var selectedName = Models.SettingsManager.Instance.SelectedMicrophoneName;
+            var selectedName = SettingsManager.Instance.SelectedMicrophoneName;
             SelectedMicrophone = AvailableMicrophones.FirstOrDefault(d => d.Name == selectedName)
                                  ?? AvailableMicrophones.FirstOrDefault();
         }
@@ -73,8 +73,8 @@ public sealed class AudioService : INotifyPropertyChanged, IDisposable
         if (device != null)
         {
             SelectedMicrophone = device;
-            Models.SettingsManager.Instance.SelectedMicrophoneUID = device.Name;
-            Models.SettingsManager.Instance.SelectedMicrophoneName = device.Name;
+            SettingsManager.Instance.SelectedMicrophoneUID = device.Name;
+            SettingsManager.Instance.SelectedMicrophoneName = device.Name;
             OnPropertyChanged(nameof(SelectedMicrophone));
         }
     }
