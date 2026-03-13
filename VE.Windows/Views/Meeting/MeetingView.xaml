@@ -1,0 +1,97 @@
+<UserControl x:Class="VE.Windows.Views.Meeting.MeetingView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <Grid>
+        <!-- Starting -->
+        <StackPanel x:Name="StartingPanel" Visibility="Collapsed"
+                    VerticalAlignment="Center" HorizontalAlignment="Center">
+            <TextBlock Text="Starting meeting notes..."
+                       Foreground="White" FontSize="14"
+                       HorizontalAlignment="Center" />
+        </StackPanel>
+
+        <!-- Active -->
+        <Grid x:Name="ActivePanel" Visibility="Collapsed">
+            <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                <!-- Recording indicator -->
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,16">
+                    <Ellipse Width="10" Height="10" Fill="#FF4B59" Margin="0,0,8,0">
+                        <Ellipse.Triggers>
+                            <EventTrigger RoutedEvent="Loaded">
+                                <BeginStoryboard>
+                                    <Storyboard RepeatBehavior="Forever">
+                                        <DoubleAnimation Storyboard.TargetProperty="Opacity"
+                                                         From="1" To="0.3" Duration="0:0:0.8" AutoReverse="True" />
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </EventTrigger>
+                        </Ellipse.Triggers>
+                    </Ellipse>
+                    <TextBlock Text="Recording"
+                               Foreground="#FF4B59" FontSize="14" FontWeight="SemiBold"
+                               VerticalAlignment="Center" />
+                </StackPanel>
+
+                <!-- Timer -->
+                <TextBlock x:Name="MeetingTimer"
+                           Text="0:00"
+                           Foreground="White" FontSize="36"
+                           FontWeight="Light"
+                           HorizontalAlignment="Center" Margin="0,0,0,24" />
+
+                <!-- Controls -->
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                    <Button x:Name="PauseButton" Content="Pause"
+                            Style="{StaticResource VESecondaryButton}"
+                            Margin="0,0,12,0"
+                            Click="PauseButton_Click" />
+                    <Button x:Name="StopButton" Content="Stop"
+                            Margin="0">
+                        <Button.Style>
+                            <Style TargetType="Button" BasedOn="{StaticResource VEButton}">
+                                <Setter Property="Background" Value="#FF4B59" />
+                            </Style>
+                        </Button.Style>
+                        <Button.Resources>
+                            <Style TargetType="Border">
+                                <Setter Property="CornerRadius" Value="8" />
+                            </Style>
+                        </Button.Resources>
+                    </Button>
+                </StackPanel>
+            </StackPanel>
+        </Grid>
+
+        <!-- Result -->
+        <Grid x:Name="ResultPanel" Visibility="Collapsed" Margin="8">
+            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                <StackPanel>
+                    <TextBlock Text="Meeting Notes"
+                               Foreground="White" FontSize="18" FontWeight="SemiBold"
+                               Margin="0,0,0,12" />
+                    <TextBlock x:Name="SummaryText"
+                               Text=""
+                               Foreground="#B0B0B0" FontSize="13"
+                               TextWrapping="Wrap"
+                               Margin="0,0,0,16" />
+                    <Button Content="View Full Summary"
+                            Style="{StaticResource VEButton}"
+                            HorizontalAlignment="Left"
+                            Click="ViewSummary_Click" />
+                </StackPanel>
+            </ScrollViewer>
+        </Grid>
+
+        <!-- Error -->
+        <StackPanel x:Name="MeetingErrorPanel" Visibility="Collapsed"
+                    VerticalAlignment="Center" HorizontalAlignment="Center">
+            <TextBlock Text="Meeting recording failed"
+                       Foreground="#FF4B59" FontSize="14"
+                       HorizontalAlignment="Center" Margin="0,0,0,12" />
+            <Button Content="Try Again"
+                    Style="{StaticResource VEButton}"
+                    Click="TryAgain_Click" />
+        </StackPanel>
+    </Grid>
+</UserControl>

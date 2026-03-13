@@ -1,0 +1,74 @@
+<UserControl x:Class="VE.Windows.Views.Notch.NotchHomeView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:auth="clr-namespace:VE.Windows.Views.Auth"
+             xmlns:prediction="clr-namespace:VE.Windows.Views.Prediction"
+             xmlns:dictation="clr-namespace:VE.Windows.Views.Dictation"
+             xmlns:meeting="clr-namespace:VE.Windows.Views.Meeting"
+             xmlns:converters="clr-namespace:VE.Windows.Converters">
+
+    <UserControl.Resources>
+        <converters:EnumToVisibilityConverter x:Key="EnumToVis" />
+    </UserControl.Resources>
+
+    <Grid>
+        <!-- Header -->
+        <Grid Height="40" VerticalAlignment="Top" Margin="16,8,16,0">
+            <TextBlock Text="VE"
+                       Foreground="White"
+                       FontSize="16"
+                       FontWeight="SemiBold"
+                       VerticalAlignment="Center"
+                       HorizontalAlignment="Left" />
+            <Button x:Name="SettingsButton"
+                    Content="&#x2699;"
+                    Foreground="#878E92"
+                    FontSize="16"
+                    Background="Transparent"
+                    BorderThickness="0"
+                    HorizontalAlignment="Right"
+                    VerticalAlignment="Center"
+                    Cursor="Hand"
+                    Click="SettingsButton_Click" />
+        </Grid>
+
+        <!-- Content Area -->
+        <Grid Margin="16,52,16,16">
+            <!-- Auth View (when not logged in) -->
+            <auth:LoginView x:Name="LoginContent"
+                            Visibility="Collapsed" />
+
+            <!-- Prediction View -->
+            <prediction:PredictionView x:Name="PredictionContent"
+                                        Visibility="Collapsed" />
+
+            <!-- Dictation View -->
+            <dictation:DictationView x:Name="DictationContent"
+                                      Visibility="Collapsed" />
+
+            <!-- Meeting View -->
+            <meeting:MeetingView x:Name="MeetingContent"
+                                  Visibility="Collapsed" />
+
+            <!-- Default Home Content -->
+            <Grid x:Name="DefaultContent" Visibility="Collapsed">
+                <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                    <TextBlock Text="Hold Ctrl for AI Prediction"
+                               Foreground="#878E92"
+                               FontSize="13"
+                               HorizontalAlignment="Center"
+                               Margin="0,0,0,8" />
+                    <TextBlock Text="Hold Alt for Instructions"
+                               Foreground="#878E92"
+                               FontSize="13"
+                               HorizontalAlignment="Center"
+                               Margin="0,0,0,8" />
+                    <TextBlock Text="Double-tap F1 for Meeting Notes"
+                               Foreground="#878E92"
+                               FontSize="13"
+                               HorizontalAlignment="Center" />
+                </StackPanel>
+            </Grid>
+        </Grid>
+    </Grid>
+</UserControl>

@@ -1,0 +1,63 @@
+<UserControl x:Class="VE.Windows.Views.Components.ToastNotification"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <Border x:Name="ToastBorder"
+            Background="#25292D"
+            CornerRadius="8"
+            Padding="16,10"
+            Margin="8"
+            MaxWidth="350"
+            HorizontalAlignment="Right"
+            VerticalAlignment="Bottom"
+            Opacity="0">
+
+        <Border.Effect>
+            <DropShadowEffect Color="Black" BlurRadius="8" ShadowDepth="2" Opacity="0.3" />
+        </Border.Effect>
+
+        <Border.Triggers>
+            <EventTrigger RoutedEvent="Loaded">
+                <BeginStoryboard>
+                    <Storyboard>
+                        <!-- Fade in -->
+                        <DoubleAnimation Storyboard.TargetName="ToastBorder"
+                                         Storyboard.TargetProperty="Opacity"
+                                         From="0" To="1" Duration="0:0:0.3">
+                            <DoubleAnimation.EasingFunction>
+                                <CubicEase EasingMode="EaseOut" />
+                            </DoubleAnimation.EasingFunction>
+                        </DoubleAnimation>
+                        <!-- Slide up -->
+                        <DoubleAnimation Storyboard.TargetName="SlideTransform"
+                                         Storyboard.TargetProperty="Y"
+                                         From="20" To="0" Duration="0:0:0.3">
+                            <DoubleAnimation.EasingFunction>
+                                <CubicEase EasingMode="EaseOut" />
+                            </DoubleAnimation.EasingFunction>
+                        </DoubleAnimation>
+                        <!-- Auto-dismiss after 3s -->
+                        <DoubleAnimation Storyboard.TargetName="ToastBorder"
+                                         Storyboard.TargetProperty="Opacity"
+                                         From="1" To="0" Duration="0:0:0.3"
+                                         BeginTime="0:0:3" />
+                    </Storyboard>
+                </BeginStoryboard>
+            </EventTrigger>
+        </Border.Triggers>
+
+        <Border.RenderTransform>
+            <TranslateTransform x:Name="SlideTransform" />
+        </Border.RenderTransform>
+
+        <StackPanel Orientation="Horizontal">
+            <TextBlock x:Name="ToastIcon" Text="&#x2139;"
+                       Foreground="#007CEC" FontSize="16"
+                       VerticalAlignment="Center" Margin="0,0,10,0" />
+            <TextBlock x:Name="ToastMessage" Text=""
+                       Foreground="#F4F5F5" FontSize="13"
+                       VerticalAlignment="Center"
+                       TextWrapping="Wrap" MaxWidth="280" />
+        </StackPanel>
+    </Border>
+</UserControl>

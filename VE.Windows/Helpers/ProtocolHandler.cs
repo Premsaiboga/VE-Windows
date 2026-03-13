@@ -1,0 +1,80 @@
+using Microsoft.Win32;
+using VE.Windows.Managers;
+
+namespace VE.Windows.Helpers;
+
+/// <summary>
+/// Register and handle ve:// protocol for OAuth callbacks.
+/// Equivalent to macOS URL scheme handling in AppDelegate+URLHandling.
+/// </summary>
+public static class ProtocolHandler
+{
+    private const string Protocol = "ve";
+    private const string ProtocolDescription = "VE AI Desktop Protocol";
+
+    public static void RegisterProtocol()
+    {
+        try
+        {
+            var exePath = Environment.ProcessPath ?? System.Diagnostics.Process.GetCurrentProcess().MainModule?.FileName;
+            if (exePath == null) return;
+
+            using var key = Registry.CurrentUser.CreateSubKey($@"SOFTWARE\Classes\{Protocol}");
+            key?.SetValue("", $"URL:{ProtocolDescription}");
+            key?.SetValue("URL Protocol", "");
+
+            using var iconKey = key?.CreateSubKey("DefaultIcon");
+            iconKey?.SetValue("", $"\"{exePath}\",0");
+
+            using var commandKey = key?.CreateSubKey(@"shell\open\command");
+            commandKey?.SetValue("", $"\"{exePath}\" \"%1\"");
+
+            FileLogger.Instance.Info("ProtocolHandler", "ve:// protocol registered");
+        }
+        catch (Exception ex)
+        {
+            FileLogger.Instance.Error("ProtocolHandler", $"Registration failed: {ex.Message}");
+        }
+    }
+
+    public static void UnregisterProtocol()
+    {
+        try
+        {
+            Registry.CurrentUser.DeleteSubKeyTree($@"SOFTWARE\Classes\{Protocol}", false);
+        }
+        catch { }
+    }
+
+    public static async Task HandleUri(string uri)
+    {
+        if (!uri.StartsWith("ve://")) return;
+
+        FileLogger.Instance.Info("ProtocolHandler", $"Handling URI: {uri}");
+
+        try
+        {
+            var parsedUri = new Uri(uri);
+
+            if (parsedUri.Host == "callback" || parsedUri.Host == "oauth")
+            {
+                var query = System.Web.HttpUtility.ParseQueryString(parsedUri.Query);
+                var code = query["code"];
+                var state = query["state"];
+
+                if (!string.IsNullOrEmpty(code))
+                {
+                    await AuthManager.Instance.HandleOAuthCallback(code, state);
+                }
+                else
+                {
+                    FileLogger.Instance.Warning("ProtocolHandler", "No code in callback URI");
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            FileLogger.Instance.Error("ProtocolHandler", $"URI handling failed: {ex.Message}");
+        }
+    }
+}

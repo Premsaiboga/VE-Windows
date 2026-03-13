@@ -1,0 +1,79 @@
+<UserControl x:Class="VE.Windows.Views.Dictation.DictationView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:components="clr-namespace:VE.Windows.Views.Components">
+
+    <Grid Background="Transparent">
+        <!-- Waiting -->
+        <StackPanel x:Name="WaitingPanel" Visibility="Visible"
+                    VerticalAlignment="Center" HorizontalAlignment="Center">
+            <components:SmoothDotLoader DotColor="#007CEC" DotSize="8"
+                                        HorizontalAlignment="Center" Margin="0,0,0,12" />
+            <TextBlock Text="Preparing microphone..."
+                       Foreground="#878E92" FontSize="13"
+                       HorizontalAlignment="Center" />
+        </StackPanel>
+
+        <!-- Recording -->
+        <StackPanel x:Name="RecordingPanel" Visibility="Collapsed"
+                    VerticalAlignment="Center" HorizontalAlignment="Center">
+            <components:AudioWaveBars BarColor="#007CEC" BarWidth="4" BarCount="7"
+                                      Width="80" Height="40"
+                                      HorizontalAlignment="Center" Margin="0,0,0,12" />
+            <TextBlock Text="Listening..."
+                       Foreground="White" FontSize="16"
+                       FontWeight="SemiBold"
+                       HorizontalAlignment="Center" Margin="0,0,0,4" />
+            <TextBlock x:Name="DurationText"
+                       Text="0:00"
+                       Foreground="#878E92" FontSize="13"
+                       HorizontalAlignment="Center" Margin="0,0,0,12" />
+            <!-- Streaming transcription -->
+            <TextBlock x:Name="LiveTranscription"
+                       Text=""
+                       Foreground="#B0B0B0"
+                       FontSize="13" FontStyle="Italic"
+                       TextWrapping="Wrap"
+                       MaxWidth="280"
+                       HorizontalAlignment="Center" />
+        </StackPanel>
+
+        <!-- Processing -->
+        <StackPanel x:Name="ProcessingPanel" Visibility="Collapsed"
+                    VerticalAlignment="Center" HorizontalAlignment="Center">
+            <components:SmoothDotLoader DotColor="#007CEC" DotSize="6"
+                                        HorizontalAlignment="Center" Margin="0,0,0,12" />
+            <TextBlock Text="Processing..."
+                       Foreground="White" FontSize="14"
+                       HorizontalAlignment="Center" />
+        </StackPanel>
+
+        <!-- Success -->
+        <StackPanel x:Name="SuccessPanel" Visibility="Collapsed"
+                    VerticalAlignment="Center" HorizontalAlignment="Center">
+            <TextBlock Text="&#x2713;" Foreground="#00CA48" FontSize="32"
+                       HorizontalAlignment="Center" Margin="0,0,0,8" />
+            <TextBlock Text="Transcribed and pasted"
+                       Foreground="White" FontSize="14"
+                       HorizontalAlignment="Center" Margin="0,0,0,8" />
+            <TextBlock x:Name="TranscribedPreview"
+                       Text=""
+                       Foreground="#878E92" FontSize="12"
+                       TextTrimming="CharacterEllipsis"
+                       TextWrapping="Wrap"
+                       MaxWidth="280" MaxHeight="60"
+                       HorizontalAlignment="Center" />
+        </StackPanel>
+
+        <!-- Error -->
+        <StackPanel x:Name="ErrorPanel" Visibility="Collapsed"
+                    VerticalAlignment="Center" HorizontalAlignment="Center">
+            <TextBlock Text="&#x26A0;" Foreground="#FF4B59" FontSize="28"
+                       HorizontalAlignment="Center" Margin="0,0,0,8" />
+            <TextBlock x:Name="DictErrorText"
+                       Text="Dictation failed"
+                       Foreground="#FF4B59" FontSize="14"
+                       HorizontalAlignment="Center" />
+        </StackPanel>
+    </Grid>
+</UserControl>

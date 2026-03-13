@@ -1,0 +1,113 @@
+using VE.Windows.Helpers;
+using VE.Windows.Managers;
+using VE.Windows.Services;
+
+namespace VE.Windows.WebSocket;
+
+/// <summary>
+/// Registry that owns and initializes all WebSocket transports and clients.
+/// Equivalent to macOS WebSocketRegistry.
+/// </summary>
+public sealed class WebSocketRegistry : IDisposable
+{
+    public static WebSocketRegistry Instance { get; } = new();
+
+    // Transports
+    private WebSocketTransport? _unifiedAudioTransport;
+    private WebSocketTransport? _dictationTransport;
+    private WebSocketTransport? _multiAgentTransport;
+    private WebSocketTransport? _voiceToTextTransport;
+    private WebSocketTransport? _meetingTransport;
+
+    // Clients
+    public UnifiedAudioSocketClient? UnifiedAudioClient { get; private set; }
+    public VoiceToTextSocketClient? VoiceToTextClient { get; private set; }
+    public MultiAgentSocketClient? MultiAgentClient { get; private set; }
+
+    private WebSocketRegistry() { }
+
+    public async Task ConnectUnifiedAudioTransport()
+    {
+        var url = BaseURLService.Instance.GetBaseUrl("unified_audio_ws_api");
+        if (url == null) return;
+
+        _unifiedAudioTransport?.Dispose();
+        _unifiedAudioTransport = new WebSocketTransport(url);
+        UnifiedAudioClient = new UnifiedAudioSocketClient(_unifiedAudioTransport);
+
+        await _unifiedAudioTransport.ConnectAsync();
+        FileLogger.Instance.Info("WebSocketRegistry", "Unified audio transport connected");
+    }
+
+    public async Task ConnectDictationTransport()
+    {
+        var url = BaseURLService.Instance.GetBaseUrl("dictation_ws_api");
+        if (url == null) return;
+
+        _dictationTransport?.Dispose();
+        _dictationTransport = new WebSocketTransport(url);
+        VoiceToTextClient = new VoiceToTextSocketClient(_dictationTransport);
+
+        await _dictationTransport.ConnectAsync();
+        FileLogger.Instance.Info("WebSocketRegistry", "Dictation transport connected");
+    }
+
+    public async Task ConnectMultiAgentTransport()
+    {
+        var url = BaseURLService.Instance.GetBaseUrl("chat_ws_api");
+        if (url == null) return;
+
+        _multiAgentTransport?.Dispose();
+        _multiAgentTransport = new WebSocketTransport(url);
+        MultiAgentClient = new MultiAgentSocketClient(_multiAgentTransport);
+
+        await _multiAgentTransport.ConnectAsync();
+        FileLogger.Instance.Info("WebSocketRegistry", "Multi-agent transport connected");
+    }
+
+    public async Task ConnectMeetingTransport()
+    {
+        var url = BaseURLService.Instance.GetBaseUrl("meeting_ws_api");
+        if (url == null) return;
+
+        _meetingTransport?.Dispose();
+        _meetingTransport = new WebSocketTransport(url);
+        await _meetingTransport.ConnectAsync();
+        FileLogger.Instance.Info("WebSocketRegistry", "Meeting transport connected");
+    }
+
+    public void DisconnectAll()
+    {
+        FileLogger.Instance.Info("WebSocketRegistry", "Disconnecting all transports...");
+        _unifiedAudioTransport?.Dispose();
+        _dictationTransport?.Dispose();
+        _multiAgentTransport?.Dispose();
+        _voiceToTextTransport?.Dispose();
+        _meetingTransport?.Dispose();
+
+        _unifiedAudioTransport = null;
+        _dictationTransport = null;
+        _multiAgentTransport = null;
+        _voiceToTextTransport = null;
+        _meetingTransport = null;
+
+        UnifiedAudioClient = null;
+        VoiceToTextClient = null;
+        MultiAgentClient = null;
+    }
+
+    public async Task VerifyAllConnections()
+    {
+        if (_unifiedAudioTransport != null)
+            await _unifiedAudioTransport.VerifyConnectionHealth();
+        if (_dictationTransport != null)
+            await _dictationTransport.VerifyConnectionHealth();
+        if (_multiAgentTransport != null)
+            await _multiAgentTransport.VerifyConnectionHealth();
+    }
+
+    public void Dispose()
+    {
+        DisconnectAll();
+    }
+}

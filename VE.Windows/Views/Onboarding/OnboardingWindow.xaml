@@ -1,0 +1,34 @@
+<Window x:Class="VE.Windows.Views.Onboarding.OnboardingWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Welcome to VE"
+        Width="640" Height="480"
+        WindowStartupLocation="CenterScreen"
+        ResizeMode="NoResize"
+        Background="#151719">
+
+    <Grid>
+        <!-- Progress indicator -->
+        <StackPanel x:Name="ProgressDots" Orientation="Horizontal"
+                    HorizontalAlignment="Center" VerticalAlignment="Top"
+                    Margin="0,24,0,0">
+            <!-- Dots generated in code-behind -->
+        </StackPanel>
+
+        <!-- Step content -->
+        <ContentControl x:Name="StepContent" Margin="40,60,40,60" />
+
+        <!-- Navigation buttons -->
+        <Grid VerticalAlignment="Bottom" Margin="40,0,40,24">
+            <Button x:Name="BackButton" Content="Back"
+                    HorizontalAlignment="Left"
+                    Style="{StaticResource VEGhostButton}"
+                    Click="BackButton_Click"
+                    Visibility="Collapsed" />
+            <Button x:Name="NextButton" Content="Next"
+                    HorizontalAlignment="Right"
+                    Style="{StaticResource VEButton}"
+                    Click="NextButton_Click" />
+        </Grid>
+    </Grid>
+</Window>

@@ -1,0 +1,63 @@
+<UserControl x:Class="VE.Windows.Views.Prediction.PredictionView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:components="clr-namespace:VE.Windows.Views.Components">
+
+    <Grid Background="Transparent">
+        <!-- Waiting State -->
+        <StackPanel x:Name="WaitingPanel" Visibility="Visible"
+                    VerticalAlignment="Center" HorizontalAlignment="Center">
+            <components:SmoothDotLoader DotColor="White" DotSize="8"
+                                        HorizontalAlignment="Center" Margin="0,0,0,12" />
+            <TextBlock Text="Analyzing context..."
+                       Foreground="#878E92" FontSize="13"
+                       HorizontalAlignment="Center" />
+            <TextBlock Text="Hold Ctrl to keep predicting"
+                       Foreground="#555555" FontSize="11"
+                       HorizontalAlignment="Center" Margin="0,4,0,0" />
+        </StackPanel>
+
+        <!-- Streaming State -->
+        <Grid x:Name="StreamingPanel" Visibility="Collapsed" Margin="8">
+            <ScrollViewer VerticalScrollBarVisibility="Auto" MaxHeight="380">
+                <TextBlock x:Name="StreamingText"
+                           Text=""
+                           Foreground="White"
+                           FontSize="14"
+                           TextWrapping="Wrap"
+                           LineHeight="22" />
+            </ScrollViewer>
+        </Grid>
+
+        <!-- Success State -->
+        <StackPanel x:Name="SuccessPanel" Visibility="Collapsed"
+                    VerticalAlignment="Center" HorizontalAlignment="Center">
+            <TextBlock Text="&#x2713;" Foreground="#00CA48" FontSize="32"
+                       HorizontalAlignment="Center" Margin="0,0,0,8" />
+            <TextBlock Text="Pasted to active window"
+                       Foreground="White" FontSize="14"
+                       HorizontalAlignment="Center" />
+            <TextBlock x:Name="SuccessPreviewText"
+                       Text=""
+                       Foreground="#878E92" FontSize="12"
+                       TextTrimming="CharacterEllipsis"
+                       MaxWidth="300"
+                       HorizontalAlignment="Center"
+                       Margin="0,8,0,0" />
+        </StackPanel>
+
+        <!-- Error State -->
+        <StackPanel x:Name="ErrorPanel" Visibility="Collapsed"
+                    VerticalAlignment="Center" HorizontalAlignment="Center">
+            <TextBlock Text="&#x26A0;" Foreground="#FF4B59" FontSize="28"
+                       HorizontalAlignment="Center" Margin="0,0,0,8" />
+            <TextBlock x:Name="ErrorText"
+                       Text="Prediction failed"
+                       Foreground="#FF4B59" FontSize="14"
+                       HorizontalAlignment="Center" />
+            <TextBlock Text="Please try again"
+                       Foreground="#878E92" FontSize="12"
+                       HorizontalAlignment="Center" Margin="0,4,0,0" />
+        </StackPanel>
+    </Grid>
+</UserControl>
