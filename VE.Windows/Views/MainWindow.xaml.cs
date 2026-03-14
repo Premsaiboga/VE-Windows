@@ -308,7 +308,14 @@ public partial class MainWindow : Window
             await WebSocket.WebSocketRegistry.Instance.ConnectUnifiedAudioTransport();
             var client = WebSocket.WebSocketRegistry.Instance.UnifiedAudioClient;
 
-            if (client == null)
+            // Wait for connection to establish (matches macOS 5s max wait)
+            var maxWait = DateTime.UtcNow.AddSeconds(5);
+            while (client != null && !client.IsConnected && DateTime.UtcNow < maxWait)
+            {
+                await Task.Delay(100);
+            }
+
+            if (client == null || !client.IsConnected)
             {
                 Dispatcher.Invoke(() =>
                 {

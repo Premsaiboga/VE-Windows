@@ -85,29 +85,40 @@ public class MultiAgentSocketClient
             FileLogger.Instance.Info("MultiAgentClient",
                 $"Received: {message.Substring(0, Math.Min(200, message.Length))}");
 
-            // Check for error
-            if (json.ContainsKey("error"))
+            // Check for cancelled status (matches macOS: gracefully ignore)
+            var status = json["status"]?.ToString();
+            if (status == "cancelled")
             {
-                var error = json["error"]?.ToString() ?? "Unknown error";
-                FileLogger.Instance.Error("MultiAgentClient", $"Error: {error}");
+                FileLogger.Instance.Info("MultiAgentClient", "Received cancelled status, ignoring");
+                return;
+            }
+
+            // Check for error status (matches macOS: only treat non-empty error strings as errors)
+            if (status == "error")
+            {
+                var error = json["error"]?.ToString() ?? json["message"]?.ToString() ?? "Server error";
                 OnError?.Invoke(this, error);
                 return;
             }
 
-            if (json.ContainsKey("status") && json["status"]?.ToString() == "error")
+            // Check error field - only if it's a non-empty string (matches macOS behavior)
+            // macOS: `if let error = json["error"] as? String, !error.isEmpty`
+            var errorStr = json["error"]?.Type == JTokenType.String ? json["error"]?.ToString() : null;
+            if (!string.IsNullOrEmpty(errorStr))
             {
-                var error = json["message"]?.ToString() ?? "Server error";
-                OnError?.Invoke(this, error);
+                FileLogger.Instance.Error("MultiAgentClient", $"Error: {errorStr}");
+                OnError?.Invoke(this, errorStr);
                 return;
             }
 
+            // Check status_code for server errors (matches macOS)
             if (json.ContainsKey("status_code"))
             {
                 var statusCode = json["status_code"]?.Value<int>() ?? 0;
                 if (statusCode >= 400)
                 {
-                    var error = json["status_message"]?.ToString() ?? json["error"]?.ToString() ?? "Server error";
-                    OnError?.Invoke(this, error);
+                    var errorMsg = json["status_message"]?.ToString() ?? "Server error";
+                    OnError?.Invoke(this, errorMsg);
                     return;
                 }
             }

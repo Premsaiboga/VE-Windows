@@ -65,6 +65,8 @@ public class UnifiedAudioSocketClient
             var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
             var startMs = new DateTimeOffset(_predictionStartTime).ToUnixTimeMilliseconds();
 
+            var timezone = TimeZoneInfo.Local.Id;
+
             var payload = new Dictionary<string, object?>
             {
                 ["action"] = "done",
@@ -72,9 +74,17 @@ public class UnifiedAudioSocketClient
                 ["audio_format"] = "pcm",
                 ["start_time"] = startMs,
                 ["end_time"] = now,
-                ["timezone"] = TimeZoneInfo.Local.Id,
+                ["timezone"] = timezone,
                 ["platform"] = $"{appName ?? ScreenCaptureManager.Instance.GetActiveAppName()} - {windowTitle ?? ScreenCaptureManager.Instance.GetActiveWindowTitle()}",
                 ["windowTitle"] = windowTitle ?? ScreenCaptureManager.Instance.GetActiveWindowTitle(),
+                // Match macOS: include location object (required by backend)
+                ["location"] = new Dictionary<string, string>
+                {
+                    ["city"] = "Unknown",
+                    ["countryRegion"] = "",
+                    ["country"] = "Unknown",
+                    ["timezone"] = timezone
+                },
             };
 
             if (screenshot != null)
@@ -116,25 +126,49 @@ public class UnifiedAudioSocketClient
             var json = JObject.Parse(message);
             FileLogger.Instance.Info("UnifiedAudioClient", $"Received: {message.Substring(0, Math.Min(200, message.Length))}");
 
-            // Check for dictation response
-            if (json.ContainsKey("enhanced_text"))
+            // Check for cancelled status (matches macOS: gracefully ignore)
+            var status = json["status"]?.ToString();
+            if (status == "cancelled")
             {
-                var enhancedText = json["enhanced_text"]?.ToString();
-                if (!string.IsNullOrEmpty(enhancedText))
-                {
-                    OnDictationResult?.Invoke(this, enhancedText);
-                }
+                FileLogger.Instance.Info("UnifiedAudioClient", "Received cancelled status, ignoring");
                 return;
             }
 
-            // Check for error
-            if (json.ContainsKey("status_code"))
+            // Check for error status (matches macOS)
+            if (status == "error")
+            {
+                var error = json["error"]?.ToString() ?? "Error please try again";
+                FileLogger.Instance.Error("UnifiedAudioClient", $"Error status: {error}");
+                OnError?.Invoke(this, error);
+                return;
+            }
+
+            // Check for dictation response - enhanced_text field
+            // macOS checks: json["enhanced_text"], json["response"]["enhanced_transcription"]["enhanced_text"],
+            //               json["enhanced_transcription"]["enhanced_text"]
+            var enhancedText = json["enhanced_text"]?.ToString()
+                ?? json["response"]?["enhanced_transcription"]?["enhanced_text"]?.ToString()
+                ?? json["enhanced_transcription"]?["enhanced_text"]?.ToString();
+            if (!string.IsNullOrEmpty(enhancedText))
+            {
+                OnDictationResult?.Invoke(this, enhancedText);
+                return;
+            }
+
+            // Check for dictation error (status_code present but no suggested_text/step = dictation context)
+            // macOS: if status_code exists and no suggested_text/step fields, treat as dictation response
+            if (json.ContainsKey("status_code") && !json.ContainsKey("suggested_text") && !json.ContainsKey("step"))
             {
                 var statusCode = json["status_code"]?.Value<int>() ?? 0;
-                if (statusCode >= 400)
+                if (statusCode == 404)
                 {
-                    var error = json["error"]?.ToString() ?? json["status_message"]?.ToString() ?? "Server error";
-                    FileLogger.Instance.Error("UnifiedAudioClient", $"Server error {statusCode}: {error}");
+                    // macOS shows "No words detected speak closer" for 404
+                    OnError?.Invoke(this, "No words detected. Please speak closer to the microphone.");
+                    return;
+                }
+                else if (statusCode >= 400)
+                {
+                    var error = json["error"]?.ToString() ?? json["status_message"]?.ToString() ?? "Error please try again";
                     OnError?.Invoke(this, error);
                     return;
                 }
@@ -192,7 +226,13 @@ public class UnifiedAudioSocketClient
                     var id = json["id"]?.ToString() ?? "";
                     var statusCode = json["status_code"]?.Value<int>() ?? 200;
 
-                    if (statusCode == 200 && !string.IsNullOrEmpty(_accumulatedText))
+                    // macOS: only handle status_code 500 explicitly for predictions
+                    if (statusCode == 500)
+                    {
+                        var error = json["error"]?.ToString() ?? "Couldn't capture your intent";
+                        OnError?.Invoke(this, error);
+                    }
+                    else if (statusCode == 200 && !string.IsNullOrEmpty(_accumulatedText))
                     {
                         OnPredictionComplete?.Invoke(this, new PredictionResult
                         {
@@ -203,7 +243,6 @@ public class UnifiedAudioSocketClient
                     }
                     else if (string.IsNullOrEmpty(_accumulatedText))
                     {
-                        // No text received at all - fire error (matches macOS 404 handling)
                         var errorMsg = json["status_message"]?.ToString() ?? "No words detected. Please speak closer to the microphone.";
                         FileLogger.Instance.Warning("UnifiedAudioClient", $"stream_end with no accumulated text, status: {statusCode}");
                         OnError?.Invoke(this, errorMsg);

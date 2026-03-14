@@ -9,11 +9,14 @@ namespace VE.Windows.Managers;
 
 /// <summary>
 /// Screenshot capture and active window detection.
-/// Equivalent to macOS XPC helper (ActiveWindowScraperHelper, CaretVisualDetector).
+/// Matches macOS: captures full screen, resizes to max 1660px, encodes as JPEG 85%.
 /// </summary>
 public sealed class ScreenCaptureManager
 {
     public static ScreenCaptureManager Instance { get; } = new();
+
+    private const int MaxScreenshotWidth = 1660;
+    private const long JpegQuality = 85;
 
     [DllImport("user32.dll")]
     private static extern IntPtr GetForegroundWindow();
@@ -59,25 +62,54 @@ public sealed class ScreenCaptureManager
         catch { return ""; }
     }
 
+    /// <summary>
+    /// Capture full screen as JPEG with resizing (matches macOS behavior).
+    /// macOS captures full screen, resizes to max 1660px width, encodes as JPEG 85%.
+    /// </summary>
     public byte[]? CaptureActiveWindow()
     {
         try
         {
-            var hwnd = GetForegroundWindow();
-            if (hwnd == IntPtr.Zero) return null;
+            // Capture full primary screen (matches macOS CGWindowListCreateImage)
+            var screen = System.Windows.Forms.Screen.PrimaryScreen;
+            if (screen == null) return null;
 
-            if (!GetWindowRect(hwnd, out RECT rect)) return null;
-
-            int width = rect.Right - rect.Left;
-            int height = rect.Bottom - rect.Top;
-            if (width <= 0 || height <= 0) return null;
-
-            using var bitmap = new Bitmap(width, height, PixelFormat.Format32bppArgb);
+            var bounds = screen.Bounds;
+            using var bitmap = new Bitmap(bounds.Width, bounds.Height, PixelFormat.Format32bppArgb);
             using var graphics = Graphics.FromImage(bitmap);
-            graphics.CopyFromScreen(rect.Left, rect.Top, 0, 0, new Size(width, height));
+            graphics.CopyFromScreen(bounds.X, bounds.Y, 0, 0, bounds.Size);
 
+            // Resize if wider than max (matches macOS 1660px max)
+            Bitmap finalBitmap = bitmap;
+            bool needsDispose = false;
+
+            if (bitmap.Width > MaxScreenshotWidth)
+            {
+                var ratio = (double)MaxScreenshotWidth / bitmap.Width;
+                var newHeight = (int)(bitmap.Height * ratio);
+                finalBitmap = new Bitmap(MaxScreenshotWidth, newHeight);
+                needsDispose = true;
+                using var g = Graphics.FromImage(finalBitmap);
+                g.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
+                g.DrawImage(bitmap, 0, 0, MaxScreenshotWidth, newHeight);
+            }
+
+            // Encode as JPEG 85% quality (matches macOS)
             using var ms = new MemoryStream();
-            bitmap.Save(ms, ImageFormat.Png);
+            var jpegEncoder = GetJpegEncoder();
+            if (jpegEncoder != null)
+            {
+                var encoderParams = new EncoderParameters(1);
+                encoderParams.Param[0] = new EncoderParameter(Encoder.Quality, JpegQuality);
+                finalBitmap.Save(ms, jpegEncoder, encoderParams);
+            }
+            else
+            {
+                finalBitmap.Save(ms, ImageFormat.Jpeg);
+            }
+
+            if (needsDispose) finalBitmap.Dispose();
+
             return ms.ToArray();
         }
         catch (Exception ex)
@@ -89,24 +121,17 @@ public sealed class ScreenCaptureManager
 
     public byte[]? CaptureScreen()
     {
-        try
-        {
-            var screen = System.Windows.Forms.Screen.PrimaryScreen;
-            if (screen == null) return null;
+        return CaptureActiveWindow(); // Now same behavior
+    }
 
-            var bounds = screen.Bounds;
-            using var bitmap = new Bitmap(bounds.Width, bounds.Height, PixelFormat.Format32bppArgb);
-            using var graphics = Graphics.FromImage(bitmap);
-            graphics.CopyFromScreen(bounds.X, bounds.Y, 0, 0, bounds.Size);
-
-            using var ms = new MemoryStream();
-            bitmap.Save(ms, ImageFormat.Png);
-            return ms.ToArray();
-        }
-        catch (Exception ex)
+    private static ImageCodecInfo? GetJpegEncoder()
+    {
+        var codecs = ImageCodecInfo.GetImageDecoders();
+        foreach (var codec in codecs)
         {
-            FileLogger.Instance.Error("ScreenCapture", $"Screen capture failed: {ex.Message}");
-            return null;
+            if (codec.FormatID == ImageFormat.Jpeg.Guid)
+                return codec;
         }
+        return null;
     }
 }
