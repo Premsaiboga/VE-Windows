@@ -196,7 +196,15 @@ public sealed class MeetingService : INotifyPropertyChanged
             var baseUrl = BaseURLService.Instance.GetBaseUrl("meeting_api");
             if (baseUrl == null) return null;
 
+            var workspaceId = AuthManager.Instance.Storage.WorkspaceId;
+            if (string.IsNullOrEmpty(workspaceId))
+            {
+                FileLogger.Instance.Error("Meeting", "WorkspaceId not available for GraphQL");
+                return null;
+            }
+
             // GraphQL mutation to create meeting
+            // URL format: {baseUrl}/{workspaceId}/graphql (matches macOS)
             var graphqlPayload = new
             {
                 query = @"mutation Mutation($input: MeetingInput) {
@@ -216,7 +224,7 @@ public sealed class MeetingService : INotifyPropertyChanged
             };
 
             var response = await NetworkService.Instance.PostRawAsync(
-                $"{baseUrl}/graphql", graphqlPayload);
+                $"{baseUrl}/{workspaceId}/graphql", graphqlPayload);
 
             if (response == null) return null;
 

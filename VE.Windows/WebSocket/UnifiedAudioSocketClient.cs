@@ -163,15 +163,23 @@ public class UnifiedAudioSocketClient
             if (json.ContainsKey("output_completed"))
             {
                 var outputCompleted = json["output_completed"]?.Value<bool>() ?? false;
-                if (outputCompleted && !string.IsNullOrEmpty(_accumulatedText))
+                if (outputCompleted)
                 {
-                    FileLogger.Instance.Info("UnifiedAudioClient", $"Prediction complete: {_accumulatedText.Length} chars");
-                    OnPredictionComplete?.Invoke(this, new PredictionResult
+                    if (!string.IsNullOrEmpty(_accumulatedText))
                     {
-                        Id = json["id"]?.ToString() ?? "",
-                        Text = _accumulatedText,
-                        Status = 200
-                    });
+                        FileLogger.Instance.Info("UnifiedAudioClient", $"Prediction complete: {_accumulatedText.Length} chars");
+                        OnPredictionComplete?.Invoke(this, new PredictionResult
+                        {
+                            Id = json["id"]?.ToString() ?? "",
+                            Text = _accumulatedText,
+                            Status = 200
+                        });
+                    }
+                    else
+                    {
+                        FileLogger.Instance.Warning("UnifiedAudioClient", "output_completed but no text accumulated");
+                        OnError?.Invoke(this, "No words detected. Please speak closer to the microphone.");
+                    }
                 }
             }
 
@@ -184,7 +192,6 @@ public class UnifiedAudioSocketClient
                     var id = json["id"]?.ToString() ?? "";
                     var statusCode = json["status_code"]?.Value<int>() ?? 200;
 
-                    // If we haven't fired complete yet (no output_completed was sent), fire now
                     if (statusCode == 200 && !string.IsNullOrEmpty(_accumulatedText))
                     {
                         OnPredictionComplete?.Invoke(this, new PredictionResult
@@ -193,6 +200,13 @@ public class UnifiedAudioSocketClient
                             Text = _accumulatedText,
                             Status = statusCode
                         });
+                    }
+                    else if (string.IsNullOrEmpty(_accumulatedText))
+                    {
+                        // No text received at all - fire error (matches macOS 404 handling)
+                        var errorMsg = json["status_message"]?.ToString() ?? "No words detected. Please speak closer to the microphone.";
+                        FileLogger.Instance.Warning("UnifiedAudioClient", $"stream_end with no accumulated text, status: {statusCode}");
+                        OnError?.Invoke(this, errorMsg);
                     }
 
                     // Send response metadata

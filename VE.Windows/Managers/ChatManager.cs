@@ -61,16 +61,20 @@ public sealed class ChatManager : INotifyPropertyChanged
 
         try
         {
+            // Always create a fresh connection for each conversation session (matches macOS)
+            await WebSocketRegistry.Instance.ConnectMultiAgentTransport();
             var client = WebSocketRegistry.Instance.MultiAgentClient;
-            if (client == null || !client.IsConnected)
+
+            // Wait for connection to establish (matches macOS 5s max wait)
+            var maxWait = DateTime.UtcNow.AddSeconds(5);
+            while (client != null && !client.IsConnected && DateTime.UtcNow < maxWait)
             {
-                await WebSocketRegistry.Instance.ConnectMultiAgentTransport();
-                client = WebSocketRegistry.Instance.MultiAgentClient;
+                await Task.Delay(100);
             }
 
-            if (client == null)
+            if (client == null || !client.IsConnected)
             {
-                assistantMessage.Content = "Failed to connect to AI service.";
+                assistantMessage.Content = "Failed to connect to AI service. Please check your connection.";
                 assistantMessage.IsStreaming = false;
                 IsStreaming = false;
                 return;

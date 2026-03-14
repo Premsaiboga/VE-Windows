@@ -92,7 +92,7 @@ public sealed class TokenRefreshService : IDisposable
             var authUrl = BaseURLService.Instance.GetGlobalUrl("auth");
             if (authUrl == null) return false;
 
-            var url = $"{authUrl}/token/refresh";
+            var url = $"{authUrl}/refresh-token";
             var response = await NetworkService.Instance.PostRawAsync(url);
             if (response == null) return false;
 

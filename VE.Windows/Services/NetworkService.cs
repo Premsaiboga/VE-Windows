@@ -41,14 +41,17 @@ public sealed class NetworkService
 
     private void AttachAuthHeaders(HttpRequestMessage request)
     {
+        // macOS uses x-access-token header for REST APIs (NOT Authorization: Bearer)
         var token = AuthManager.Instance.Storage.UserToken;
         if (!string.IsNullOrEmpty(token))
         {
-            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            request.Headers.TryAddWithoutValidation("x-access-token", token);
         }
 
+        // CSRF token for POST/PUT/DELETE (matches macOS)
         var csrf = AuthManager.Instance.Storage.CSRFToken;
-        if (!string.IsNullOrEmpty(csrf))
+        var method = request.Method.Method.ToUpper();
+        if (!string.IsNullOrEmpty(csrf) && (method == "POST" || method == "PUT" || method == "DELETE"))
         {
             request.Headers.Add("x-csrf-token", csrf);
         }

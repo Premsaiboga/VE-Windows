@@ -25,10 +25,20 @@ public partial class MainWindow : Window
     private static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter,
         int X, int Y, int cx, int cy, uint uFlags);
 
+    [DllImport("user32.dll")]
+    private static extern int GetWindowLong(IntPtr hWnd, int nIndex);
+
+    [DllImport("user32.dll")]
+    private static extern int SetWindowLong(IntPtr hWnd, int nIndex, int dwNewLong);
+
     private static readonly IntPtr HWND_TOPMOST = new(-1);
     private const uint SWP_NOMOVE = 0x0002;
     private const uint SWP_NOSIZE = 0x0001;
     private const uint SWP_NOACTIVATE = 0x0010;
+    private const uint SWP_SHOWWINDOW = 0x0040;
+    private const int GWL_EXSTYLE = -20;
+    private const int WS_EX_TOOLWINDOW = 0x00000080;
+    private const int WS_EX_NOACTIVATE = 0x08000000;
 
     public MainWindow()
     {
@@ -120,13 +130,24 @@ public partial class MainWindow : Window
     {
         PositionWindow();
         UpdateNotchBackground();
+
+        // Set extended window styles for tool window behavior (no taskbar, no alt-tab, stays on top)
+        var hwnd = new WindowInteropHelper(this).Handle;
+        if (hwnd != IntPtr.Zero)
+        {
+            var exStyle = GetWindowLong(hwnd, GWL_EXSTYLE);
+            exStyle |= WS_EX_TOOLWINDOW;  // Hide from alt-tab
+            exStyle |= WS_EX_NOACTIVATE;  // Don't steal focus from other apps
+            SetWindowLong(hwnd, GWL_EXSTYLE, exStyle);
+        }
+
         EnsureTopmost();
 
-        // Periodically re-assert topmost every 2 seconds
+        // Re-assert topmost every 1 second to stay above all apps including fullscreen
         _topmostTimer = new Timer(_ =>
         {
             Dispatcher.Invoke(EnsureTopmost);
-        }, null, TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(2));
+        }, null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
     }
 
     private void EnsureTopmost()
@@ -137,7 +158,7 @@ public partial class MainWindow : Window
             if (hwnd != IntPtr.Zero)
             {
                 SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0,
-                    SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+                    SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_SHOWWINDOW);
             }
         }
         catch { }
