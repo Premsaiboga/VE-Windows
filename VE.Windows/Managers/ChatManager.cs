@@ -84,9 +84,12 @@ public sealed class ChatManager : INotifyPropertyChanged
             CleanupHandlers(client);
 
             // Create new handlers
+            // IMPORTANT: Use BeginInvoke (async) instead of Invoke (sync) to avoid
+            // blocking the WebSocket receive loop thread. Dispatcher.Invoke can deadlock
+            // if the UI thread is busy.
             _chunkHandler = (s, chunk) =>
             {
-                System.Windows.Application.Current?.Dispatcher.Invoke(() =>
+                System.Windows.Application.Current?.Dispatcher.BeginInvoke(() =>
                 {
                     assistantMessage.Content += chunk;
                 });
@@ -94,7 +97,7 @@ public sealed class ChatManager : INotifyPropertyChanged
 
             _stepHandler = (s, step) =>
             {
-                System.Windows.Application.Current?.Dispatcher.Invoke(() =>
+                System.Windows.Application.Current?.Dispatcher.BeginInvoke(() =>
                 {
                     if (string.IsNullOrEmpty(assistantMessage.Content))
                     {
@@ -105,7 +108,7 @@ public sealed class ChatManager : INotifyPropertyChanged
 
             _completeHandler = (s, response) =>
             {
-                System.Windows.Application.Current?.Dispatcher.Invoke(() =>
+                System.Windows.Application.Current?.Dispatcher.BeginInvoke(() =>
                 {
                     assistantMessage.IsStreaming = false;
                     IsStreaming = false;
@@ -115,7 +118,7 @@ public sealed class ChatManager : INotifyPropertyChanged
 
             _citationsHandler = (s, citations) =>
             {
-                System.Windows.Application.Current?.Dispatcher.Invoke(() =>
+                System.Windows.Application.Current?.Dispatcher.BeginInvoke(() =>
                 {
                     assistantMessage.Citations = citations;
                 });
@@ -123,7 +126,7 @@ public sealed class ChatManager : INotifyPropertyChanged
 
             _errorHandler = (s, error) =>
             {
-                System.Windows.Application.Current?.Dispatcher.Invoke(() =>
+                System.Windows.Application.Current?.Dispatcher.BeginInvoke(() =>
                 {
                     if (string.IsNullOrEmpty(assistantMessage.Content))
                         assistantMessage.Content = $"Error: {error}";

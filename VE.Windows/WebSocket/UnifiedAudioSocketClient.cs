@@ -104,6 +104,50 @@ public class UnifiedAudioSocketClient
     }
 
     /// <summary>
+    /// Send dictation end payload with direct_agent="dictation" (matches macOS).
+    /// Uses the same unified audio endpoint as prediction.
+    /// </summary>
+    public async Task SendDictationEndPayload(string? appName = null, string? windowTitle = null)
+    {
+        try
+        {
+            var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+            var startMs = new DateTimeOffset(_predictionStartTime).ToUnixTimeMilliseconds();
+            var timezone = TimeZoneInfo.Local.Id;
+
+            var payload = new Dictionary<string, object?>
+            {
+                ["action"] = "done",
+                ["direct_agent"] = "dictation",
+                ["audio_completed"] = true,
+                ["audio_format"] = "pcm",
+                ["start_time"] = startMs,
+                ["end_time"] = now,
+                ["voiceMode"] = "hold",
+                ["timezone"] = timezone,
+                ["platform"] = $"{appName ?? ScreenCaptureManager.Instance.GetActiveAppName()} - {windowTitle ?? ScreenCaptureManager.Instance.GetActiveWindowTitle()}",
+                ["windowTitle"] = windowTitle ?? ScreenCaptureManager.Instance.GetActiveWindowTitle(),
+                ["location"] = new Dictionary<string, string>
+                {
+                    ["city"] = "Unknown",
+                    ["countryRegion"] = "",
+                    ["country"] = "Unknown",
+                    ["timezone"] = timezone
+                },
+            };
+
+            var json = JsonConvert.SerializeObject(payload);
+            FileLogger.Instance.Info("UnifiedAudioClient", $"Sending dictation end payload ({json.Length} chars)");
+            await _transport.SendAsync(json);
+        }
+        catch (Exception ex)
+        {
+            FileLogger.Instance.Error("UnifiedAudioClient", $"Dictation end payload failed: {ex.Message}");
+            OnError?.Invoke(this, ex.Message);
+        }
+    }
+
+    /// <summary>
     /// Send stop action (when user presses ESC during prediction).
     /// </summary>
     public async Task SendStopAction()
