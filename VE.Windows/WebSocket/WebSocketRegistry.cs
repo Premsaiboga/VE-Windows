@@ -69,8 +69,28 @@ public sealed class WebSocketRegistry : IDisposable
 
     public async Task ConnectMultiAgentTransport()
     {
-        var url = BaseURLService.Instance.GetBaseUrl("chat_ws_api");
-        if (url == null) return;
+        var baseUrl = BaseURLService.Instance.GetBaseUrl("chat_ws_api");
+        if (baseUrl == null) return;
+
+        var workspaceId = AuthManager.Instance.Storage.WorkspaceId;
+        if (string.IsNullOrEmpty(workspaceId))
+        {
+            FileLogger.Instance.Warning("WebSocketRegistry", "Workspace ID not available for multi-agent WebSocket URL");
+            return;
+        }
+
+        var token = AuthManager.Instance.Storage.UserToken;
+        if (string.IsNullOrEmpty(token))
+        {
+            FileLogger.Instance.Warning("WebSocketRegistry", "Token not available for multi-agent WebSocket URL");
+            return;
+        }
+
+        var sessionId = Guid.NewGuid().ToString("N").Substring(0, 24);
+        var encodedToken = Uri.EscapeDataString(token);
+        var url = $"{baseUrl}/{workspaceId}/{sessionId}/multi_agent_chat_streaming?token={encodedToken}";
+
+        FileLogger.Instance.Info("WebSocketRegistry", $"Connecting multi-agent to: {baseUrl}/.../{sessionId}/multi_agent_chat_streaming");
 
         _multiAgentTransport?.Dispose();
         _multiAgentTransport = new WebSocketTransport(url);
@@ -80,15 +100,36 @@ public sealed class WebSocketRegistry : IDisposable
         FileLogger.Instance.Info("WebSocketRegistry", "Multi-agent transport connected");
     }
 
-    public async Task ConnectMeetingTransport()
+    public MeetingSocketClient? MeetingClient { get; private set; }
+
+    public async Task ConnectMeetingTransport(string meetingId)
     {
-        var url = BaseURLService.Instance.GetBaseUrl("meeting_ws_api");
-        if (url == null) return;
+        var token = AuthManager.Instance.Storage.UserToken;
+        if (string.IsNullOrEmpty(token))
+        {
+            FileLogger.Instance.Warning("WebSocketRegistry", "Token not available for meeting WebSocket URL");
+            return;
+        }
+
+        var encodedToken = Uri.EscapeDataString(token);
+        // macOS uses: wss://meetings.us-east-1.ve.ai/frontend/ws/{meetingId}?token={encodedToken}
+        var url = $"wss://meetings.us-east-1.ve.ai/frontend/ws/{meetingId}?token={encodedToken}";
+
+        FileLogger.Instance.Info("WebSocketRegistry", $"Connecting meeting transport for meeting: {meetingId}");
 
         _meetingTransport?.Dispose();
         _meetingTransport = new WebSocketTransport(url);
+        MeetingClient = new MeetingSocketClient(_meetingTransport);
+
         await _meetingTransport.ConnectAsync();
         FileLogger.Instance.Info("WebSocketRegistry", "Meeting transport connected");
+    }
+
+    public async Task DisconnectMeetingTransport()
+    {
+        _meetingTransport?.Dispose();
+        _meetingTransport = null;
+        MeetingClient = null;
     }
 
     public void DisconnectAll()
@@ -109,6 +150,7 @@ public sealed class WebSocketRegistry : IDisposable
         UnifiedAudioClient = null;
         VoiceToTextClient = null;
         MultiAgentClient = null;
+        MeetingClient = null;
     }
 
     public async Task VerifyAllConnections()

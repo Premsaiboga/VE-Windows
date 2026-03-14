@@ -14,6 +14,13 @@ public sealed class ChatManager : INotifyPropertyChanged
     private ChatConversation? _currentConversation;
     private bool _isStreaming;
 
+    // Event handler references for cleanup
+    private EventHandler<string>? _chunkHandler;
+    private EventHandler<ChatResponse>? _completeHandler;
+    private EventHandler<string>? _errorHandler;
+    private EventHandler<List<Citation>>? _citationsHandler;
+    private EventHandler<string>? _stepHandler;
+
     public event PropertyChangedEventHandler? PropertyChanged;
 
     public ObservableCollection<ChatMessage> Messages { get; } = new();
@@ -69,7 +76,11 @@ public sealed class ChatManager : INotifyPropertyChanged
                 return;
             }
 
-            client.OnResponseChunk += (s, chunk) =>
+            // Cleanup old handlers
+            CleanupHandlers(client);
+
+            // Create new handlers
+            _chunkHandler = (s, chunk) =>
             {
                 System.Windows.Application.Current?.Dispatcher.Invoke(() =>
                 {
@@ -77,28 +88,52 @@ public sealed class ChatManager : INotifyPropertyChanged
                 });
             };
 
-            client.OnResponseComplete += (s, response) =>
+            _stepHandler = (s, step) =>
             {
                 System.Windows.Application.Current?.Dispatcher.Invoke(() =>
                 {
-                    if (response.Citations != null)
+                    if (string.IsNullOrEmpty(assistantMessage.Content))
                     {
-                        assistantMessage.Citations = response.Citations;
+                        assistantMessage.ThinkingContent = step;
                     }
-                    assistantMessage.IsStreaming = false;
-                    IsStreaming = false;
                 });
             };
 
-            client.OnError += (s, error) =>
+            _completeHandler = (s, response) =>
             {
                 System.Windows.Application.Current?.Dispatcher.Invoke(() =>
                 {
-                    assistantMessage.Content = $"Error: {error}";
                     assistantMessage.IsStreaming = false;
                     IsStreaming = false;
+                    CleanupHandlers(client);
                 });
             };
+
+            _citationsHandler = (s, citations) =>
+            {
+                System.Windows.Application.Current?.Dispatcher.Invoke(() =>
+                {
+                    assistantMessage.Citations = citations;
+                });
+            };
+
+            _errorHandler = (s, error) =>
+            {
+                System.Windows.Application.Current?.Dispatcher.Invoke(() =>
+                {
+                    if (string.IsNullOrEmpty(assistantMessage.Content))
+                        assistantMessage.Content = $"Error: {error}";
+                    assistantMessage.IsStreaming = false;
+                    IsStreaming = false;
+                    CleanupHandlers(client);
+                });
+            };
+
+            client.OnResponseChunk += _chunkHandler;
+            client.OnStepReceived += _stepHandler;
+            client.OnResponseComplete += _completeHandler;
+            client.OnCitationsReceived += _citationsHandler;
+            client.OnError += _errorHandler;
 
             await client.SendChatMessage(text);
         }
@@ -109,6 +144,15 @@ public sealed class ChatManager : INotifyPropertyChanged
             assistantMessage.IsStreaming = false;
             IsStreaming = false;
         }
+    }
+
+    private void CleanupHandlers(MultiAgentSocketClient client)
+    {
+        if (_chunkHandler != null) client.OnResponseChunk -= _chunkHandler;
+        if (_stepHandler != null) client.OnStepReceived -= _stepHandler;
+        if (_completeHandler != null) client.OnResponseComplete -= _completeHandler;
+        if (_citationsHandler != null) client.OnCitationsReceived -= _citationsHandler;
+        if (_errorHandler != null) client.OnError -= _errorHandler;
     }
 
     public void ClearChat()

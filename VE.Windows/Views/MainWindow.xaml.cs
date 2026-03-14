@@ -1,5 +1,7 @@
+using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Input;
+using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
 using VE.Windows.Helpers;
@@ -16,6 +18,17 @@ public partial class MainWindow : Window
     private bool _isHovering;
     private CancellationTokenSource? _hoverCts;
     private FloatingPanelWindow? _floatingPanel;
+    private Timer? _topmostTimer;
+
+    // Win32 imports for always-on-top
+    [DllImport("user32.dll")]
+    private static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter,
+        int X, int Y, int cx, int cy, uint uFlags);
+
+    private static readonly IntPtr HWND_TOPMOST = new(-1);
+    private const uint SWP_NOMOVE = 0x0002;
+    private const uint SWP_NOSIZE = 0x0001;
+    private const uint SWP_NOACTIVATE = 0x0010;
 
     public MainWindow()
     {
@@ -66,6 +79,11 @@ public partial class MainWindow : Window
             Dispatcher.Invoke(() => ShowFloatingPanel());
         };
 
+        KeyboardHookManager.Instance.OnMeetingToggled += (s, e) =>
+        {
+            Dispatcher.Invoke(() => OnMeetingToggled());
+        };
+
         // NotchHomeView settings button → open floating panel
         NotchHomeView.OnFloatingPanelRequested += (s, e) =>
         {
@@ -102,6 +120,27 @@ public partial class MainWindow : Window
     {
         PositionWindow();
         UpdateNotchBackground();
+        EnsureTopmost();
+
+        // Periodically re-assert topmost every 2 seconds
+        _topmostTimer = new Timer(_ =>
+        {
+            Dispatcher.Invoke(EnsureTopmost);
+        }, null, TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(2));
+    }
+
+    private void EnsureTopmost()
+    {
+        try
+        {
+            var hwnd = new WindowInteropHelper(this).Handle;
+            if (hwnd != IntPtr.Zero)
+            {
+                SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0,
+                    SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+            }
+        }
+        catch { }
     }
 
     private void PositionWindow()
@@ -244,13 +283,9 @@ public partial class MainWindow : Window
             // Capture screenshot in background
             _predictionScreenshot = ScreenCaptureManager.Instance.CaptureActiveWindow();
 
-            // Ensure WebSocket is connected
+            // Always reconnect with fresh session ID for each prediction (matches macOS behavior)
+            await WebSocket.WebSocketRegistry.Instance.ConnectUnifiedAudioTransport();
             var client = WebSocket.WebSocketRegistry.Instance.UnifiedAudioClient;
-            if (client == null || !client.IsConnected)
-            {
-                await WebSocket.WebSocketRegistry.Instance.ConnectUnifiedAudioTransport();
-                client = WebSocket.WebSocketRegistry.Instance.UnifiedAudioClient;
-            }
 
             if (client == null)
             {
@@ -363,6 +398,21 @@ public partial class MainWindow : Window
                     windowTitle: _predictionWindowTitle);
             }
         });
+    }
+
+    // Meeting flow - double-tap F1
+    private void OnMeetingToggled()
+    {
+        if (!AuthManager.Instance.IsAuthenticated) return;
+
+        if (Services.MeetingService.Instance.IsActive)
+        {
+            _ = Services.MeetingService.Instance.StopMeeting();
+        }
+        else
+        {
+            _ = Services.MeetingService.Instance.StartMeeting();
+        }
     }
 
     // Dictation flow

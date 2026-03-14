@@ -42,9 +42,13 @@
                 </Grid>
             </Border>
 
-            <!-- Content Area -->
+            <!-- Content Area - each tab has its own view -->
             <Grid Grid.Row="1">
                 <local:ChatView x:Name="ChatContent" Visibility="Visible" />
+                <local:NotesView x:Name="NotesContent" Visibility="Collapsed" />
+                <local:PlaceholderView x:Name="ConnectorsContent" Visibility="Collapsed" />
+                <local:PlaceholderView x:Name="KnowledgeContent" Visibility="Collapsed" />
+                <local:PlaceholderView x:Name="VoiceContent" Visibility="Collapsed" />
             </Grid>
 
             <!-- Bottom Navigation Tabs -->

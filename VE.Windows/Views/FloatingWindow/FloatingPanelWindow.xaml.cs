@@ -11,6 +11,11 @@ public partial class FloatingPanelWindow : Window
     public FloatingPanelWindow()
     {
         InitializeComponent();
+
+        // Set placeholder content
+        ConnectorsContent.SetContent("Connectors", "Connect your apps and services\nSlack, Notion, Gmail, Jira & more");
+        KnowledgeContent.SetContent("Knowledge", "Train your AI with custom knowledge\nUpload files and documents");
+        VoiceContent.SetContent("Voice", "Voice settings and enrollment\nCustomize voice commands");
     }
 
     private void Window_Loaded(object sender, RoutedEventArgs e)
@@ -50,7 +55,38 @@ public partial class FloatingPanelWindow : Window
         {
             _currentTab = tab;
             TitleText.Text = tab;
+            SwitchTab(tab);
             UpdateTabSelection();
+        }
+    }
+
+    private void SwitchTab(string tab)
+    {
+        // Hide all content
+        ChatContent.Visibility = Visibility.Collapsed;
+        NotesContent.Visibility = Visibility.Collapsed;
+        ConnectorsContent.Visibility = Visibility.Collapsed;
+        KnowledgeContent.Visibility = Visibility.Collapsed;
+        VoiceContent.Visibility = Visibility.Collapsed;
+
+        // Show selected tab content
+        switch (tab)
+        {
+            case "Chat":
+                ChatContent.Visibility = Visibility.Visible;
+                break;
+            case "Notes":
+                NotesContent.Visibility = Visibility.Visible;
+                break;
+            case "Connectors":
+                ConnectorsContent.Visibility = Visibility.Visible;
+                break;
+            case "Knowledge":
+                KnowledgeContent.Visibility = Visibility.Visible;
+                break;
+            case "Voice":
+                VoiceContent.Visibility = Visibility.Visible;
+                break;
         }
     }
 
