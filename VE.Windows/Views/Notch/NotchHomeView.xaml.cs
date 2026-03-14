@@ -9,6 +9,12 @@ namespace VE.Windows.Views.Notch;
 
 public partial class NotchHomeView : UserControl
 {
+    /// <summary>
+    /// Raised when the settings/floating panel button is clicked in the notch.
+    /// MainWindow subscribes to this to show the floating panel.
+    /// </summary>
+    public static event EventHandler? OnFloatingPanelRequested;
+
     public NotchHomeView()
     {
         InitializeComponent();
@@ -70,12 +76,7 @@ public partial class NotchHomeView : UserControl
     private void SettingsButton_Click(object sender, RoutedEventArgs e)
     {
         if (!AuthManager.Instance.IsAuthenticated) return;
-        var settingsWindow = Application.Current.Windows.OfType<SettingsWindow>().FirstOrDefault();
-        if (settingsWindow == null)
-        {
-            settingsWindow = new SettingsWindow();
-        }
-        settingsWindow.Show();
-        settingsWindow.Activate();
+        // Open floating panel instead of settings window
+        OnFloatingPanelRequested?.Invoke(this, EventArgs.Empty);
     }
 }

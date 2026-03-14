@@ -1,20 +1,26 @@
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using VE.Windows.Helpers;
 using VE.Windows.Managers;
-using VE.Windows.Models;
 
 namespace VE.Windows.WebSocket;
 
 /// <summary>
-/// Prediction WebSocket client - sends audio + screenshot, receives predictions.
-/// Equivalent to macOS UnifiedAudioSocketClient.
+/// Prediction WebSocket client - sends audio chunks + end payload, receives streaming predictions.
+/// Matches macOS UnifiedAudioSocketClient message format exactly.
+///
+/// SEND: binary audio chunks (PCM), then JSON end payload with metadata + screenshot
+/// RECEIVE: { suggested_text, step, output_completed, stream_end, status_code, id, error }
 /// </summary>
 public class UnifiedAudioSocketClient
 {
     private readonly WebSocketTransport _transport;
+    private string _accumulatedText = "";
+    private DateTime _predictionStartTime;
 
-    public event EventHandler<string>? OnPredictionReceived;
+    public event EventHandler<string>? OnPredictionStreaming;
     public event EventHandler<PredictionResult>? OnPredictionComplete;
+    public event EventHandler<string>? OnDictationResult;
     public event EventHandler<string>? OnError;
 
     public bool IsConnected => _transport.IsConnected;
@@ -25,33 +31,15 @@ public class UnifiedAudioSocketClient
         _transport.MessageReceived += HandleMessage;
     }
 
-    public async Task SendPredictionRequest(byte[] audioData, byte[]? screenshot, string? appContext)
+    public void ResetAccumulatedText()
     {
-        try
-        {
-            var payload = new
-            {
-                type = "prediction",
-                audio = Convert.ToBase64String(audioData),
-                screenshot = screenshot != null ? Convert.ToBase64String(screenshot) : null,
-                context = new
-                {
-                    activeApp = appContext ?? ScreenCaptureManager.Instance.GetActiveAppName(),
-                    activeWindow = ScreenCaptureManager.Instance.GetActiveWindowTitle(),
-                    platform = "windows",
-                    clipboard = ClipboardManager.Instance.ReadClipboard()
-                }
-            };
-
-            await _transport.SendAsync(JsonConvert.SerializeObject(payload));
-        }
-        catch (Exception ex)
-        {
-            FileLogger.Instance.Error("UnifiedAudioClient", $"Send failed: {ex.Message}");
-            OnError?.Invoke(this, ex.Message);
-        }
+        _accumulatedText = "";
+        _predictionStartTime = DateTime.UtcNow;
     }
 
+    /// <summary>
+    /// Send binary audio chunk (PCM 16kHz mono 16-bit).
+    /// </summary>
     public async Task SendAudioChunk(byte[] audioData)
     {
         try
@@ -64,44 +52,178 @@ public class UnifiedAudioSocketClient
         }
     }
 
+    /// <summary>
+    /// Send end payload with metadata and screenshot when key is released.
+    /// Matches macOS format: { action, audio_completed, audio_format, start_time, end_time,
+    ///   timezone, platform, windowTitle, image_data: [base64] }
+    /// </summary>
+    public async Task SendEndPayload(bool audioCompleted, byte[]? screenshot,
+        string? appName = null, string? windowTitle = null)
+    {
+        try
+        {
+            var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+            var startMs = new DateTimeOffset(_predictionStartTime).ToUnixTimeMilliseconds();
+
+            var payload = new Dictionary<string, object?>
+            {
+                ["action"] = "done",
+                ["audio_completed"] = audioCompleted,
+                ["audio_format"] = "pcm",
+                ["start_time"] = startMs,
+                ["end_time"] = now,
+                ["timezone"] = TimeZoneInfo.Local.Id,
+                ["platform"] = $"{appName ?? ScreenCaptureManager.Instance.GetActiveAppName()} - {windowTitle ?? ScreenCaptureManager.Instance.GetActiveWindowTitle()}",
+                ["windowTitle"] = windowTitle ?? ScreenCaptureManager.Instance.GetActiveWindowTitle(),
+            };
+
+            if (screenshot != null)
+            {
+                payload["image_data"] = new[] { Convert.ToBase64String(screenshot) };
+            }
+
+            var json = JsonConvert.SerializeObject(payload);
+            FileLogger.Instance.Info("UnifiedAudioClient", $"Sending end payload ({json.Length} chars)");
+            await _transport.SendAsync(json);
+        }
+        catch (Exception ex)
+        {
+            FileLogger.Instance.Error("UnifiedAudioClient", $"End payload send failed: {ex.Message}");
+            OnError?.Invoke(this, ex.Message);
+        }
+    }
+
+    /// <summary>
+    /// Send stop action (when user presses ESC during prediction).
+    /// </summary>
+    public async Task SendStopAction()
+    {
+        try
+        {
+            var payload = JsonConvert.SerializeObject(new { action = "stop" });
+            await _transport.SendAsync(payload);
+        }
+        catch (Exception ex)
+        {
+            FileLogger.Instance.Error("UnifiedAudioClient", $"Stop action send failed: {ex.Message}");
+        }
+    }
+
     private void HandleMessage(object? sender, string message)
     {
         try
         {
-            var response = JsonConvert.DeserializeObject<PredictionResponse>(message);
-            if (response == null) return;
+            var json = JObject.Parse(message);
+            FileLogger.Instance.Info("UnifiedAudioClient", $"Received: {message.Substring(0, Math.Min(200, message.Length))}");
 
-            switch (response.Type)
+            // Check for dictation response
+            if (json.ContainsKey("enhanced_text"))
             {
-                case "prediction_chunk":
-                    OnPredictionReceived?.Invoke(this, response.Text ?? "");
-                    break;
-                case "prediction_complete":
+                var enhancedText = json["enhanced_text"]?.ToString();
+                if (!string.IsNullOrEmpty(enhancedText))
+                {
+                    OnDictationResult?.Invoke(this, enhancedText);
+                }
+                return;
+            }
+
+            // Check for error
+            if (json.ContainsKey("status_code"))
+            {
+                var statusCode = json["status_code"]?.Value<int>() ?? 0;
+                if (statusCode >= 400)
+                {
+                    var error = json["error"]?.ToString() ?? json["status_message"]?.ToString() ?? "Server error";
+                    FileLogger.Instance.Error("UnifiedAudioClient", $"Server error {statusCode}: {error}");
+                    OnError?.Invoke(this, error);
+                    return;
+                }
+            }
+
+            // Accumulate suggested_text
+            if (json.ContainsKey("suggested_text"))
+            {
+                var suggestedText = json["suggested_text"]?.ToString() ?? "";
+                _accumulatedText += suggestedText;
+            }
+
+            // Show step text (streaming display)
+            if (json.ContainsKey("step"))
+            {
+                var step = json["step"]?.ToString() ?? "";
+                OnPredictionStreaming?.Invoke(this, step);
+            }
+            else if (json.ContainsKey("suggested_text"))
+            {
+                // If no step field, show accumulated text
+                OnPredictionStreaming?.Invoke(this, _accumulatedText);
+            }
+
+            // Output completed - prediction is ready for paste
+            if (json.ContainsKey("output_completed"))
+            {
+                var outputCompleted = json["output_completed"]?.Value<bool>() ?? false;
+                if (outputCompleted && !string.IsNullOrEmpty(_accumulatedText))
+                {
+                    FileLogger.Instance.Info("UnifiedAudioClient", $"Prediction complete: {_accumulatedText.Length} chars");
                     OnPredictionComplete?.Invoke(this, new PredictionResult
                     {
-                        Id = response.Id ?? "",
-                        Text = response.Text ?? "",
-                        Status = response.Status ?? 200
+                        Id = json["id"]?.ToString() ?? "",
+                        Text = _accumulatedText,
+                        Status = 200
                     });
-                    break;
-                case "error":
-                    OnError?.Invoke(this, response.Error ?? "Unknown error");
-                    break;
+                }
+            }
+
+            // Stream end - final signal with ID
+            if (json.ContainsKey("stream_end"))
+            {
+                var streamEnd = json["stream_end"]?.Value<bool>() ?? false;
+                if (streamEnd)
+                {
+                    var id = json["id"]?.ToString() ?? "";
+                    var statusCode = json["status_code"]?.Value<int>() ?? 200;
+
+                    // If we haven't fired complete yet (no output_completed was sent), fire now
+                    if (statusCode == 200 && !string.IsNullOrEmpty(_accumulatedText))
+                    {
+                        OnPredictionComplete?.Invoke(this, new PredictionResult
+                        {
+                            Id = id,
+                            Text = _accumulatedText,
+                            Status = statusCode
+                        });
+                    }
+
+                    // Send response metadata
+                    _ = SendResponseMetadata(id);
+                }
             }
         }
         catch (Exception ex)
         {
-            FileLogger.Instance.Error("UnifiedAudioClient", $"Parse error: {ex.Message}");
+            FileLogger.Instance.Error("UnifiedAudioClient", $"Parse error: {ex.Message} - Raw: {message.Substring(0, Math.Min(100, message.Length))}");
         }
     }
 
-    private class PredictionResponse
+    private async Task SendResponseMetadata(string id)
     {
-        [JsonProperty("type")] public string? Type { get; set; }
-        [JsonProperty("text")] public string? Text { get; set; }
-        [JsonProperty("id")] public string? Id { get; set; }
-        [JsonProperty("status")] public int? Status { get; set; }
-        [JsonProperty("error")] public string? Error { get; set; }
+        if (string.IsNullOrEmpty(id)) return;
+
+        try
+        {
+            var duration = (DateTime.UtcNow - _predictionStartTime).TotalSeconds;
+            var payload = JsonConvert.SerializeObject(new
+            {
+                id,
+                responseMetadata = new { roundTripTime = duration }
+            });
+            await _transport.SendAsync(payload);
+        }
+        catch (Exception ex)
+        {
+            FileLogger.Instance.Error("UnifiedAudioClient", $"Response metadata send failed: {ex.Message}");
+        }
     }
 }
 

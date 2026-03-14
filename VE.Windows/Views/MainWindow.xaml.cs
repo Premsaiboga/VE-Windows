@@ -6,6 +6,7 @@ using VE.Windows.Helpers;
 using VE.Windows.Managers;
 using VE.Windows.ViewModels;
 using VE.Windows.Views.FloatingWindow;
+using VE.Windows.Views.Notch;
 
 namespace VE.Windows.Views;
 
@@ -28,6 +29,15 @@ public partial class MainWindow : Window
             {
                 if (_vm.IsOpen) AnimateClose();
                 if (_floatingPanel?.IsVisible == true) _floatingPanel.Hide();
+
+                // Cancel prediction on ESC
+                if (ViewCoordinator.Instance.CombinedPredictionState != CombinedPredictionState.Inactive)
+                {
+                    ViewCoordinator.Instance.CombinedPredictionState = CombinedPredictionState.Inactive;
+                    ClosedContent.ResetToIdle();
+                    var client = WebSocket.WebSocketRegistry.Instance.UnifiedAudioClient;
+                    _ = client?.SendStopAction();
+                }
             });
         };
 
@@ -56,12 +66,28 @@ public partial class MainWindow : Window
             Dispatcher.Invoke(() => ShowFloatingPanel());
         };
 
+        // NotchHomeView settings button → open floating panel
+        NotchHomeView.OnFloatingPanelRequested += (s, e) =>
+        {
+            Dispatcher.Invoke(() => ShowFloatingPanel());
+        };
+
         // Auth state changes
         AuthManager.Instance.PropertyChanged += (s, e) =>
         {
             if (e.PropertyName == nameof(AuthManager.AuthState))
             {
-                Dispatcher.Invoke(UpdateNotchBackground);
+                Dispatcher.Invoke(() =>
+                {
+                    UpdateNotchBackground();
+
+                    // Show welcome in closed notch after successful login
+                    if (AuthManager.Instance.IsAuthenticated)
+                    {
+                        if (_vm.IsOpen) AnimateClose();
+                        ClosedContent.ShowWelcome();
+                    }
+                });
             }
         };
 
@@ -192,71 +218,151 @@ public partial class MainWindow : Window
         NotchBg.Color = bgColor;
     }
 
-    // Prediction flow
+    // Prediction flow - matches macOS:
+    // Key down → start audio + screenshot capture → stream audio chunks via WS
+    // Key up → stop audio → send end payload with screenshot + metadata → wait for response
+    private byte[]? _predictionScreenshot;
+    private string? _predictionAppName;
+    private string? _predictionWindowTitle;
+    private bool _predictionAudioSending;
+
     private void OnPredictionTriggered()
     {
+        if (!AuthManager.Instance.IsAuthenticated) return;
+
         ViewCoordinator.Instance.CombinedPredictionState = CombinedPredictionState.Waiting;
         UpdateNotchBackground();
         ClosedContent.ShowPredictionWaiting();
+        _predictionAudioSending = false;
+
+        // Capture context immediately (before VE window activates)
+        _predictionAppName = ScreenCaptureManager.Instance.GetActiveAppName();
+        _predictionWindowTitle = ScreenCaptureManager.Instance.GetActiveWindowTitle();
 
         Task.Run(async () =>
         {
-            // Capture screenshot + audio
-            var screenshot = ScreenCaptureManager.Instance.CaptureActiveWindow();
+            // Capture screenshot in background
+            _predictionScreenshot = ScreenCaptureManager.Instance.CaptureActiveWindow();
 
+            // Ensure WebSocket is connected
+            var client = WebSocket.WebSocketRegistry.Instance.UnifiedAudioClient;
+            if (client == null || !client.IsConnected)
+            {
+                await WebSocket.WebSocketRegistry.Instance.ConnectUnifiedAudioTransport();
+                client = WebSocket.WebSocketRegistry.Instance.UnifiedAudioClient;
+            }
+
+            if (client == null)
+            {
+                Dispatcher.Invoke(() =>
+                {
+                    ViewCoordinator.Instance.CombinedPredictionState = CombinedPredictionState.Error;
+                    ViewCoordinator.Instance.ErrorMessage = "Connection failed";
+                    ClosedContent.ShowError("Connection failed");
+                });
+                return;
+            }
+
+            // Reset accumulated text for new prediction
+            client.ResetAccumulatedText();
+
+            // Subscribe to events (remove old handlers first to avoid duplicates)
+            client.OnPredictionStreaming -= OnPredictionStreamingHandler;
+            client.OnPredictionComplete -= OnPredictionCompleteHandler;
+            client.OnError -= OnPredictionErrorHandler;
+
+            client.OnPredictionStreaming += OnPredictionStreamingHandler;
+            client.OnPredictionComplete += OnPredictionCompleteHandler;
+            client.OnError += OnPredictionErrorHandler;
+
+            // Start audio capture and stream chunks
             AudioService.Instance.OnAudioDataAvailable += OnPredictionAudioData;
             AudioService.Instance.StartCapture();
 
-            var client = WebSocket.WebSocketRegistry.Instance.UnifiedAudioClient;
-            if (client != null && screenshot != null)
-            {
-                await client.SendPredictionRequest(Array.Empty<byte>(), screenshot, null);
-            }
+            // Wait 200ms before enabling chunk sending (matches macOS quick-release behavior)
+            await Task.Delay(200);
+            _predictionAudioSending = true;
+        });
+    }
 
-            client!.OnPredictionReceived += (s, text) =>
+    private void OnPredictionStreamingHandler(object? sender, string text)
+    {
+        Dispatcher.Invoke(() =>
+        {
+            ViewCoordinator.Instance.CombinedPredictionState = CombinedPredictionState.Streaming;
+            ViewCoordinator.Instance.PredictionText = text;
+            ClosedContent.ShowPredictionStreaming(text);
+        });
+    }
+
+    private void OnPredictionCompleteHandler(object? sender, WebSocket.PredictionResult result)
+    {
+        Dispatcher.Invoke(() =>
+        {
+            ViewCoordinator.Instance.CombinedPredictionState = CombinedPredictionState.Success;
+            ClipboardManager.Instance.PasteText(result.Text);
+            ClosedContent.ShowPredictionSuccess(result.Text);
+            Services.PredictionFeedbackService.Instance.OnPredictionSuccess(result.Id);
+
+            // Auto-dismiss after 4s (matches macOS)
+            Task.Delay(4000).ContinueWith(_ =>
             {
                 Dispatcher.Invoke(() =>
                 {
-                    ViewCoordinator.Instance.CombinedPredictionState = CombinedPredictionState.Streaming;
-                    ViewCoordinator.Instance.PredictionText = text;
-                    ClosedContent.ShowPredictionStreaming(text);
+                    ViewCoordinator.Instance.CombinedPredictionState = CombinedPredictionState.Inactive;
+                    ClosedContent.ResetToIdle();
+                    UpdateNotchBackground();
                 });
-            };
+            });
+        });
+    }
 
-            client.OnPredictionComplete += (s, result) =>
+    private void OnPredictionErrorHandler(object? sender, string error)
+    {
+        Dispatcher.Invoke(() =>
+        {
+            ViewCoordinator.Instance.CombinedPredictionState = CombinedPredictionState.Error;
+            ViewCoordinator.Instance.ErrorMessage = error;
+            ClosedContent.ShowError(error);
+
+            Task.Delay(3000).ContinueWith(_ =>
             {
                 Dispatcher.Invoke(() =>
                 {
-                    ViewCoordinator.Instance.CombinedPredictionState = CombinedPredictionState.Success;
-                    ClipboardManager.Instance.PasteText(result.Text);
-                    ClosedContent.ShowPredictionSuccess(result.Text);
-                    Services.PredictionFeedbackService.Instance.OnPredictionSuccess(result.Id);
-
-                    // Auto-dismiss after 3s
-                    Task.Delay(3000).ContinueWith(_ =>
-                    {
-                        Dispatcher.Invoke(() =>
-                        {
-                            ViewCoordinator.Instance.CombinedPredictionState = CombinedPredictionState.Inactive;
-                            ClosedContent.ResetToIdle();
-                            UpdateNotchBackground();
-                        });
-                    });
+                    ViewCoordinator.Instance.CombinedPredictionState = CombinedPredictionState.Inactive;
+                    ClosedContent.ResetToIdle();
+                    UpdateNotchBackground();
                 });
-            };
+            });
         });
     }
 
     private void OnPredictionAudioData(object? sender, byte[] data)
     {
+        if (!_predictionAudioSending) return;
         var client = WebSocket.WebSocketRegistry.Instance.UnifiedAudioClient;
         _ = client?.SendAudioChunk(data);
     }
 
     private void OnPredictionReleased()
     {
+        // Stop audio capture
         AudioService.Instance.OnAudioDataAvailable -= OnPredictionAudioData;
         AudioService.Instance.StopCapture();
+
+        // Send end payload with screenshot + metadata
+        Task.Run(async () =>
+        {
+            var client = WebSocket.WebSocketRegistry.Instance.UnifiedAudioClient;
+            if (client != null)
+            {
+                await client.SendEndPayload(
+                    audioCompleted: _predictionAudioSending,
+                    screenshot: _predictionScreenshot,
+                    appName: _predictionAppName,
+                    windowTitle: _predictionWindowTitle);
+            }
+        });
     }
 
     // Dictation flow
