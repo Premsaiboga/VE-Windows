@@ -74,6 +74,11 @@ public partial class MainWindow : Window
             Dispatcher.Invoke(() => OnPredictionReleased());
         };
 
+        KeyboardHookManager.Instance.OnPredictionTapped += (s, e) =>
+        {
+            Dispatcher.Invoke(() => OnPredictionTapped());
+        };
+
         KeyboardHookManager.Instance.OnDictationTriggered += (s, e) =>
         {
             Dispatcher.Invoke(() => OnDictationTriggered());
@@ -405,6 +410,70 @@ public partial class MainWindow : Window
         if (!_predictionAudioSending) return;
         var client = WebSocket.WebSocketRegistry.Instance.UnifiedAudioClient;
         _ = client?.SendAudioChunk(data);
+    }
+
+    /// <summary>
+    /// Quick tap prediction: screenshot-only, no audio (matches macOS tap behavior).
+    /// Sends end payload with audio_completed=false.
+    /// </summary>
+    private void OnPredictionTapped()
+    {
+        if (!AuthManager.Instance.IsAuthenticated) return;
+
+        ViewCoordinator.Instance.CombinedPredictionState = CombinedPredictionState.Waiting;
+        UpdateNotchBackground();
+        ClosedContent.ShowPredictionWaiting();
+
+        // Capture context
+        var appName = ScreenCaptureManager.Instance.GetActiveAppName();
+        var windowTitle = ScreenCaptureManager.Instance.GetActiveWindowTitle();
+
+        Task.Run(async () =>
+        {
+            // Capture screenshot
+            var screenshot = ScreenCaptureManager.Instance.CaptureActiveWindow();
+
+            // Connect WebSocket
+            await WebSocket.WebSocketRegistry.Instance.ConnectUnifiedAudioTransport();
+            var client = WebSocket.WebSocketRegistry.Instance.UnifiedAudioClient;
+
+            // Wait for connection
+            var maxWait = DateTime.UtcNow.AddSeconds(5);
+            while (client != null && !client.IsConnected && DateTime.UtcNow < maxWait)
+            {
+                await Task.Delay(100);
+            }
+
+            if (client == null || !client.IsConnected)
+            {
+                Dispatcher.Invoke(() =>
+                {
+                    ViewCoordinator.Instance.CombinedPredictionState = CombinedPredictionState.Error;
+                    ViewCoordinator.Instance.ErrorMessage = "Connection failed";
+                    ClosedContent.ShowError("Connection failed");
+                });
+                return;
+            }
+
+            client.ResetAccumulatedText();
+
+            // Subscribe to events
+            client.OnPredictionStreaming -= OnPredictionStreamingHandler;
+            client.OnPredictionComplete -= OnPredictionCompleteHandler;
+            client.OnError -= OnPredictionErrorHandler;
+
+            client.OnPredictionStreaming += OnPredictionStreamingHandler;
+            client.OnPredictionComplete += OnPredictionCompleteHandler;
+            client.OnError += OnPredictionErrorHandler;
+
+            // Send end payload immediately with audio_completed=false (screenshot-only, matches macOS tap)
+            FileLogger.Instance.Info("Prediction", "Tap prediction: sending screenshot-only payload");
+            await client.SendEndPayload(
+                audioCompleted: false,
+                screenshot: screenshot,
+                appName: appName,
+                windowTitle: windowTitle);
+        });
     }
 
     private void OnPredictionReleased()

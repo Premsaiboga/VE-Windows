@@ -73,10 +73,18 @@ public partial class NotchHomeView : UserControl
         }
     }
 
+    private static SettingsWindow? _settingsWindow;
+
     private void SettingsButton_Click(object sender, RoutedEventArgs e)
     {
         if (!AuthManager.Instance.IsAuthenticated) return;
-        // Open floating panel instead of settings window
-        OnFloatingPanelRequested?.Invoke(this, EventArgs.Empty);
+
+        // Open settings window directly
+        if (_settingsWindow == null || !_settingsWindow.IsLoaded)
+        {
+            _settingsWindow = new SettingsWindow();
+        }
+        _settingsWindow.Show();
+        _settingsWindow.Activate();
     }
 }

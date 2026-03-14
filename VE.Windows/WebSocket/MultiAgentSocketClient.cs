@@ -82,65 +82,53 @@ public class MultiAgentSocketClient
         try
         {
             var json = JObject.Parse(message);
+            // Log all keys for debugging
+            var keys = string.Join(", ", json.Properties().Select(p => p.Name));
             FileLogger.Instance.Info("MultiAgentClient",
-                $"Received: {message.Substring(0, Math.Min(200, message.Length))}");
+                $"Received keys: [{keys}] - {message.Substring(0, Math.Min(200, message.Length))}");
 
-            // Check for cancelled status (matches macOS: gracefully ignore)
-            var status = json["status"]?.ToString();
+            // Matches macOS ChatManager.handleMessage order exactly:
+            // 1. status == "error" → error
+            // 2. error field (non-empty string) → error
+            // 3. answer chunk → accumulate + stream
+            // 4. stream_end → complete
+            // NOTE: macOS ChatManager does NOT check status_code for chat messages!
+
+            // 1. Check status field
+            var status = json["status"]?.Type == JTokenType.String ? json["status"]?.ToString() : null;
             if (status == "cancelled")
             {
                 FileLogger.Instance.Info("MultiAgentClient", "Received cancelled status, ignoring");
                 return;
             }
-
-            // Check for error status (matches macOS: only treat non-empty error strings as errors)
             if (status == "error")
             {
                 var error = json["error"]?.ToString() ?? json["message"]?.ToString() ?? "Server error";
+                FileLogger.Instance.Error("MultiAgentClient", $"Status error: {error}");
                 OnError?.Invoke(this, error);
                 return;
             }
 
-            // Check error field - only if it's a non-empty string (matches macOS behavior)
-            // macOS: `if let error = json["error"] as? String, !error.isEmpty`
+            // 2. Check error field - only non-empty strings (macOS: if let error = json["error"] as? String)
             var errorStr = json["error"]?.Type == JTokenType.String ? json["error"]?.ToString() : null;
             if (!string.IsNullOrEmpty(errorStr))
             {
-                FileLogger.Instance.Error("MultiAgentClient", $"Error: {errorStr}");
+                FileLogger.Instance.Error("MultiAgentClient", $"Error field: {errorStr}");
                 OnError?.Invoke(this, errorStr);
                 return;
             }
 
-            // Check status_code for server errors (matches macOS)
-            if (json.ContainsKey("status_code"))
-            {
-                var statusCode = json["status_code"]?.Value<int>() ?? 0;
-                if (statusCode >= 400)
-                {
-                    var errorMsg = json["status_message"]?.ToString() ?? "Server error";
-                    OnError?.Invoke(this, errorMsg);
-                    return;
-                }
-            }
-
-            // Step text (thinking indicator)
+            // 3. Step text (thinking indicator)
             if (json.ContainsKey("step"))
             {
                 var step = json["step"]?.ToString() ?? "";
-                OnStepReceived?.Invoke(this, step);
-            }
-
-            // Answer chunk (streaming response)
-            if (json.ContainsKey("answer"))
-            {
-                var answer = json["answer"]?.ToString() ?? "";
-                if (!string.IsNullOrEmpty(answer))
+                if (!string.IsNullOrEmpty(step))
                 {
-                    OnResponseChunk?.Invoke(this, answer);
+                    OnStepReceived?.Invoke(this, step);
                 }
             }
 
-            // Citations
+            // 4. Citations (can arrive with any message)
             if (json.ContainsKey("citations"))
             {
                 try
@@ -170,24 +158,36 @@ public class MultiAgentSocketClient
                 catch { }
             }
 
-            // Stream end - response complete
-            if (json.ContainsKey("stream_end"))
+            // 5. Stream end - check BEFORE answer (matches macOS: processes final chunk in stream_end)
+            if (json.ContainsKey("stream_end") && (json["stream_end"]?.Value<bool>() ?? false))
             {
-                var streamEnd = json["stream_end"]?.Value<bool>() ?? false;
-                if (streamEnd)
+                // Process any final answer chunk included with stream_end
+                var finalChunk = json["answer"]?.ToString();
+                if (!string.IsNullOrEmpty(finalChunk))
                 {
-                    var chatResponse = new ChatResponse
-                    {
-                        IsComplete = true,
-                    };
-                    OnResponseComplete?.Invoke(this, chatResponse);
+                    OnResponseChunk?.Invoke(this, finalChunk);
                 }
+
+                OnResponseComplete?.Invoke(this, new ChatResponse { IsComplete = true });
+                return;
+            }
+
+            // 6. Answer chunk (streaming response)
+            if (json.ContainsKey("answer"))
+            {
+                var answer = json["answer"]?.ToString() ?? "";
+                if (!string.IsNullOrEmpty(answer))
+                {
+                    OnResponseChunk?.Invoke(this, answer);
+                }
+                return;
             }
         }
         catch (Exception ex)
         {
             FileLogger.Instance.Error("MultiAgentClient",
                 $"Parse error: {ex.Message} - Raw: {message.Substring(0, Math.Min(100, message.Length))}");
+            OnError?.Invoke(this, $"Failed to parse response: {ex.Message}");
         }
     }
 }

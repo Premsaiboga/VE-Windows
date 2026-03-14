@@ -1,6 +1,7 @@
 using System.Windows;
 using System.Windows.Input;
 using VE.Windows.Helpers;
+using VE.Windows.Views.Settings;
 
 namespace VE.Windows.Views.FloatingWindow;
 
@@ -103,6 +104,18 @@ public partial class FloatingPanelWindow : Window
         {
             btn.Opacity = (btn.Tag as string) == _currentTab ? 1.0 : 0.5;
         }
+    }
+
+    private SettingsWindow? _settingsWindow;
+
+    private void SettingsButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_settingsWindow == null || !_settingsWindow.IsLoaded)
+        {
+            _settingsWindow = new SettingsWindow();
+        }
+        _settingsWindow.Show();
+        _settingsWindow.Activate();
     }
 
     public void ShowAndActivate()

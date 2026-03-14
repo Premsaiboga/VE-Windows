@@ -81,8 +81,9 @@ public sealed class KeyboardHookManager : IDisposable
     private const int DoubleTapThresholdMs = 500;
 
     // Events
-    public event EventHandler? OnPredictionTriggered;
+    public event EventHandler? OnPredictionTriggered;   // Hold: voice+screenshot prediction
     public event EventHandler? OnPredictionReleased;
+    public event EventHandler? OnPredictionTapped;      // Quick tap: screenshot-only prediction
     public event EventHandler? OnDictationTriggered;
     public event EventHandler? OnDictationReleased;
     public event EventHandler? OnInstructionTriggered;
@@ -94,7 +95,7 @@ public sealed class KeyboardHookManager : IDisposable
     public bool IsControlHeld { get; private set; }
     public bool IsAltHeld { get; private set; }
 
-    public enum ActiveAction { None, Prediction, Dictation, Instruction, Meeting }
+    public enum ActiveAction { None, Prediction, PredictionTap, Dictation, Instruction, Meeting }
     public ActiveAction CurrentAction { get; private set; } = ActiveAction.None;
 
     private KeyboardHookManager() { }
@@ -260,11 +261,27 @@ public sealed class KeyboardHookManager : IDisposable
         // Release active actions on UI thread
         System.Windows.Application.Current?.Dispatcher.BeginInvoke(() =>
         {
-            if (IsModifierKey(vkCode, settings.PredictionModifierKey) && CurrentAction == ActiveAction.Prediction)
+            if (IsModifierKey(vkCode, settings.PredictionModifierKey))
             {
-                CurrentAction = ActiveAction.None;
-                IsControlHeld = false;
-                OnPredictionReleased?.Invoke(this, EventArgs.Empty);
+                if (CurrentAction == ActiveAction.Prediction)
+                {
+                    // Was held long enough for voice prediction - release it
+                    CurrentAction = ActiveAction.None;
+                    IsControlHeld = false;
+                    OnPredictionReleased?.Invoke(this, EventArgs.Empty);
+                }
+                else if (CurrentAction == ActiveAction.None && !_holdFired)
+                {
+                    // Quick tap: released before hold threshold (350ms) - screenshot-only prediction
+                    var elapsed = (DateTime.UtcNow - _heldModifierStartTime).TotalMilliseconds;
+                    if (elapsed > 50 && elapsed < HoldThresholdMs) // Ignore very short accidental presses
+                    {
+                        FileLogger.Instance.Info("KeyboardHook", $"Prediction tap detected ({elapsed:F0}ms)");
+                        CurrentAction = ActiveAction.PredictionTap;
+                        OnPredictionTapped?.Invoke(this, EventArgs.Empty);
+                        CurrentAction = ActiveAction.None;
+                    }
+                }
             }
             else if (IsModifierKey(vkCode, settings.DictationModifierKey) && CurrentAction == ActiveAction.Dictation)
             {

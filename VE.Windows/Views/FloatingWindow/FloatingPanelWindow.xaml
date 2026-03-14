@@ -54,18 +54,25 @@
             <!-- Bottom Navigation Tabs -->
             <Border Grid.Row="2" Background="#222222" CornerRadius="0,0,12,12"
                     Padding="8,6">
-                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                    <Button x:Name="TabChat" Content="Chat" Click="Tab_Click" Tag="Chat"
-                            Style="{StaticResource FloatingTabButton}" />
-                    <Button x:Name="TabNotes" Content="Notes" Click="Tab_Click" Tag="Notes"
-                            Style="{StaticResource FloatingTabButton}" />
-                    <Button x:Name="TabConnectors" Content="Connect" Click="Tab_Click" Tag="Connectors"
-                            Style="{StaticResource FloatingTabButton}" />
-                    <Button x:Name="TabKnowledge" Content="Knowledge" Click="Tab_Click" Tag="Knowledge"
-                            Style="{StaticResource FloatingTabButton}" />
-                    <Button x:Name="TabVoice" Content="Voice" Click="Tab_Click" Tag="Voice"
-                            Style="{StaticResource FloatingTabButton}" />
-                </StackPanel>
+                <Grid>
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                        <Button x:Name="TabChat" Content="Chat" Click="Tab_Click" Tag="Chat"
+                                Style="{StaticResource FloatingTabButton}" />
+                        <Button x:Name="TabNotes" Content="Notes" Click="Tab_Click" Tag="Notes"
+                                Style="{StaticResource FloatingTabButton}" />
+                        <Button x:Name="TabConnectors" Content="Connect" Click="Tab_Click" Tag="Connectors"
+                                Style="{StaticResource FloatingTabButton}" />
+                        <Button x:Name="TabKnowledge" Content="Knowledge" Click="Tab_Click" Tag="Knowledge"
+                                Style="{StaticResource FloatingTabButton}" />
+                        <Button x:Name="TabVoice" Content="Voice" Click="Tab_Click" Tag="Voice"
+                                Style="{StaticResource FloatingTabButton}" />
+                    </StackPanel>
+                    <Button Content="&#x2699;" Foreground="#878E92" FontSize="16"
+                            Background="Transparent" BorderThickness="0"
+                            HorizontalAlignment="Right" VerticalAlignment="Center"
+                            Cursor="Hand" Click="SettingsButton_Click"
+                            Padding="8,0" ToolTip="Settings" />
+                </Grid>
             </Border>
         </Grid>
     </Border>

@@ -53,7 +53,12 @@
             <!-- Default Home Content -->
             <Grid x:Name="DefaultContent" Visibility="Collapsed">
                 <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
-                    <TextBlock Text="Hold Ctrl for AI Prediction"
+                    <TextBlock Text="Tap Ctrl for Screenshot Prediction"
+                               Foreground="#878E92"
+                               FontSize="13"
+                               HorizontalAlignment="Center"
+                               Margin="0,0,0,8" />
+                    <TextBlock Text="Hold Ctrl for Voice Prediction"
                                Foreground="#878E92"
                                FontSize="13"
                                HorizontalAlignment="Center"
