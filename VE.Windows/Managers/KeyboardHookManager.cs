@@ -7,10 +7,11 @@ using VE.Windows.Models;
 namespace VE.Windows.Managers;
 
 /// <summary>
-/// Global keyboard hook for modifier key detection.
+/// Global keyboard hook for shortcut key detection.
 /// Uses Win32 SetWindowsHookEx with WH_KEYBOARD_LL.
-/// Hold detection uses a DispatcherTimer since LL hook doesn't send
-/// repeated keydown events for modifier keys.
+/// Supports configurable keys (default: F1 for prediction, F2 for dictation).
+/// F1 tap = screenshot prediction, F1 hold = voice+screenshot prediction.
+/// F2 hold = dictation recording, F2 release = process dictation.
 /// </summary>
 public sealed class KeyboardHookManager : IDisposable
 {
@@ -23,21 +24,8 @@ public sealed class KeyboardHookManager : IDisposable
     private const int WM_SYSKEYDOWN = 0x0104;
     private const int WM_SYSKEYUP = 0x0105;
 
-    // Virtual key codes
-    private const int VK_CONTROL = 0x11;
-    private const int VK_LCONTROL = 0xA2;
-    private const int VK_RCONTROL = 0xA3;
-    private const int VK_MENU = 0x12;      // Alt
-    private const int VK_LMENU = 0xA4;
-    private const int VK_RMENU = 0xA5;
-    private const int VK_SHIFT = 0x10;
-    private const int VK_LSHIFT = 0xA0;
-    private const int VK_RSHIFT = 0xA1;
-    private const int VK_LWIN = 0x5B;
-    private const int VK_RWIN = 0x5C;
     private const int VK_ESCAPE = 0x1B;
     private const int VK_RETURN = 0x0D;
-    private const int VK_F1 = 0x70;
 
     private delegate IntPtr LowLevelKeyboardProc(int nCode, IntPtr wParam, IntPtr lParam);
 
@@ -67,18 +55,14 @@ public sealed class KeyboardHookManager : IDisposable
     private IntPtr _hookId = IntPtr.Zero;
     private LowLevelKeyboardProc? _hookProc;
 
-    // Hold detection via timer
-    private int _heldModifierKey;
-    private DateTime _heldModifierStartTime;
+    // Hold detection
+    private int _heldKey;
+    private DateTime _heldKeyStartTime;
     private DispatcherTimer? _holdTimer;
     private bool _holdFired;
-
-    // Double-tap detection
-    private DateTime _lastTapTime = DateTime.MinValue;
-    private int _lastTapKey;
+    private bool _keyIsDown; // Track if the key is physically down (handles repeated keydown)
 
     private const int HoldThresholdMs = 350;
-    private const int DoubleTapThresholdMs = 500;
 
     // Events
     public event EventHandler? OnPredictionTriggered;   // Hold: voice+screenshot prediction
@@ -92,11 +76,39 @@ public sealed class KeyboardHookManager : IDisposable
     public event EventHandler? OnEscapePressed;
     public event EventHandler? OnEnterPressed;
 
-    public bool IsControlHeld { get; private set; }
-    public bool IsAltHeld { get; private set; }
-
     public enum ActiveAction { None, Prediction, PredictionTap, Dictation, Instruction, Meeting }
     public ActiveAction CurrentAction { get; private set; } = ActiveAction.None;
+
+    /// <summary>
+    /// Map of key names to virtual key codes for UI display and configuration.
+    /// </summary>
+    public static readonly Dictionary<string, int> AvailableKeys = new()
+    {
+        ["F1"] = 0x70,
+        ["F2"] = 0x71,
+        ["F3"] = 0x72,
+        ["F4"] = 0x73,
+        ["F5"] = 0x74,
+        ["F6"] = 0x75,
+        ["F7"] = 0x76,
+        ["F8"] = 0x77,
+        ["F9"] = 0x78,
+        ["F10"] = 0x79,
+        ["F11"] = 0x7A,
+        ["F12"] = 0x7B,
+        ["Ctrl"] = 0x11,
+        ["Alt"] = 0x12,
+        ["Shift"] = 0x10,
+    };
+
+    public static string GetKeyName(int vkCode)
+    {
+        foreach (var kv in AvailableKeys)
+        {
+            if (kv.Value == vkCode) return kv.Key;
+        }
+        return $"Key 0x{vkCode:X2}";
+    }
 
     private KeyboardHookManager() { }
 
@@ -119,7 +131,7 @@ public sealed class KeyboardHookManager : IDisposable
             FileLogger.Instance.Info("KeyboardHook", "Keyboard hook installed successfully");
         }
 
-        // Timer to detect modifier hold (checks every 50ms)
+        // Timer to detect hold (checks every 50ms)
         _holdTimer = new DispatcherTimer(DispatcherPriority.Input)
         {
             Interval = TimeSpan.FromMilliseconds(50)
@@ -140,35 +152,29 @@ public sealed class KeyboardHookManager : IDisposable
 
     private void HoldTimer_Tick(object? sender, EventArgs e)
     {
-        if (_heldModifierKey == 0 || _holdFired) return;
+        if (_heldKey == 0 || _holdFired) return;
 
-        var elapsed = (DateTime.UtcNow - _heldModifierStartTime).TotalMilliseconds;
+        var elapsed = (DateTime.UtcNow - _heldKeyStartTime).TotalMilliseconds;
         if (elapsed < HoldThresholdMs) return;
 
         _holdFired = true;
         _holdTimer?.Stop();
 
         var settings = SettingsManager.Instance;
+        var predictionKey = settings.PredictionKeyCode;
+        var dictationKey = settings.DictationKeyCode;
 
-        if (IsModifierKey(_heldModifierKey, settings.PredictionModifierKey) && CurrentAction == ActiveAction.None)
+        if (MatchesKey(_heldKey, predictionKey) && CurrentAction == ActiveAction.None)
         {
             CurrentAction = ActiveAction.Prediction;
-            IsControlHeld = true;
-            FileLogger.Instance.Info("KeyboardHook", "Prediction triggered");
+            FileLogger.Instance.Info("KeyboardHook", $"Prediction triggered (hold {GetKeyName(_heldKey)})");
             OnPredictionTriggered?.Invoke(this, EventArgs.Empty);
         }
-        else if (IsModifierKey(_heldModifierKey, settings.DictationModifierKey) && CurrentAction == ActiveAction.None)
+        else if (MatchesKey(_heldKey, dictationKey) && CurrentAction == ActiveAction.None)
         {
             CurrentAction = ActiveAction.Dictation;
-            FileLogger.Instance.Info("KeyboardHook", "Dictation triggered");
+            FileLogger.Instance.Info("KeyboardHook", $"Dictation triggered (hold {GetKeyName(_heldKey)})");
             OnDictationTriggered?.Invoke(this, EventArgs.Empty);
-        }
-        else if (IsModifierKey(_heldModifierKey, settings.InstructionModifierKey) && CurrentAction == ActiveAction.None)
-        {
-            CurrentAction = ActiveAction.Instruction;
-            IsAltHeld = true;
-            FileLogger.Instance.Info("KeyboardHook", "Instruction triggered");
-            OnInstructionTriggered?.Invoke(this, EventArgs.Empty);
         }
     }
 
@@ -198,7 +204,7 @@ public sealed class KeyboardHookManager : IDisposable
 
     private void HandleKeyDown(int vkCode)
     {
-        // Escape - immediate, dispatch to UI thread
+        // Escape - immediate
         if (vkCode == VK_ESCAPE)
         {
             System.Windows.Application.Current?.Dispatcher.BeginInvoke(() =>
@@ -214,16 +220,21 @@ public sealed class KeyboardHookManager : IDisposable
             return;
         }
 
-        // Only track modifier keys
-        if (!IsAnyModifierKey(vkCode)) return;
+        var settings = SettingsManager.Instance;
+        var predictionKey = settings.PredictionKeyCode;
+        var dictationKey = settings.DictationKeyCode;
 
-        // Already tracking this key or a related one
-        if (_heldModifierKey != 0 && IsRelatedModifierKey(vkCode, _heldModifierKey)) return;
+        // Check if this is a configured key
+        if (!MatchesKey(vkCode, predictionKey) && !MatchesKey(vkCode, dictationKey)) return;
+
+        // Ignore repeated keydown for same key (non-modifier keys send repeats)
+        if (_keyIsDown && _heldKey != 0 && MatchesKey(vkCode, _heldKey)) return;
 
         // Start hold tracking
-        _heldModifierKey = vkCode;
-        _heldModifierStartTime = DateTime.UtcNow;
+        _heldKey = vkCode;
+        _heldKeyStartTime = DateTime.UtcNow;
         _holdFired = false;
+        _keyIsDown = true;
 
         System.Windows.Application.Current?.Dispatcher.BeginInvoke(() =>
             _holdTimer?.Start());
@@ -232,28 +243,17 @@ public sealed class KeyboardHookManager : IDisposable
     private void HandleKeyUp(int vkCode)
     {
         var settings = SettingsManager.Instance;
+        var predictionKey = settings.PredictionKeyCode;
+        var dictationKey = settings.DictationKeyCode;
 
-        // Double-tap F1 for meeting toggle
-        if (vkCode == VK_F1)
-        {
-            var now = DateTime.UtcNow;
-            if (_lastTapKey == vkCode && (now - _lastTapTime).TotalMilliseconds < DoubleTapThresholdMs)
-            {
-                System.Windows.Application.Current?.Dispatcher.BeginInvoke(() =>
-                    OnMeetingToggled?.Invoke(this, EventArgs.Empty));
-                _lastTapTime = DateTime.MinValue;
-            }
-            else
-            {
-                _lastTapTime = now;
-                _lastTapKey = vkCode;
-            }
-        }
+        // Only handle configured keys
+        if (!MatchesKey(vkCode, predictionKey) && !MatchesKey(vkCode, dictationKey)) return;
 
-        // Stop hold timer if this is the tracked modifier
-        if (_heldModifierKey != 0 && (vkCode == _heldModifierKey || IsRelatedModifierKey(vkCode, _heldModifierKey)))
+        // Stop hold timer
+        if (_heldKey != 0 && MatchesKey(vkCode, _heldKey))
         {
-            _heldModifierKey = 0;
+            _heldKey = 0;
+            _keyIsDown = false;
             System.Windows.Application.Current?.Dispatcher.BeginInvoke(() =>
                 _holdTimer?.Stop());
         }
@@ -261,24 +261,21 @@ public sealed class KeyboardHookManager : IDisposable
         // Release active actions on UI thread
         System.Windows.Application.Current?.Dispatcher.BeginInvoke(() =>
         {
-            if (IsModifierKey(vkCode, settings.PredictionModifierKey))
+            if (MatchesKey(vkCode, predictionKey))
             {
                 if (CurrentAction == ActiveAction.Prediction)
                 {
                     // Was held long enough for voice prediction - release it
                     CurrentAction = ActiveAction.None;
-                    IsControlHeld = false;
                     OnPredictionReleased?.Invoke(this, EventArgs.Empty);
                 }
                 else if (CurrentAction == ActiveAction.None && !_holdFired)
                 {
-                    // Quick tap: released before hold threshold (350ms) - screenshot-only prediction
-                    // Note: _holdFired is set to true after firing to prevent double-fire
-                    // from both VK_LCONTROL and VK_CONTROL key up events
-                    var elapsed = (DateTime.UtcNow - _heldModifierStartTime).TotalMilliseconds;
-                    if (elapsed > 50 && elapsed < HoldThresholdMs)
+                    // Quick tap: released before hold threshold
+                    var elapsed = (DateTime.UtcNow - _heldKeyStartTime).TotalMilliseconds;
+                    if (elapsed > 30 && elapsed < HoldThresholdMs)
                     {
-                        _holdFired = true; // Prevent second key up from firing again
+                        _holdFired = true; // Prevent double-fire
                         FileLogger.Instance.Info("KeyboardHook", $"Prediction tap detected ({elapsed:F0}ms)");
                         CurrentAction = ActiveAction.PredictionTap;
                         OnPredictionTapped?.Invoke(this, EventArgs.Empty);
@@ -286,53 +283,32 @@ public sealed class KeyboardHookManager : IDisposable
                     }
                 }
             }
-            else if (IsModifierKey(vkCode, settings.DictationModifierKey) && CurrentAction == ActiveAction.Dictation)
+            else if (MatchesKey(vkCode, dictationKey))
             {
-                CurrentAction = ActiveAction.None;
-                OnDictationReleased?.Invoke(this, EventArgs.Empty);
-            }
-            else if (IsModifierKey(vkCode, settings.InstructionModifierKey) && CurrentAction == ActiveAction.Instruction)
-            {
-                CurrentAction = ActiveAction.None;
-                IsAltHeld = false;
-                OnInstructionReleased?.Invoke(this, EventArgs.Empty);
+                if (CurrentAction == ActiveAction.Dictation)
+                {
+                    // Dictation hold released - stop recording
+                    CurrentAction = ActiveAction.None;
+                    OnDictationReleased?.Invoke(this, EventArgs.Empty);
+                }
             }
         });
     }
 
-    private static bool IsAnyModifierKey(int vkCode)
+    /// <summary>
+    /// Check if a virtual key code matches a configured key.
+    /// For modifier keys, matches left/right/generic variants.
+    /// </summary>
+    private static bool MatchesKey(int pressedKey, int configuredKey)
     {
-        return vkCode is VK_CONTROL or VK_LCONTROL or VK_RCONTROL
-            or VK_MENU or VK_LMENU or VK_RMENU
-            or VK_SHIFT or VK_LSHIFT or VK_RSHIFT
-            or VK_LWIN or VK_RWIN;
-    }
+        if (pressedKey == configuredKey) return true;
 
-    private static bool IsRelatedModifierKey(int vk1, int vk2)
-    {
-        return GetModifierFamily(vk1) == GetModifierFamily(vk2) && GetModifierFamily(vk1) != 0;
-    }
-
-    private static int GetModifierFamily(int vkCode)
-    {
-        return vkCode switch
+        // Handle modifier key families (left/right/generic all match)
+        return configuredKey switch
         {
-            VK_CONTROL or VK_LCONTROL or VK_RCONTROL => VK_CONTROL,
-            VK_MENU or VK_LMENU or VK_RMENU => VK_MENU,
-            VK_SHIFT or VK_LSHIFT or VK_RSHIFT => VK_SHIFT,
-            VK_LWIN or VK_RWIN => VK_LWIN,
-            _ => 0
-        };
-    }
-
-    private static bool IsModifierKey(int vkCode, ModifierKeyOption option)
-    {
-        return option switch
-        {
-            ModifierKeyOption.Control => vkCode is VK_CONTROL or VK_LCONTROL or VK_RCONTROL,
-            ModifierKeyOption.Alt => vkCode is VK_MENU or VK_LMENU or VK_RMENU,
-            ModifierKeyOption.Shift => vkCode is VK_SHIFT or VK_LSHIFT or VK_RSHIFT,
-            ModifierKeyOption.Win => vkCode is VK_LWIN or VK_RWIN,
+            0x11 => pressedKey is 0x11 or 0xA2 or 0xA3, // VK_CONTROL, VK_LCONTROL, VK_RCONTROL
+            0x12 => pressedKey is 0x12 or 0xA4 or 0xA5, // VK_MENU, VK_LMENU, VK_RMENU
+            0x10 => pressedKey is 0x10 or 0xA0 or 0xA1, // VK_SHIFT, VK_LSHIFT, VK_RSHIFT
             _ => false
         };
     }

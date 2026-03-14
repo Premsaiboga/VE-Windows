@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
+using Newtonsoft.Json.Linq;
 using VE.Windows.Helpers;
 using VE.Windows.Models;
 using VE.Windows.WebSocket;
@@ -11,25 +12,13 @@ public sealed class ChatManager : INotifyPropertyChanged
 {
     public static ChatManager Instance { get; } = new();
 
-    private ChatConversation? _currentConversation;
     private bool _isStreaming;
-
-    // Event handler references for cleanup
-    private EventHandler<string>? _chunkHandler;
-    private EventHandler<ChatResponse>? _completeHandler;
-    private EventHandler<string>? _errorHandler;
-    private EventHandler<List<Citation>>? _citationsHandler;
-    private EventHandler<string>? _stepHandler;
+    private WebSocketTransport? _activeTransport;
+    private ChatMessage? _currentAssistantMessage;
 
     public event PropertyChangedEventHandler? PropertyChanged;
 
     public ObservableCollection<ChatMessage> Messages { get; } = new();
-
-    public ChatConversation? CurrentConversation
-    {
-        get => _currentConversation;
-        set { _currentConversation = value; OnPropertyChanged(); }
-    }
 
     public bool IsStreaming
     {
@@ -48,7 +37,6 @@ public sealed class ChatManager : INotifyPropertyChanged
             Role = ChatRole.User,
             Content = text
         };
-        Messages.Add(userMessage);
 
         var assistantMessage = new ChatMessage
         {
@@ -56,116 +44,228 @@ public sealed class ChatManager : INotifyPropertyChanged
             Content = "",
             IsStreaming = true
         };
-        Messages.Add(assistantMessage);
+
+        // Add messages on UI thread
+        System.Windows.Application.Current?.Dispatcher.Invoke(() =>
+        {
+            Messages.Add(userMessage);
+            Messages.Add(assistantMessage);
+        });
+
+        _currentAssistantMessage = assistantMessage;
         IsStreaming = true;
 
         try
         {
-            // Always create a fresh connection for each conversation session (matches macOS)
+            // Connect WebSocket (fresh session for each message)
             await WebSocketRegistry.Instance.ConnectMultiAgentTransport();
-            var client = WebSocketRegistry.Instance.MultiAgentClient;
 
-            // Wait for connection to establish (matches macOS 5s max wait)
-            var maxWait = DateTime.UtcNow.AddSeconds(5);
-            while (client != null && !client.IsConnected && DateTime.UtcNow < maxWait)
+            // Get the transport directly (bypass MultiAgentSocketClient)
+            var transport = WebSocketRegistry.Instance.MultiAgentTransport;
+
+            if (transport == null || !transport.IsConnected)
             {
-                await Task.Delay(100);
+                // Wait for connection (5s max)
+                var maxWait = DateTime.UtcNow.AddSeconds(5);
+                while (transport != null && !transport.IsConnected && DateTime.UtcNow < maxWait)
+                {
+                    await Task.Delay(100);
+                }
             }
 
-            if (client == null || !client.IsConnected)
+            if (transport == null || !transport.IsConnected)
             {
-                assistantMessage.Content = "Failed to connect to AI service. Please check your connection.";
-                assistantMessage.IsStreaming = false;
-                IsStreaming = false;
+                UpdateAssistant(assistantMessage, "Failed to connect to AI service. Please check your connection.");
+                FinishStreaming(assistantMessage);
                 return;
             }
 
-            // Cleanup old handlers
-            CleanupHandlers(client);
+            // Subscribe directly to transport messages (like macOS ChatManager does)
+            _activeTransport = transport;
+            transport.MessageReceived -= OnTransportMessage;
+            transport.MessageReceived += OnTransportMessage;
 
-            // Create new handlers
-            // IMPORTANT: Use BeginInvoke (async) instead of Invoke (sync) to avoid
-            // blocking the WebSocket receive loop thread. Dispatcher.Invoke can deadlock
-            // if the UI thread is busy.
-            _chunkHandler = (s, chunk) =>
+            // Build and send the chat payload
+            var timezone = TimeZoneInfo.Local.Id;
+            var payload = new Dictionary<string, object?>
             {
-                System.Windows.Application.Current?.Dispatcher.BeginInvoke(() =>
+                ["types"] = "text",
+                ["query"] = text,
+                ["timezone"] = timezone,
+                ["location"] = new Dictionary<string, string>
                 {
-                    assistantMessage.Content += chunk;
-                });
+                    ["city"] = "Unknown",
+                    ["countryRegion"] = "",
+                    ["country"] = "Unknown",
+                    ["timezone"] = timezone
+                },
+                ["web_search"] = true,
+                ["knowledge_base_search"] = true,
+                ["deep_search"] = false,
+                ["deep_research"] = false
             };
 
-            _stepHandler = (s, step) =>
-            {
-                System.Windows.Application.Current?.Dispatcher.BeginInvoke(() =>
-                {
-                    if (string.IsNullOrEmpty(assistantMessage.Content))
-                    {
-                        assistantMessage.ThinkingContent = step;
-                    }
-                });
-            };
-
-            _completeHandler = (s, response) =>
-            {
-                System.Windows.Application.Current?.Dispatcher.BeginInvoke(() =>
-                {
-                    assistantMessage.IsStreaming = false;
-                    IsStreaming = false;
-                    CleanupHandlers(client);
-                });
-            };
-
-            _citationsHandler = (s, citations) =>
-            {
-                System.Windows.Application.Current?.Dispatcher.BeginInvoke(() =>
-                {
-                    assistantMessage.Citations = citations;
-                });
-            };
-
-            _errorHandler = (s, error) =>
-            {
-                System.Windows.Application.Current?.Dispatcher.BeginInvoke(() =>
-                {
-                    if (string.IsNullOrEmpty(assistantMessage.Content))
-                        assistantMessage.Content = $"Error: {error}";
-                    assistantMessage.IsStreaming = false;
-                    IsStreaming = false;
-                    CleanupHandlers(client);
-                });
-            };
-
-            client.OnResponseChunk += _chunkHandler;
-            client.OnStepReceived += _stepHandler;
-            client.OnResponseComplete += _completeHandler;
-            client.OnCitationsReceived += _citationsHandler;
-            client.OnError += _errorHandler;
-
-            await client.SendChatMessage(text);
+            var json = Newtonsoft.Json.JsonConvert.SerializeObject(payload);
+            FileLogger.Instance.Info("ChatManager", $"Sending chat: {text.Substring(0, Math.Min(50, text.Length))}...");
+            await transport.SendAsync(json);
         }
         catch (Exception ex)
         {
-            FileLogger.Instance.Error("Chat", $"Send failed: {ex.Message}");
-            assistantMessage.Content = $"Error: {ex.Message}";
-            assistantMessage.IsStreaming = false;
-            IsStreaming = false;
+            FileLogger.Instance.Error("ChatManager", $"Send failed: {ex.Message}");
+            UpdateAssistant(assistantMessage, $"Error: {ex.Message}");
+            FinishStreaming(assistantMessage);
         }
     }
 
-    private void CleanupHandlers(MultiAgentSocketClient client)
+    private void OnTransportMessage(object? sender, string message)
     {
-        if (_chunkHandler != null) client.OnResponseChunk -= _chunkHandler;
-        if (_stepHandler != null) client.OnStepReceived -= _stepHandler;
-        if (_completeHandler != null) client.OnResponseComplete -= _completeHandler;
-        if (_citationsHandler != null) client.OnCitationsReceived -= _citationsHandler;
-        if (_errorHandler != null) client.OnError -= _errorHandler;
+        try
+        {
+            var json = JObject.Parse(message);
+            var keys = string.Join(", ", json.Properties().Select(p => p.Name));
+            FileLogger.Instance.Info("ChatManager",
+                $"Received keys: [{keys}] - {message.Substring(0, Math.Min(300, message.Length))}");
+
+            var assistantMessage = _currentAssistantMessage;
+            if (assistantMessage == null) return;
+
+            // 1. Check status field
+            var status = json["status"]?.Type == JTokenType.String ? json["status"]?.ToString() : null;
+            if (status == "cancelled") return;
+            if (status == "error")
+            {
+                var error = json["error"]?.ToString() ?? json["message"]?.ToString() ?? "Server error";
+                UpdateAssistant(assistantMessage, $"Error: {error}");
+                FinishStreaming(assistantMessage);
+                return;
+            }
+
+            // 2. Check error field (only non-empty strings)
+            var errorStr = json["error"]?.Type == JTokenType.String ? json["error"]?.ToString() : null;
+            if (!string.IsNullOrEmpty(errorStr))
+            {
+                UpdateAssistant(assistantMessage, $"Error: {errorStr}");
+                FinishStreaming(assistantMessage);
+                return;
+            }
+
+            // 3. Step text (thinking indicator)
+            if (json.ContainsKey("step"))
+            {
+                var step = json["step"]?.ToString() ?? "";
+                if (!string.IsNullOrEmpty(step))
+                {
+                    System.Windows.Application.Current?.Dispatcher.BeginInvoke(() =>
+                    {
+                        if (string.IsNullOrEmpty(assistantMessage.Content))
+                        {
+                            assistantMessage.ThinkingContent = step;
+                        }
+                    });
+                }
+            }
+
+            // 4. Citations
+            if (json.ContainsKey("citations"))
+            {
+                try
+                {
+                    var citationsObj = json["citations"];
+                    var citations = new List<Citation>();
+                    if (citationsObj is JObject citDict)
+                    {
+                        foreach (var prop in citDict.Properties())
+                        {
+                            var cit = prop.Value;
+                            citations.Add(new Citation
+                            {
+                                Title = cit["title"]?.ToString() ?? "",
+                                Url = cit["url"]?.ToString() ?? "",
+                                Snippet = cit["text"]?.ToString() ?? "",
+                            });
+                        }
+                    }
+                    if (citations.Count > 0)
+                    {
+                        System.Windows.Application.Current?.Dispatcher.BeginInvoke(() =>
+                        {
+                            assistantMessage.Citations = citations;
+                        });
+                    }
+                }
+                catch { }
+            }
+
+            // 5. Stream end (check before answer - process final chunk)
+            if (json.ContainsKey("stream_end") && (json["stream_end"]?.Value<bool>() ?? false))
+            {
+                var finalChunk = json["answer"]?.ToString();
+                if (!string.IsNullOrEmpty(finalChunk))
+                {
+                    AppendToAssistant(assistantMessage, finalChunk);
+                }
+                FinishStreaming(assistantMessage);
+                return;
+            }
+
+            // 6. Answer chunk
+            if (json.ContainsKey("answer"))
+            {
+                var answer = json["answer"]?.ToString() ?? "";
+                if (!string.IsNullOrEmpty(answer))
+                {
+                    AppendToAssistant(assistantMessage, answer);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            FileLogger.Instance.Error("ChatManager",
+                $"Parse error: {ex.Message} - Raw: {message.Substring(0, Math.Min(100, message.Length))}");
+        }
+    }
+
+    private void AppendToAssistant(ChatMessage msg, string chunk)
+    {
+        System.Windows.Application.Current?.Dispatcher.BeginInvoke(() =>
+        {
+            msg.Content += chunk;
+        });
+    }
+
+    private void UpdateAssistant(ChatMessage msg, string content)
+    {
+        System.Windows.Application.Current?.Dispatcher.BeginInvoke(() =>
+        {
+            if (string.IsNullOrEmpty(msg.Content))
+                msg.Content = content;
+        });
+    }
+
+    private void FinishStreaming(ChatMessage msg)
+    {
+        System.Windows.Application.Current?.Dispatcher.BeginInvoke(() =>
+        {
+            msg.IsStreaming = false;
+            IsStreaming = false;
+            CleanupTransport();
+        });
+    }
+
+    private void CleanupTransport()
+    {
+        if (_activeTransport != null)
+        {
+            _activeTransport.MessageReceived -= OnTransportMessage;
+            _activeTransport = null;
+        }
     }
 
     public void ClearChat()
     {
+        CleanupTransport();
         Messages.Clear();
-        CurrentConversation = null;
+        _currentAssistantMessage = null;
     }
 
     private void OnPropertyChanged([CallerMemberName] string? name = null)

@@ -53,22 +53,22 @@
             <!-- Default Home Content -->
             <Grid x:Name="DefaultContent" Visibility="Collapsed">
                 <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
-                    <TextBlock Text="Tap Ctrl for Screenshot Prediction"
+                    <TextBlock Text="Tap F1 for Screenshot Prediction"
                                Foreground="#878E92"
                                FontSize="13"
                                HorizontalAlignment="Center"
                                Margin="0,0,0,8" />
-                    <TextBlock Text="Hold Ctrl for Voice Prediction"
+                    <TextBlock Text="Hold F1 for Voice Prediction"
                                Foreground="#878E92"
                                FontSize="13"
                                HorizontalAlignment="Center"
                                Margin="0,0,0,8" />
-                    <TextBlock Text="Hold Alt for Instructions"
+                    <TextBlock Text="Hold F2 for Dictation"
                                Foreground="#878E92"
                                FontSize="13"
                                HorizontalAlignment="Center"
                                Margin="0,0,0,8" />
-                    <TextBlock Text="Double-tap F1 for Meeting Notes"
+                    <TextBlock Text="Click Notch for Chat"
                                Foreground="#878E92"
                                FontSize="13"
                                HorizontalAlignment="Center" />

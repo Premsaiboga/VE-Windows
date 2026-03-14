@@ -15,37 +15,46 @@
     </UserControl.Resources>
 
     <Grid x:Name="ContentGrid" MinWidth="200" Height="36">
-        <!-- Persistent: VE logo left, settings gear right -->
-        <TextBlock Text="VE"
-                   Foreground="White"
-                   FontSize="14"
-                   FontWeight="SemiBold"
-                   VerticalAlignment="Center"
-                   HorizontalAlignment="Left"
-                   Margin="12,0,0,0" />
+        <!-- Persistent left: green dot + VE logo -->
+        <StackPanel Orientation="Horizontal"
+                    HorizontalAlignment="Left"
+                    VerticalAlignment="Center"
+                    Margin="12,0,0,0">
+            <Ellipse x:Name="StatusDot"
+                     Width="6" Height="6"
+                     Fill="#00CA48"
+                     VerticalAlignment="Center"
+                     Margin="0,0,6,0" />
+            <TextBlock Text="VE"
+                       Foreground="White"
+                       FontSize="14"
+                       FontWeight="SemiBold"
+                       VerticalAlignment="Center" />
+        </StackPanel>
+
+        <!-- Persistent right: settings gear (no hover background) -->
         <Button x:Name="SettingsButton"
                 Content="&#x2699;"
                 Foreground="#878E92"
                 FontSize="14"
-                Background="Transparent"
                 BorderThickness="0"
                 HorizontalAlignment="Right"
                 VerticalAlignment="Center"
                 Cursor="Hand"
                 Click="SettingsButton_Click"
                 Padding="8,0"
-                Margin="0,0,8,0" />
+                Margin="0,0,8,0">
+            <Button.Template>
+                <ControlTemplate TargetType="Button">
+                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                </ControlTemplate>
+            </Button.Template>
+        </Button>
 
-        <!-- Idle State: status dot (centered) -->
-        <Grid x:Name="IdleContent" Visibility="Visible">
-            <Ellipse x:Name="StatusDot"
-                     Width="6" Height="6"
-                     Fill="#00CA48"
-                     HorizontalAlignment="Center"
-                     VerticalAlignment="Center" />
-        </Grid>
+        <!-- Idle State (shown in center area, nothing extra needed) -->
+        <Grid x:Name="IdleContent" Visibility="Visible" />
 
-        <!-- Welcome Message (shown for 3s after login) -->
+        <!-- Welcome Message -->
         <Grid x:Name="WelcomeContent" Visibility="Collapsed">
             <TextBlock Text="Welcome to VE"
                        Foreground="White"
@@ -70,7 +79,7 @@
             </StackPanel>
         </Grid>
 
-        <!-- Prediction Streaming State -->
+        <!-- Prediction Streaming State (for hold/voice predictions) -->
         <Grid x:Name="PredictionStreamingContent" Visibility="Collapsed">
             <TextBlock x:Name="PredictionStreamText"
                        Text=""
@@ -79,8 +88,8 @@
                        TextTrimming="CharacterEllipsis"
                        HorizontalAlignment="Center"
                        VerticalAlignment="Center"
-                       MaxWidth="180"
-                       Margin="12,0" />
+                       MaxWidth="140"
+                       Margin="40,0" />
         </Grid>
 
         <!-- Prediction Success State -->
@@ -143,7 +152,7 @@
                        VerticalAlignment="Center" />
         </Grid>
 
-        <!-- Error State -->
+        <!-- Error State (shown in notch briefly) -->
         <Grid x:Name="ErrorContent" Visibility="Collapsed">
             <TextBlock x:Name="ErrorText"
                        Text="Error"
@@ -155,7 +164,7 @@
 
         <!-- Recording Indicator -->
         <Grid x:Name="RecordingIndicator" Visibility="Collapsed"
-              HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,8,0">
+              HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,30,0">
             <Ellipse Width="8" Height="8" Fill="#FF4B59">
                 <Ellipse.Triggers>
                     <EventTrigger RoutedEvent="Loaded">

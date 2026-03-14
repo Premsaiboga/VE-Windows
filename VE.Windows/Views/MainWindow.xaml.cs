@@ -59,6 +59,13 @@ public partial class MainWindow : Window
                     var client = WebSocket.WebSocketRegistry.Instance.UnifiedAudioClient;
                     _ = client?.SendStopAction();
                 }
+
+                // Cancel dictation on ESC
+                if (Services.DictationService.Instance.State != Services.DictationState.Inactive)
+                {
+                    Services.DictationService.Instance.CancelDictation();
+                    ClosedContent.ResetToIdle();
+                }
             });
         };
 
@@ -97,12 +104,6 @@ public partial class MainWindow : Window
             Dispatcher.Invoke(() => OnMeetingToggled());
         };
 
-        // NotchHomeView settings button → open floating panel
-        NotchHomeView.OnFloatingPanelRequested += (s, e) =>
-        {
-            Dispatcher.Invoke(() => ShowFloatingPanel());
-        };
-
         // Auth state changes
         AuthManager.Instance.PropertyChanged += (s, e) =>
         {
@@ -110,9 +111,6 @@ public partial class MainWindow : Window
             {
                 Dispatcher.Invoke(() =>
                 {
-                    UpdateNotchBackground();
-
-                    // Show welcome in closed notch after successful login
                     if (AuthManager.Instance.IsAuthenticated)
                     {
                         if (_vm.IsOpen) AnimateClose();
@@ -125,28 +123,25 @@ public partial class MainWindow : Window
         // ViewCoordinator state changes
         ViewCoordinator.Instance.PropertyChanged += (s, e) =>
         {
-            Dispatcher.Invoke(UpdateNotchBackground);
+            // No-op: notch background stays black
         };
     }
 
     private void Window_Loaded(object sender, RoutedEventArgs e)
     {
         PositionWindow();
-        UpdateNotchBackground();
 
-        // Set extended window styles for tool window behavior (no taskbar, no alt-tab, stays on top)
         var hwnd = new WindowInteropHelper(this).Handle;
         if (hwnd != IntPtr.Zero)
         {
             var exStyle = GetWindowLong(hwnd, GWL_EXSTYLE);
-            exStyle |= WS_EX_TOOLWINDOW;  // Hide from alt-tab
-            exStyle |= WS_EX_NOACTIVATE;  // Don't steal focus from other apps
+            exStyle |= WS_EX_TOOLWINDOW;
+            exStyle |= WS_EX_NOACTIVATE;
             SetWindowLong(hwnd, GWL_EXSTYLE, exStyle);
         }
 
         EnsureTopmost();
 
-        // Re-assert topmost every 1 second to stay above all apps including fullscreen
         _topmostTimer = new Timer(_ =>
         {
             Dispatcher.Invoke(EnsureTopmost);
@@ -184,7 +179,6 @@ public partial class MainWindow : Window
             }
             else
             {
-                // Click on notch opens chat (floating panel)
                 ShowFloatingPanel();
             }
         }
@@ -232,22 +226,7 @@ public partial class MainWindow : Window
         PositionWindow();
     }
 
-    private void UpdateNotchBackground()
-    {
-        var auth = AuthManager.Instance;
-        var coord = ViewCoordinator.Instance;
-
-        Color bgColor;
-
-        // Always black notch background
-        bgColor = Colors.Black;
-
-        NotchBg.Color = bgColor;
-    }
-
-    // Prediction flow - matches macOS:
-    // Key down → start audio + screenshot capture → stream audio chunks via WS
-    // Key up → stop audio → send end payload with screenshot + metadata → wait for response
+    // Prediction flow
     private byte[]? _predictionScreenshot;
     private string? _predictionAppName;
     private string? _predictionWindowTitle;
@@ -258,24 +237,19 @@ public partial class MainWindow : Window
         if (!AuthManager.Instance.IsAuthenticated) return;
 
         ViewCoordinator.Instance.CombinedPredictionState = CombinedPredictionState.Waiting;
-        UpdateNotchBackground();
         ClosedContent.ShowPredictionWaiting();
         _predictionAudioSending = false;
 
-        // Capture context immediately (before VE window activates)
         _predictionAppName = ScreenCaptureManager.Instance.GetActiveAppName();
         _predictionWindowTitle = ScreenCaptureManager.Instance.GetActiveWindowTitle();
 
         Task.Run(async () =>
         {
-            // Capture screenshot in background
             _predictionScreenshot = ScreenCaptureManager.Instance.CaptureActiveWindow();
 
-            // Always reconnect with fresh session ID for each prediction (matches macOS behavior)
             await WebSocket.WebSocketRegistry.Instance.ConnectUnifiedAudioTransport();
             var client = WebSocket.WebSocketRegistry.Instance.UnifiedAudioClient;
 
-            // Wait for connection to establish (matches macOS 5s max wait)
             var maxWait = DateTime.UtcNow.AddSeconds(5);
             while (client != null && !client.IsConnected && DateTime.UtcNow < maxWait)
             {
@@ -293,10 +267,8 @@ public partial class MainWindow : Window
                 return;
             }
 
-            // Reset accumulated text for new prediction
             client.ResetAccumulatedText();
 
-            // Subscribe to events (remove old handlers first to avoid duplicates)
             client.OnPredictionStreaming -= OnPredictionStreamingHandler;
             client.OnPredictionComplete -= OnPredictionCompleteHandler;
             client.OnError -= OnPredictionErrorHandler;
@@ -305,7 +277,7 @@ public partial class MainWindow : Window
             client.OnPredictionComplete += OnPredictionCompleteHandler;
             client.OnError += OnPredictionErrorHandler;
 
-            // Start audio capture and stream chunks immediately
+            // Start audio capture immediately
             _predictionAudioSending = true;
             AudioService.Instance.OnAudioDataAvailable += OnPredictionAudioData;
             AudioService.Instance.StartCapture();
@@ -314,31 +286,30 @@ public partial class MainWindow : Window
 
     private void OnPredictionStreamingHandler(object? sender, string text)
     {
-        Dispatcher.Invoke(() =>
+        Dispatcher.BeginInvoke(() =>
         {
             ViewCoordinator.Instance.CombinedPredictionState = CombinedPredictionState.Streaming;
             ViewCoordinator.Instance.PredictionText = text;
+            // Show streaming text in notch for voice predictions
             ClosedContent.ShowPredictionStreaming(text);
         });
     }
 
     private void OnPredictionCompleteHandler(object? sender, WebSocket.PredictionResult result)
     {
-        Dispatcher.Invoke(() =>
+        Dispatcher.BeginInvoke(() =>
         {
             ViewCoordinator.Instance.CombinedPredictionState = CombinedPredictionState.Success;
             ClipboardManager.Instance.PasteText(result.Text);
             ClosedContent.ShowPredictionSuccess(result.Text);
             Services.PredictionFeedbackService.Instance.OnPredictionSuccess(result.Id);
 
-            // Auto-dismiss after 4s (matches macOS)
             Task.Delay(4000).ContinueWith(_ =>
             {
-                Dispatcher.Invoke(() =>
+                Dispatcher.BeginInvoke(() =>
                 {
                     ViewCoordinator.Instance.CombinedPredictionState = CombinedPredictionState.Inactive;
                     ClosedContent.ResetToIdle();
-                    UpdateNotchBackground();
                 });
             });
         });
@@ -346,21 +317,11 @@ public partial class MainWindow : Window
 
     private void OnPredictionErrorHandler(object? sender, string error)
     {
-        Dispatcher.Invoke(() =>
+        Dispatcher.BeginInvoke(() =>
         {
             ViewCoordinator.Instance.CombinedPredictionState = CombinedPredictionState.Error;
             ViewCoordinator.Instance.ErrorMessage = error;
-            ClosedContent.ShowError(error);
-
-            Task.Delay(3000).ContinueWith(_ =>
-            {
-                Dispatcher.Invoke(() =>
-                {
-                    ViewCoordinator.Instance.CombinedPredictionState = CombinedPredictionState.Inactive;
-                    ClosedContent.ResetToIdle();
-                    UpdateNotchBackground();
-                });
-            });
+            ClosedContent.ShowError(error); // Auto-dismisses after 3s
         });
     }
 
@@ -372,31 +333,26 @@ public partial class MainWindow : Window
     }
 
     /// <summary>
-    /// Quick tap prediction: screenshot-only, no audio (matches macOS tap behavior).
-    /// Sends end payload with audio_completed=false.
+    /// Quick tap prediction: screenshot-only, no audio.
+    /// Don't show streaming text in the notch - just show "Predicting" then "Pasted".
     /// </summary>
     private void OnPredictionTapped()
     {
         if (!AuthManager.Instance.IsAuthenticated) return;
 
         ViewCoordinator.Instance.CombinedPredictionState = CombinedPredictionState.Waiting;
-        UpdateNotchBackground();
         ClosedContent.ShowPredictionWaiting();
 
-        // Capture context
         var appName = ScreenCaptureManager.Instance.GetActiveAppName();
         var windowTitle = ScreenCaptureManager.Instance.GetActiveWindowTitle();
 
         Task.Run(async () =>
         {
-            // Capture screenshot
             var screenshot = ScreenCaptureManager.Instance.CaptureActiveWindow();
 
-            // Connect WebSocket
             await WebSocket.WebSocketRegistry.Instance.ConnectUnifiedAudioTransport();
             var client = WebSocket.WebSocketRegistry.Instance.UnifiedAudioClient;
 
-            // Wait for connection
             var maxWait = DateTime.UtcNow.AddSeconds(5);
             while (client != null && !client.IsConnected && DateTime.UtcNow < maxWait)
             {
@@ -405,10 +361,9 @@ public partial class MainWindow : Window
 
             if (client == null || !client.IsConnected)
             {
-                Dispatcher.Invoke(() =>
+                Dispatcher.BeginInvoke(() =>
                 {
                     ViewCoordinator.Instance.CombinedPredictionState = CombinedPredictionState.Error;
-                    ViewCoordinator.Instance.ErrorMessage = "Connection failed";
                     ClosedContent.ShowError("Connection failed");
                 });
                 return;
@@ -416,16 +371,13 @@ public partial class MainWindow : Window
 
             client.ResetAccumulatedText();
 
-            // Subscribe to events
-            client.OnPredictionStreaming -= OnPredictionStreamingHandler;
-            client.OnPredictionComplete -= OnPredictionCompleteHandler;
+            // For tap prediction: only subscribe to complete and error (no streaming display)
+            client.OnPredictionComplete -= OnTapPredictionCompleteHandler;
             client.OnError -= OnPredictionErrorHandler;
 
-            client.OnPredictionStreaming += OnPredictionStreamingHandler;
-            client.OnPredictionComplete += OnPredictionCompleteHandler;
+            client.OnPredictionComplete += OnTapPredictionCompleteHandler;
             client.OnError += OnPredictionErrorHandler;
 
-            // Send end payload immediately with audio_completed=false (screenshot-only, matches macOS tap)
             FileLogger.Instance.Info("Prediction", "Tap prediction: sending screenshot-only payload");
             await client.SendEndPayload(
                 audioCompleted: false,
@@ -435,13 +387,31 @@ public partial class MainWindow : Window
         });
     }
 
+    private void OnTapPredictionCompleteHandler(object? sender, WebSocket.PredictionResult result)
+    {
+        Dispatcher.BeginInvoke(() =>
+        {
+            ViewCoordinator.Instance.CombinedPredictionState = CombinedPredictionState.Success;
+            ClipboardManager.Instance.PasteText(result.Text);
+            ClosedContent.ShowPredictionSuccess(result.Text);
+            Services.PredictionFeedbackService.Instance.OnPredictionSuccess(result.Id);
+
+            Task.Delay(4000).ContinueWith(_ =>
+            {
+                Dispatcher.BeginInvoke(() =>
+                {
+                    ViewCoordinator.Instance.CombinedPredictionState = CombinedPredictionState.Inactive;
+                    ClosedContent.ResetToIdle();
+                });
+            });
+        });
+    }
+
     private void OnPredictionReleased()
     {
-        // Stop audio capture
         AudioService.Instance.OnAudioDataAvailable -= OnPredictionAudioData;
         AudioService.Instance.StopCapture();
 
-        // Send end payload with screenshot + metadata
         Task.Run(async () =>
         {
             var client = WebSocket.WebSocketRegistry.Instance.UnifiedAudioClient;
@@ -456,7 +426,7 @@ public partial class MainWindow : Window
         });
     }
 
-    // Meeting flow - double-tap F1
+    // Meeting flow
     private void OnMeetingToggled()
     {
         if (!AuthManager.Instance.IsAuthenticated) return;
@@ -471,11 +441,10 @@ public partial class MainWindow : Window
         }
     }
 
-    // Dictation flow
+    // Dictation flow (hold key to record, release to process)
     private void OnDictationTriggered()
     {
         ViewCoordinator.Instance.DictationState = Services.DictationState.Waiting;
-        UpdateNotchBackground();
         ClosedContent.ShowDictationWaiting();
         _ = Services.DictationService.Instance.StartDictation();
     }

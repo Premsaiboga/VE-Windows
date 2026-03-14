@@ -174,7 +174,7 @@ public sealed class SettingsManager
     public bool CloseGestureEnabled { get => Get("CloseGestureEnabled", true); set => Set("CloseGestureEnabled", value); }
     public double GestureSensitivity { get => Get("GestureSensitivity", 200.0); set => Set("GestureSensitivity", value); }
 
-    // MARK: Modifier Keys
+    // MARK: Modifier Keys (legacy)
     public ModifierKeyOption PredictionModifierKey
     {
         get => Get("PredictionModifierKey", ModifierKeyOption.Control);
@@ -189,6 +189,19 @@ public sealed class SettingsManager
     {
         get => Get("InstructionModifierKey", ModifierKeyOption.Alt);
         set => Set("InstructionModifierKey", value);
+    }
+
+    // MARK: Configurable Shortcut Keys (virtual key codes)
+    // Default: F1 (0x70) for prediction, F2 (0x71) for dictation
+    public int PredictionKeyCode
+    {
+        get => Get("PredictionKeyCode", 0x70); // VK_F1
+        set => Set("PredictionKeyCode", value);
+    }
+    public int DictationKeyCode
+    {
+        get => Get("DictationKeyCode", 0x71); // VK_F2
+        set => Set("DictationKeyCode", value);
     }
 
     // MARK: Microphone

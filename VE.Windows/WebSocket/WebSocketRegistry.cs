@@ -24,6 +24,9 @@ public sealed class WebSocketRegistry : IDisposable
     public VoiceToTextSocketClient? VoiceToTextClient { get; private set; }
     public MultiAgentSocketClient? MultiAgentClient { get; private set; }
 
+    // Expose transport for direct access (used by ChatManager)
+    public WebSocketTransport? MultiAgentTransport => _multiAgentTransport;
+
     private WebSocketRegistry() { }
 
     public async Task ConnectUnifiedAudioTransport()

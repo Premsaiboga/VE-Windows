@@ -90,29 +90,39 @@ public sealed class ClipboardManager
 
         try
         {
-            // Set clipboard on UI thread
+            // Set clipboard on UI thread (must be STA)
             Application.Current?.Dispatcher.Invoke(() =>
             {
                 Clipboard.SetText(text);
             });
 
-            // Release all physically held modifier keys before pasting (matches macOS PasteHelper)
-            // This prevents conflicts when prediction Ctrl key or dictation Shift key is still down
-            ReleaseAllModifierKeys();
+            // Run key simulation on background thread to avoid blocking UI
+            Task.Run(() =>
+            {
+                try
+                {
+                    // Release all physically held modifier keys before pasting
+                    ReleaseAllModifierKeys();
 
-            // Wait for modifier keys to fully release (matches macOS 100ms delay)
-            Thread.Sleep(100);
+                    // Wait for modifier keys to fully release
+                    Thread.Sleep(120);
 
-            // Simulate Ctrl+V using keybd_event
-            keybd_event(VK_CONTROL, 0, 0, UIntPtr.Zero);
-            Thread.Sleep(30); // Wait for Ctrl to register (matches macOS)
-            keybd_event(VK_V, 0, 0, UIntPtr.Zero);
-            Thread.Sleep(50); // Wait before releasing V (matches macOS)
-            keybd_event(VK_V, 0, KEYEVENTF_KEYUP, UIntPtr.Zero);
-            Thread.Sleep(10); // Wait before releasing Ctrl (matches macOS)
-            keybd_event(VK_CONTROL, 0, KEYEVENTF_KEYUP, UIntPtr.Zero);
+                    // Simulate Ctrl+V using keybd_event
+                    keybd_event(VK_CONTROL, 0, 0, UIntPtr.Zero);
+                    Thread.Sleep(40);
+                    keybd_event(VK_V, 0, 0, UIntPtr.Zero);
+                    Thread.Sleep(60);
+                    keybd_event(VK_V, 0, KEYEVENTF_KEYUP, UIntPtr.Zero);
+                    Thread.Sleep(20);
+                    keybd_event(VK_CONTROL, 0, KEYEVENTF_KEYUP, UIntPtr.Zero);
 
-            FileLogger.Instance.Debug("Clipboard", $"Pasted {text.Length} chars");
+                    FileLogger.Instance.Debug("Clipboard", $"Pasted {text.Length} chars");
+                }
+                catch (Exception ex)
+                {
+                    FileLogger.Instance.Error("Clipboard", $"Paste key sim failed: {ex.Message}");
+                }
+            });
         }
         catch (Exception ex)
         {

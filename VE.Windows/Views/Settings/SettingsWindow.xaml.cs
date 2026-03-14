@@ -100,17 +100,113 @@ public partial class SettingsWindow : Window
             Text = "Keyboard Shortcuts",
             Foreground = ThemeManager.Instance.TextPrimaryBrush,
             FontSize = 24, FontWeight = FontWeights.SemiBold,
+            Margin = new Thickness(0, 0, 0, 8)
+        });
+        panel.Children.Add(new TextBlock
+        {
+            Text = "Configure which keys trigger prediction and dictation.",
+            Foreground = ThemeManager.Instance.TextSecondaryBrush,
+            FontSize = 13,
             Margin = new Thickness(0, 0, 0, 24)
         });
 
-        AddShortcutRow(panel, "AI Prediction", "Hold Ctrl (configurable)");
-        AddShortcutRow(panel, "Voice Dictation", "Hold Alt (configurable)");
-        AddShortcutRow(panel, "AI Instructions", "Hold Alt (configurable)");
-        AddShortcutRow(panel, "Meeting Notes", "Double-tap F1");
-        AddShortcutRow(panel, "Open Chat", "Ctrl+Shift+V");
-        AddShortcutRow(panel, "Settings", "Ctrl+,");
+        var settings = Models.SettingsManager.Instance;
+
+        // Prediction key selector
+        AddConfigurableShortcutRow(panel, "AI Prediction",
+            "Tap for screenshot. Hold and speak for voice + screenshot.",
+            settings.PredictionKeyCode, (keyCode) =>
+            {
+                settings.PredictionKeyCode = keyCode;
+            });
+
+        // Dictation key selector
+        AddConfigurableShortcutRow(panel, "Voice Dictation",
+            "Hold to record. Release to transcribe and paste.",
+            settings.DictationKeyCode, (keyCode) =>
+            {
+                settings.DictationKeyCode = keyCode;
+            });
+
+        // Fixed shortcuts info
+        panel.Children.Add(new Border
+        {
+            Margin = new Thickness(0, 16, 0, 0),
+            Padding = new Thickness(0, 12, 0, 0),
+            BorderThickness = new Thickness(0, 1, 0, 0),
+            BorderBrush = new System.Windows.Media.SolidColorBrush(
+                System.Windows.Media.Color.FromArgb(26, 255, 255, 255))
+        });
+
+        AddShortcutRow(panel, "Click Notch", "Open Chat");
+        AddShortcutRow(panel, "Escape", "Cancel current action");
 
         return panel;
+    }
+
+    private void AddConfigurableShortcutRow(StackPanel parent, string action, string description,
+        int currentKeyCode, Action<int> onKeyChanged)
+    {
+        var row = new Grid { Margin = new Thickness(0, 0, 0, 16) };
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+        var infoPanel = new StackPanel();
+        var actionText = new TextBlock
+        {
+            Text = action,
+            Foreground = ThemeManager.Instance.TextPrimaryBrush,
+            FontSize = 14,
+            FontWeight = FontWeights.SemiBold,
+            Margin = new Thickness(0, 0, 0, 4)
+        };
+        var descText = new TextBlock
+        {
+            Text = description,
+            Foreground = ThemeManager.Instance.TextSecondaryBrush,
+            FontSize = 12
+        };
+        infoPanel.Children.Add(actionText);
+        infoPanel.Children.Add(descText);
+        Grid.SetColumn(infoPanel, 0);
+
+        // Key selector dropdown
+        var combo = new ComboBox
+        {
+            Width = 100,
+            VerticalAlignment = VerticalAlignment.Center,
+            Background = new System.Windows.Media.SolidColorBrush(
+                System.Windows.Media.Color.FromArgb(26, 255, 255, 255)),
+            Foreground = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Colors.White),
+            FontSize = 13
+        };
+
+        var selectedIndex = 0;
+        var idx = 0;
+        foreach (var kv in Managers.KeyboardHookManager.AvailableKeys)
+        {
+            combo.Items.Add(kv.Key);
+            if (kv.Value == currentKeyCode) selectedIndex = idx;
+            idx++;
+        }
+        combo.SelectedIndex = selectedIndex;
+
+        combo.SelectionChanged += (s, e) =>
+        {
+            if (combo.SelectedItem is string keyName)
+            {
+                if (Managers.KeyboardHookManager.AvailableKeys.TryGetValue(keyName, out var keyCode))
+                {
+                    onKeyChanged(keyCode);
+                }
+            }
+        };
+
+        Grid.SetColumn(combo, 1);
+
+        row.Children.Add(infoPanel);
+        row.Children.Add(combo);
+        parent.Children.Add(row);
     }
 
     private static void AddShortcutRow(StackPanel parent, string action, string shortcut)

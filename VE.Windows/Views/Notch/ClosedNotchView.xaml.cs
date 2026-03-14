@@ -54,7 +54,6 @@ public partial class ClosedNotchView : UserControl
     public void ShowWelcome()
     {
         ShowWithAnimation(WelcomeContent);
-        // Auto-dismiss after 3s
         Task.Delay(3000).ContinueWith(_ =>
         {
             Dispatcher.Invoke(() => ShowWithAnimation(IdleContent));
@@ -94,6 +93,18 @@ public partial class ClosedNotchView : UserControl
     {
         ErrorText.Text = message;
         ShowWithAnimation(ErrorContent);
+
+        // Auto-dismiss error after 3 seconds
+        Task.Delay(3000).ContinueWith(_ =>
+        {
+            Dispatcher.Invoke(() =>
+            {
+                if (ErrorContent.Visibility == Visibility.Visible)
+                {
+                    ResetToIdle();
+                }
+            });
+        });
     }
 
     public void ShowUpdateBanner()
