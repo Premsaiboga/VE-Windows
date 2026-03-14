@@ -17,6 +17,10 @@ public class ChatMessage
     public bool IsStreaming { get; set; }
     public string? ThinkingContent { get; set; }
     public List<CodeBlock> CodeBlocks { get; set; } = new();
+
+    // Helper properties for XAML binding
+    public bool IsUser => Role == ChatRole.User;
+    public bool IsAssistant => Role == ChatRole.Assistant;
 }
 
 public class ChatConversation

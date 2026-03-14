@@ -182,7 +182,7 @@ public sealed class SettingsManager
     }
     public ModifierKeyOption DictationModifierKey
     {
-        get => Get("DictationModifierKey", ModifierKeyOption.None);
+        get => Get("DictationModifierKey", ModifierKeyOption.Shift);
         set => Set("DictationModifierKey", value);
     }
     public ModifierKeyOption InstructionModifierKey
