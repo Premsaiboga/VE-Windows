@@ -1,14 +1,27 @@
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media.Animation;
+using VE.Windows.Views.Settings;
 
 namespace VE.Windows.Views.Notch;
 
 public partial class ClosedNotchView : UserControl
 {
+    private static SettingsWindow? _settingsWindow;
+
     public ClosedNotchView()
     {
         InitializeComponent();
+    }
+
+    private void SettingsButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_settingsWindow == null || !_settingsWindow.IsLoaded)
+        {
+            _settingsWindow = new SettingsWindow();
+        }
+        _settingsWindow.Show();
+        _settingsWindow.Activate();
     }
 
     private void HideAll()

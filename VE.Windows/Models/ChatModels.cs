@@ -1,3 +1,6 @@
+using System.ComponentModel;
+using System.Runtime.CompilerServices;
+
 namespace VE.Windows.Models;
 
 public enum ChatRole
@@ -7,20 +10,52 @@ public enum ChatRole
     System
 }
 
-public class ChatMessage
+public class ChatMessage : INotifyPropertyChanged
 {
+    private string _content = "";
+    private bool _isStreaming;
+    private string? _thinkingContent;
+    private List<Citation> _citations = new();
+
+    public event PropertyChangedEventHandler? PropertyChanged;
+
     public string Id { get; set; } = Guid.NewGuid().ToString();
     public ChatRole Role { get; set; }
-    public string Content { get; set; } = "";
+
+    public string Content
+    {
+        get => _content;
+        set { _content = value; OnPropertyChanged(); }
+    }
+
     public DateTime Timestamp { get; set; } = DateTime.UtcNow;
-    public List<Citation> Citations { get; set; } = new();
-    public bool IsStreaming { get; set; }
-    public string? ThinkingContent { get; set; }
+
+    public List<Citation> Citations
+    {
+        get => _citations;
+        set { _citations = value; OnPropertyChanged(); }
+    }
+
+    public bool IsStreaming
+    {
+        get => _isStreaming;
+        set { _isStreaming = value; OnPropertyChanged(); }
+    }
+
+    public string? ThinkingContent
+    {
+        get => _thinkingContent;
+        set { _thinkingContent = value; OnPropertyChanged(); }
+    }
+
     public List<CodeBlock> CodeBlocks { get; set; } = new();
 
     // Helper properties for XAML binding
     public bool IsUser => Role == ChatRole.User;
     public bool IsAssistant => Role == ChatRole.Assistant;
+
+    private void OnPropertyChanged([CallerMemberName] string? name = null)
+        => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
 }
 
 public class ChatConversation

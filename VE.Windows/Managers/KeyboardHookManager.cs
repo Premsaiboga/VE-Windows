@@ -273,9 +273,12 @@ public sealed class KeyboardHookManager : IDisposable
                 else if (CurrentAction == ActiveAction.None && !_holdFired)
                 {
                     // Quick tap: released before hold threshold (350ms) - screenshot-only prediction
+                    // Note: _holdFired is set to true after firing to prevent double-fire
+                    // from both VK_LCONTROL and VK_CONTROL key up events
                     var elapsed = (DateTime.UtcNow - _heldModifierStartTime).TotalMilliseconds;
-                    if (elapsed > 50 && elapsed < HoldThresholdMs) // Ignore very short accidental presses
+                    if (elapsed > 50 && elapsed < HoldThresholdMs)
                     {
+                        _holdFired = true; // Prevent second key up from firing again
                         FileLogger.Instance.Info("KeyboardHook", $"Prediction tap detected ({elapsed:F0}ms)");
                         CurrentAction = ActiveAction.PredictionTap;
                         OnPredictionTapped?.Invoke(this, EventArgs.Empty);

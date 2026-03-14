@@ -17,6 +17,7 @@ public class UnifiedAudioSocketClient
     private readonly WebSocketTransport _transport;
     private string _accumulatedText = "";
     private DateTime _predictionStartTime;
+    private bool _predictionCompleted;
 
     public event EventHandler<string>? OnPredictionStreaming;
     public event EventHandler<PredictionResult>? OnPredictionComplete;
@@ -34,6 +35,7 @@ public class UnifiedAudioSocketClient
     public void ResetAccumulatedText()
     {
         _accumulatedText = "";
+        _predictionCompleted = false;
         _predictionStartTime = DateTime.UtcNow;
     }
 
@@ -241,10 +243,11 @@ public class UnifiedAudioSocketClient
             if (json.ContainsKey("output_completed"))
             {
                 var outputCompleted = json["output_completed"]?.Value<bool>() ?? false;
-                if (outputCompleted)
+                if (outputCompleted && !_predictionCompleted)
                 {
                     if (!string.IsNullOrEmpty(_accumulatedText))
                     {
+                        _predictionCompleted = true;
                         FileLogger.Instance.Info("UnifiedAudioClient", $"Prediction complete: {_accumulatedText.Length} chars");
                         OnPredictionComplete?.Invoke(this, new PredictionResult
                         {
@@ -261,7 +264,7 @@ public class UnifiedAudioSocketClient
                 }
             }
 
-            // Stream end - final signal with ID
+            // Stream end - final signal with ID (don't fire complete again if already fired)
             if (json.ContainsKey("stream_end"))
             {
                 var streamEnd = json["stream_end"]?.Value<bool>() ?? false;
@@ -270,14 +273,14 @@ public class UnifiedAudioSocketClient
                     var id = json["id"]?.ToString() ?? "";
                     var statusCode = json["status_code"]?.Value<int>() ?? 200;
 
-                    // macOS: only handle status_code 500 explicitly for predictions
                     if (statusCode == 500)
                     {
                         var error = json["error"]?.ToString() ?? "Couldn't capture your intent";
                         OnError?.Invoke(this, error);
                     }
-                    else if (statusCode == 200 && !string.IsNullOrEmpty(_accumulatedText))
+                    else if (statusCode == 200 && !string.IsNullOrEmpty(_accumulatedText) && !_predictionCompleted)
                     {
+                        _predictionCompleted = true;
                         OnPredictionComplete?.Invoke(this, new PredictionResult
                         {
                             Id = id,
@@ -285,14 +288,13 @@ public class UnifiedAudioSocketClient
                             Status = statusCode
                         });
                     }
-                    else if (string.IsNullOrEmpty(_accumulatedText))
+                    else if (string.IsNullOrEmpty(_accumulatedText) && !_predictionCompleted)
                     {
                         var errorMsg = json["status_message"]?.ToString() ?? "No words detected. Please speak closer to the microphone.";
                         FileLogger.Instance.Warning("UnifiedAudioClient", $"stream_end with no accumulated text, status: {statusCode}");
                         OnError?.Invoke(this, errorMsg);
                     }
 
-                    // Send response metadata
                     _ = SendResponseMetadata(id);
                 }
             }

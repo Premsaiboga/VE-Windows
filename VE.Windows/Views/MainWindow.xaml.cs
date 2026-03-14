@@ -15,8 +15,6 @@ namespace VE.Windows.Views;
 public partial class MainWindow : Window
 {
     private readonly MainViewModel _vm = new();
-    private bool _isHovering;
-    private CancellationTokenSource? _hoverCts;
     private FloatingPanelWindow? _floatingPanel;
     private Timer? _topmostTimer;
 
@@ -178,7 +176,7 @@ public partial class MainWindow : Window
 
     private void Window_MouseDown(object sender, MouseButtonEventArgs e)
     {
-        if (e.ChangedButton == MouseButton.Left && !_vm.IsOpen)
+        if (e.ChangedButton == MouseButton.Left)
         {
             if (!AuthManager.Instance.IsAuthenticated)
             {
@@ -186,7 +184,7 @@ public partial class MainWindow : Window
             }
             else
             {
-                // When authenticated, clicking notch toggles floating panel
+                // Click on notch opens chat (floating panel)
                 ShowFloatingPanel();
             }
         }
@@ -197,42 +195,6 @@ public partial class MainWindow : Window
         if (e.Key == Key.Escape && _vm.IsOpen)
         {
             AnimateClose();
-        }
-    }
-
-    private void NotchBorder_MouseEnter(object sender, MouseEventArgs e)
-    {
-        _isHovering = true;
-        if (!_vm.IsOpen)
-        {
-            _hoverCts?.Cancel();
-            _hoverCts = new CancellationTokenSource();
-            var ct = _hoverCts.Token;
-
-            Task.Delay(300).ContinueWith(_ =>
-            {
-                if (!ct.IsCancellationRequested && _isHovering && !_vm.IsOpen)
-                {
-                    Dispatcher.Invoke(AnimateOpen);
-                }
-            });
-        }
-    }
-
-    private void NotchBorder_MouseLeave(object sender, MouseEventArgs e)
-    {
-        _isHovering = false;
-        _hoverCts?.Cancel();
-
-        if (_vm.IsOpen)
-        {
-            Task.Delay(500).ContinueWith(_ =>
-            {
-                if (!_isHovering)
-                {
-                    Dispatcher.Invoke(AnimateClose);
-                }
-            });
         }
     }
 
@@ -343,13 +305,10 @@ public partial class MainWindow : Window
             client.OnPredictionComplete += OnPredictionCompleteHandler;
             client.OnError += OnPredictionErrorHandler;
 
-            // Start audio capture and stream chunks
+            // Start audio capture and stream chunks immediately
+            _predictionAudioSending = true;
             AudioService.Instance.OnAudioDataAvailable += OnPredictionAudioData;
             AudioService.Instance.StartCapture();
-
-            // Wait 200ms before enabling chunk sending (matches macOS quick-release behavior)
-            await Task.Delay(200);
-            _predictionAudioSending = true;
         });
     }
 

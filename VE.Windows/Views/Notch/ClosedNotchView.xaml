@@ -15,25 +15,34 @@
     </UserControl.Resources>
 
     <Grid x:Name="ContentGrid" MinWidth="200" Height="36">
-        <!-- Idle State: VE icon + status -->
+        <!-- Persistent: VE logo left, settings gear right -->
+        <TextBlock Text="VE"
+                   Foreground="White"
+                   FontSize="14"
+                   FontWeight="SemiBold"
+                   VerticalAlignment="Center"
+                   HorizontalAlignment="Left"
+                   Margin="12,0,0,0" />
+        <Button x:Name="SettingsButton"
+                Content="&#x2699;"
+                Foreground="#878E92"
+                FontSize="14"
+                Background="Transparent"
+                BorderThickness="0"
+                HorizontalAlignment="Right"
+                VerticalAlignment="Center"
+                Cursor="Hand"
+                Click="SettingsButton_Click"
+                Padding="8,0"
+                Margin="0,0,8,0" />
+
+        <!-- Idle State: status dot (centered) -->
         <Grid x:Name="IdleContent" Visibility="Visible">
-            <StackPanel Orientation="Horizontal"
-                        HorizontalAlignment="Center"
-                        VerticalAlignment="Center"
-                        Margin="12,0">
-                <!-- VE Logo -->
-                <TextBlock Text="VE"
-                           Foreground="White"
-                           FontSize="14"
-                           FontWeight="SemiBold"
-                           VerticalAlignment="Center"
-                           Margin="0,0,8,0" />
-                <!-- Status indicator dot -->
-                <Ellipse x:Name="StatusDot"
-                         Width="6" Height="6"
-                         Fill="#00CA48"
-                         VerticalAlignment="Center" />
-            </StackPanel>
+            <Ellipse x:Name="StatusDot"
+                     Width="6" Height="6"
+                     Fill="#00CA48"
+                     HorizontalAlignment="Center"
+                     VerticalAlignment="Center" />
         </Grid>
 
         <!-- Welcome Message (shown for 3s after login) -->

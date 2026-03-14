@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:local="clr-namespace:VE.Windows.Views.FloatingWindow"
         Title="VE"
-        Width="430" Height="580"
+        Width="480" Height="680"
         WindowStyle="None"
         AllowsTransparency="True"
         Background="Transparent"

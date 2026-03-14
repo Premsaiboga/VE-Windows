@@ -31,6 +31,8 @@ public sealed class DictationService : INotifyPropertyChanged
     private string? _dictationAppName;
     private string? _dictationWindowTitle;
     private DateTime _dictationStartTime;
+    private bool _stopRequested;
+    private UnifiedAudioSocketClient? _activeClient;
 
     public event PropertyChangedEventHandler? PropertyChanged;
 
@@ -62,6 +64,7 @@ public sealed class DictationService : INotifyPropertyChanged
         State = DictationState.Waiting;
         TranscribedText = "";
         ErrorMessage = null;
+        _stopRequested = false;
         _dictationStartTime = DateTime.UtcNow;
 
         // Capture context before VE window activates
@@ -83,11 +86,14 @@ public sealed class DictationService : INotifyPropertyChanged
 
             if (client == null || !client.IsConnected)
             {
+                FileLogger.Instance.Error("Dictation", "Failed to connect WebSocket");
                 State = DictationState.Error;
                 ErrorMessage = "Failed to connect to dictation service";
+                ViewCoordinator.Instance.DictationState = DictationState.Inactive;
                 return;
             }
 
+            _activeClient = client;
             client.ResetAccumulatedText();
 
             // Subscribe to dictation result event (enhanced_text response)
@@ -95,6 +101,14 @@ public sealed class DictationService : INotifyPropertyChanged
             client.OnError -= OnDictationError;
             client.OnDictationResult += OnDictationResult;
             client.OnError += OnDictationError;
+
+            // If stop was requested while we were connecting, handle it now
+            if (_stopRequested)
+            {
+                FileLogger.Instance.Info("Dictation", "Stop was requested during connection, stopping immediately");
+                await FinishDictation(client);
+                return;
+            }
 
             // Start audio capture
             AudioService.Instance.OnAudioDataAvailable += OnAudioData;
@@ -108,42 +122,77 @@ public sealed class DictationService : INotifyPropertyChanged
             FileLogger.Instance.Error("Dictation", $"Start failed: {ex.Message}");
             State = DictationState.Error;
             ErrorMessage = ex.Message;
+            ViewCoordinator.Instance.DictationState = DictationState.Inactive;
         }
     }
 
     public async Task StopDictation()
     {
-        if (State != DictationState.Recording && State != DictationState.Waiting) return;
+        if (State == DictationState.Inactive || State == DictationState.Processing) return;
 
-        FileLogger.Instance.Info("Dictation", "Stopping dictation...");
+        FileLogger.Instance.Info("Dictation", $"Stopping dictation (state: {State})...");
+
+        // If still waiting for connection, set flag so StartDictation handles it
+        if (State == DictationState.Waiting)
+        {
+            _stopRequested = true;
+            return;
+        }
+
         AudioService.Instance.OnAudioDataAvailable -= OnAudioData;
         AudioService.Instance.StopCapture();
 
+        var client = _activeClient ?? WebSocketRegistry.Instance.UnifiedAudioClient;
+        if (client != null)
+        {
+            await FinishDictation(client);
+        }
+        else
+        {
+            State = DictationState.Error;
+            ErrorMessage = "No active connection";
+            ViewCoordinator.Instance.DictationState = DictationState.Inactive;
+        }
+    }
+
+    private async Task FinishDictation(UnifiedAudioSocketClient client)
+    {
         State = DictationState.Processing;
 
-        // Send end payload with direct_agent="dictation" (matches macOS)
-        var client = WebSocketRegistry.Instance.UnifiedAudioClient;
-        if (client != null)
+        try
         {
             await client.SendDictationEndPayload(
                 appName: _dictationAppName,
                 windowTitle: _dictationWindowTitle);
+            FileLogger.Instance.Info("Dictation", "End payload sent, waiting for response...");
+        }
+        catch (Exception ex)
+        {
+            FileLogger.Instance.Error("Dictation", $"End payload failed: {ex.Message}");
+            State = DictationState.Error;
+            ErrorMessage = "Failed to send audio for processing";
+            ViewCoordinator.Instance.DictationState = DictationState.Inactive;
+            return;
         }
 
         // Auto-timeout if processing takes too long
-        _ = Task.Delay(TimeSpan.FromSeconds(10)).ContinueWith(_ =>
+        _ = Task.Delay(TimeSpan.FromSeconds(15)).ContinueWith(_ =>
         {
             if (State == DictationState.Processing)
             {
-                State = DictationState.Error;
-                ErrorMessage = "Processing timed out";
-                ViewCoordinator.Instance.DictationState = DictationState.Inactive;
+                System.Windows.Application.Current?.Dispatcher.BeginInvoke(() =>
+                {
+                    State = DictationState.Error;
+                    ErrorMessage = "Processing timed out";
+                    ViewCoordinator.Instance.DictationState = DictationState.Inactive;
+                });
             }
         });
     }
 
     public void CancelDictation()
     {
+        _stopRequested = true;
         AudioService.Instance.OnAudioDataAvailable -= OnAudioData;
         AudioService.Instance.StopCapture();
         CleanupSubscriptions();
@@ -155,8 +204,11 @@ public sealed class DictationService : INotifyPropertyChanged
 
     private void OnAudioData(object? sender, byte[] data)
     {
-        var client = WebSocketRegistry.Instance.UnifiedAudioClient;
-        _ = client?.SendAudioChunk(data);
+        var client = _activeClient ?? WebSocketRegistry.Instance.UnifiedAudioClient;
+        if (client != null)
+        {
+            _ = client.SendAudioChunk(data);
+        }
     }
 
     private void OnDictationResult(object? sender, string enhancedText)
@@ -169,15 +221,16 @@ public sealed class DictationService : INotifyPropertyChanged
             if (!string.IsNullOrWhiteSpace(enhancedText))
             {
                 State = DictationState.Success;
-                // Auto-paste transcribed text
                 ClipboardManager.Instance.PasteText(enhancedText);
                 FileLogger.Instance.Info("Dictation", $"Success: {enhancedText.Length} chars pasted");
                 ViewCoordinator.Instance.DictationState = DictationState.Inactive;
 
-                // Auto-dismiss after 3 seconds
                 _ = Task.Delay(3000).ContinueWith(_ =>
                 {
-                    if (State == DictationState.Success) State = DictationState.Inactive;
+                    System.Windows.Application.Current?.Dispatcher.BeginInvoke(() =>
+                    {
+                        if (State == DictationState.Success) State = DictationState.Inactive;
+                    });
                 });
             }
             else
@@ -193,7 +246,9 @@ public sealed class DictationService : INotifyPropertyChanged
     {
         System.Windows.Application.Current?.Dispatcher.BeginInvoke(() =>
         {
+            FileLogger.Instance.Error("Dictation", $"Error received: {error}");
             CleanupSubscriptions();
+            AudioService.Instance.OnAudioDataAvailable -= OnAudioData;
             AudioService.Instance.StopCapture();
             State = DictationState.Error;
             ErrorMessage = error;
@@ -203,12 +258,13 @@ public sealed class DictationService : INotifyPropertyChanged
 
     private void CleanupSubscriptions()
     {
-        var client = WebSocketRegistry.Instance.UnifiedAudioClient;
+        var client = _activeClient ?? WebSocketRegistry.Instance.UnifiedAudioClient;
         if (client != null)
         {
             client.OnDictationResult -= OnDictationResult;
             client.OnError -= OnDictationError;
         }
+        _activeClient = null;
     }
 
     private void OnPropertyChanged([CallerMemberName] string? name = null)

@@ -71,15 +71,13 @@
             </Border.Effect>
         </Border>
 
-        <!-- Main notch container -->
+        <!-- Main notch container (no hover expand - click to open chat) -->
         <Border x:Name="NotchBorder"
                 Width="220" Height="36"
                 CornerRadius="0,0,12,12"
                 HorizontalAlignment="Center"
                 VerticalAlignment="Top"
-                ClipToBounds="True"
-                MouseEnter="NotchBorder_MouseEnter"
-                MouseLeave="NotchBorder_MouseLeave">
+                ClipToBounds="True">
             <Border.Background>
                 <SolidColorBrush x:Name="NotchBg" Color="Black" />
             </Border.Background>
