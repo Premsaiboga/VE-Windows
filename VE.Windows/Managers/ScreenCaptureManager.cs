@@ -100,7 +100,7 @@ public sealed class ScreenCaptureManager
             if (jpegEncoder != null)
             {
                 var encoderParams = new EncoderParameters(1);
-                encoderParams.Param[0] = new EncoderParameter(Encoder.Quality, JpegQuality);
+                encoderParams.Param[0] = new EncoderParameter(System.Drawing.Imaging.Encoder.Quality, JpegQuality);
                 finalBitmap.Save(ms, jpegEncoder, encoderParams);
             }
             else
