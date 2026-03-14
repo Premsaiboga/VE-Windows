@@ -42,10 +42,7 @@ public partial class MeetingView : UserControl
                 break;
             case MeetingState.Result:
                 ResultPanel.Visibility = Visibility.Visible;
-                if (service.CurrentResult?.Summary != null)
-                {
-                    SummaryText.Text = service.CurrentResult.Summary.Overview;
-                }
+                SummaryText.Text = "Meeting notes saved.";
                 break;
             case MeetingState.Error:
                 MeetingErrorPanel.Visibility = Visibility.Visible;
