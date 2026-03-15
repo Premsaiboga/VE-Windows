@@ -54,7 +54,7 @@ public sealed class ChatManager : INotifyPropertyChanged
         var userMessage = new ChatMessage { Role = ChatRole.User, Content = text };
         var assistantMessage = new ChatMessage { Role = ChatRole.Assistant, Content = "", IsStreaming = true };
 
-        System.Windows.Application.Current?.Dispatcher.Invoke(() =>
+        Helpers.DispatcherHelper.RunOnUI(() =>
         {
             Messages.Add(userMessage);
             Messages.Add(assistantMessage);
@@ -223,7 +223,7 @@ public sealed class ChatManager : INotifyPropertyChanged
 
                 if (!string.IsNullOrEmpty(stepText))
                 {
-                    System.Windows.Application.Current?.Dispatcher.BeginInvoke(() =>
+                    Helpers.DispatcherHelper.PostOnUI(() =>
                     {
                         if (string.IsNullOrEmpty(assistantMessage.Content))
                             assistantMessage.ThinkingContent = stepText;
@@ -264,7 +264,7 @@ public sealed class ChatManager : INotifyPropertyChanged
                     }
                     if (citations.Count > 0)
                     {
-                        System.Windows.Application.Current?.Dispatcher.BeginInvoke(() =>
+                        Helpers.DispatcherHelper.PostOnUI(() =>
                         {
                             assistantMessage.Citations = citations;
                         });
@@ -315,7 +315,7 @@ public sealed class ChatManager : INotifyPropertyChanged
 
                 var isCancelled = json["status"]?.ToString() == "cancelled";
 
-                System.Windows.Application.Current?.Dispatcher.BeginInvoke(() =>
+                Helpers.DispatcherHelper.PostOnUI(() =>
                 {
                     if (!string.IsNullOrEmpty(_streamingAnswer) && string.IsNullOrEmpty(assistantMessage.Content))
                     {
@@ -358,7 +358,7 @@ public sealed class ChatManager : INotifyPropertyChanged
 
     private void AppendToAssistant(ChatMessage msg, string chunk)
     {
-        System.Windows.Application.Current?.Dispatcher.BeginInvoke(() =>
+        Helpers.DispatcherHelper.PostOnUI(() =>
         {
             msg.Content += chunk;
         });
@@ -366,7 +366,7 @@ public sealed class ChatManager : INotifyPropertyChanged
 
     private void SetAssistant(ChatMessage msg, string content)
     {
-        System.Windows.Application.Current?.Dispatcher.BeginInvoke(() =>
+        Helpers.DispatcherHelper.PostOnUI(() =>
         {
             if (string.IsNullOrEmpty(msg.Content))
                 msg.Content = content;
@@ -375,7 +375,7 @@ public sealed class ChatManager : INotifyPropertyChanged
 
     private void FinishStreaming(ChatMessage msg)
     {
-        System.Windows.Application.Current?.Dispatcher.BeginInvoke(() =>
+        Helpers.DispatcherHelper.PostOnUI(() =>
         {
             msg.IsStreaming = false;
             IsStreaming = false;

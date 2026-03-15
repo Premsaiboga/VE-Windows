@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
+using VE.Windows.Helpers;
 using VE.Windows.Services;
 
 namespace VE.Windows;
@@ -7,10 +8,12 @@ namespace VE.Windows;
 public enum CombinedPredictionState { Inactive, Waiting, Streaming, Success, Error }
 public enum NavigationTab { Home, Chat, Notes, Connectors, Knowledge, Instructions, Memory, Voice, Shortcuts }
 public enum RestrictedState { None, NoInternet, Expired, Waitlist, Suspended }
+public enum UpdateState { None, Available, Downloading, ReadyToInstall }
 
 /// <summary>
 /// View state coordination - single source of truth for UI state.
 /// Equivalent to macOS VEAIViewCoordinator.
+/// All property setters dispatch to the UI thread via DispatcherHelper.
 /// </summary>
 public sealed class ViewCoordinator : INotifyPropertyChanged
 {
@@ -25,8 +28,12 @@ public sealed class ViewCoordinator : INotifyPropertyChanged
     private NavigationTab _selectedNavigationTab = NavigationTab.Home;
     private bool _shouldHideNotchBar;
     private bool _isUpdateBannerVisible;
+    private UpdateState _updateState = UpdateState.None;
     private string? _predictionText;
     private string? _errorMessage;
+    private string? _errorCapsuleMessage;
+    private bool _isFloatingPanelVisible;
+    private bool _isAppActive = true;
 
     public event PropertyChangedEventHandler? PropertyChanged;
 
@@ -84,6 +91,12 @@ public sealed class ViewCoordinator : INotifyPropertyChanged
         set { _isUpdateBannerVisible = value; OnPropertyChanged(); }
     }
 
+    public UpdateState UpdateState
+    {
+        get => _updateState;
+        set { _updateState = value; OnPropertyChanged(); }
+    }
+
     public string? PredictionText
     {
         get => _predictionText;
@@ -96,9 +109,49 @@ public sealed class ViewCoordinator : INotifyPropertyChanged
         set { _errorMessage = value; OnPropertyChanged(); }
     }
 
+    /// <summary>
+    /// Error capsule message (shown below notch, auto-dismisses).
+    /// </summary>
+    public string? ErrorCapsuleMessage
+    {
+        get => _errorCapsuleMessage;
+        set { _errorCapsuleMessage = value; OnPropertyChanged(); }
+    }
+
+    /// <summary>
+    /// Whether the floating settings/chat panel is visible.
+    /// </summary>
+    public bool IsFloatingPanelVisible
+    {
+        get => _isFloatingPanelVisible;
+        set { _isFloatingPanelVisible = value; OnPropertyChanged(); }
+    }
+
+    /// <summary>
+    /// Whether the app is in the foreground (active).
+    /// Used by WebSocketRegistry for lifecycle management.
+    /// </summary>
+    public bool IsAppActive
+    {
+        get => _isAppActive;
+        set { _isAppActive = value; OnPropertyChanged(); }
+    }
+
     // Permission HUD
-    public bool ShowPermissionHUD { get; set; }
-    public string? PermissionHUDType { get; set; }
+    private bool _showPermissionHUD;
+    private string? _permissionHUDType;
+
+    public bool ShowPermissionHUD
+    {
+        get => _showPermissionHUD;
+        set { _showPermissionHUD = value; OnPropertyChanged(); }
+    }
+
+    public string? PermissionHUDType
+    {
+        get => _permissionHUDType;
+        set { _permissionHUDType = value; OnPropertyChanged(); }
+    }
 
     // Meeting detection (populated by MeetingDetectionService)
     private bool _isMeetingDetected;
@@ -116,15 +169,27 @@ public sealed class ViewCoordinator : INotifyPropertyChanged
         set { _detectedMeetingAppName = value; OnPropertyChanged(); }
     }
 
+    /// <summary>
+    /// Whether any active operation is in progress (prediction, dictation, or meeting).
+    /// Useful for UI to show/hide global activity indicators.
+    /// </summary>
+    public bool IsAnyOperationActive =>
+        CombinedPredictionState != CombinedPredictionState.Inactive ||
+        DictationState != DictationState.Inactive ||
+        MeetingState != MeetingState.Inactive;
+
     private ViewCoordinator()
     {
         // Monitor network
-        Helpers.NetworkMonitor.Instance.NetworkChanged += (s, connected) =>
+        NetworkMonitor.Instance.NetworkChanged += (s, connected) =>
         {
-            RestrictedState = connected ? RestrictedState.None : RestrictedState.NoInternet;
+            DispatcherHelper.PostOnUI(() =>
+            {
+                RestrictedState = connected ? RestrictedState.None : RestrictedState.NoInternet;
+            });
         };
 
-        if (!Helpers.NetworkMonitor.Instance.IsConnected)
+        if (!NetworkMonitor.Instance.IsConnected)
         {
             RestrictedState = RestrictedState.NoInternet;
         }
@@ -139,8 +204,40 @@ public sealed class ViewCoordinator : INotifyPropertyChanged
         HasError = false;
         PredictionText = null;
         ErrorMessage = null;
+        ErrorCapsuleMessage = null;
+    }
+
+    /// <summary>
+    /// Show a temporary error capsule below the notch. Auto-dismisses after the specified duration.
+    /// Thread-safe: can be called from any thread.
+    /// </summary>
+    public void ShowErrorCapsule(string message, int dismissAfterMs = 5000)
+    {
+        DispatcherHelper.PostOnUI(() =>
+        {
+            ErrorCapsuleMessage = message;
+            HasError = true;
+        });
+
+        // Auto-dismiss
+        _ = Task.Delay(dismissAfterMs).ContinueWith(_ =>
+        {
+            DispatcherHelper.PostOnUI(() =>
+            {
+                if (ErrorCapsuleMessage == message)
+                {
+                    ErrorCapsuleMessage = null;
+                    HasError = false;
+                }
+            });
+        });
     }
 
     private void OnPropertyChanged([CallerMemberName] string? name = null)
-        => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
+    {
+        DispatcherHelper.PostOnUI(() =>
+        {
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
+        });
+    }
 }
