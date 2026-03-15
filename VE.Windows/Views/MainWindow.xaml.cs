@@ -343,10 +343,12 @@ public partial class MainWindow : Window
 
             client.OnPredictionStreaming -= OnPredictionStreamingHandler;
             client.OnPredictionComplete -= OnPredictionCompleteHandler;
+            client.OnDictationResult -= OnVoicePredictionDictationHandler;
             client.OnError -= OnPredictionErrorHandler;
 
             client.OnPredictionStreaming += OnPredictionStreamingHandler;
             client.OnPredictionComplete += OnPredictionCompleteHandler;
+            client.OnDictationResult += OnVoicePredictionDictationHandler;
             client.OnError += OnPredictionErrorHandler;
 
             // Flush buffered audio
@@ -372,6 +374,49 @@ public partial class MainWindow : Window
             ViewCoordinator.Instance.CombinedPredictionState = CombinedPredictionState.Streaming;
             ViewCoordinator.Instance.PredictionText = text;
             ClosedContent.ShowPredictionStreaming(text);
+        });
+    }
+
+    /// <summary>
+    /// Handle voice prediction responses that come back as dictation format (enhanced_text).
+    /// The server returns "type":"dictation" for voice predictions — same format as dictation.
+    /// Route this through the prediction complete flow so it gets pasted.
+    /// </summary>
+    private void OnVoicePredictionDictationHandler(object? sender, string enhancedText)
+    {
+        if (string.IsNullOrWhiteSpace(enhancedText)) return;
+
+        // Only handle if we're in a prediction state (not actual dictation)
+        if (ViewCoordinator.Instance.CombinedPredictionState == CombinedPredictionState.Inactive)
+            return;
+
+        FileLogger.Instance.Info("Prediction", $"Voice prediction received as dictation format: {enhancedText.Length} chars");
+
+        // Route through the same prediction complete flow
+        UnsubscribePredictionHandlers();
+
+        Dispatcher.BeginInvoke(() =>
+        {
+            ViewCoordinator.Instance.CombinedPredictionState = CombinedPredictionState.Success;
+
+            PasteToTargetWindow(enhancedText);
+
+            Task.Delay(600).ContinueWith(_ =>
+            {
+                Dispatcher.BeginInvoke(() =>
+                {
+                    ClosedContent.ShowPredictionSuccess(enhancedText);
+
+                    Task.Delay(4000).ContinueWith(_ =>
+                    {
+                        Dispatcher.BeginInvoke(() =>
+                        {
+                            ViewCoordinator.Instance.CombinedPredictionState = CombinedPredictionState.Inactive;
+                            ClosedContent.ResetToIdle();
+                        });
+                    });
+                });
+            });
         });
     }
 
@@ -434,6 +479,7 @@ public partial class MainWindow : Window
         client.OnPredictionStreaming -= OnPredictionStreamingHandler;
         client.OnPredictionComplete -= OnPredictionCompleteHandler;
         client.OnPredictionComplete -= OnTapPredictionCompleteHandler;
+        client.OnDictationResult -= OnVoicePredictionDictationHandler;
         client.OnError -= OnPredictionErrorHandler;
     }
 
