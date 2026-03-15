@@ -88,6 +88,10 @@ public partial class App : Application
         // Initialize keyboard hooks
         KeyboardHookManager.Instance.Start();
 
+        // App lifecycle observers (matches macOS resignActive / didBecomeActive)
+        Activated += async (s, e) => await WebSocketRegistry.Instance.OnAppActivated();
+        Deactivated += (s, e) => WebSocketRegistry.Instance.OnAppDeactivated();
+
         FileLogger.Instance.Info("App", "Application started successfully");
     }
 

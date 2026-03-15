@@ -1,3 +1,4 @@
+using Microsoft.Win32;
 using VE.Windows.Helpers;
 using VE.Windows.Managers;
 using VE.Windows.Services;
@@ -5,29 +6,199 @@ using VE.Windows.Services;
 namespace VE.Windows.WebSocket;
 
 /// <summary>
-/// Registry that owns and initializes all WebSocket transports and clients.
-/// Equivalent to macOS WebSocketRegistry.
+/// Registry that owns all WebSocket transports and clients.
+/// Handles sleep/wake reconnection, pending transport pattern for non-disruptive
+/// token refresh, and app lifecycle management.
+/// Matches macOS WebSocketRegistry: pending transport swap, lifecycle observers,
+/// sleep/wake handling.
 /// </summary>
 public sealed class WebSocketRegistry : IDisposable
 {
     public static WebSocketRegistry Instance { get; } = new();
 
-    // Transports
+    // Active transports
     private WebSocketTransport? _unifiedAudioTransport;
     private WebSocketTransport? _dictationTransport;
     private WebSocketTransport? _multiAgentTransport;
     private WebSocketTransport? _voiceToTextTransport;
     private WebSocketTransport? _meetingTransport;
 
+    // Pending transport pattern (matches macOS): new transport with fresh token,
+    // swapped in after active operation completes
+    private WebSocketTransport? _pendingUnifiedAudioTransport;
+    private WebSocketTransport? _oldUnifiedAudioTransport;
+
     // Clients
     public UnifiedAudioSocketClient? UnifiedAudioClient { get; private set; }
     public VoiceToTextSocketClient? VoiceToTextClient { get; private set; }
     public MultiAgentSocketClient? MultiAgentClient { get; private set; }
+    public MeetingSocketClient? MeetingClient { get; private set; }
 
-    // Expose transport for direct access (used by ChatManager)
+    // Expose transport for direct access
     public WebSocketTransport? MultiAgentTransport => _multiAgentTransport;
 
-    private WebSocketRegistry() { }
+    // App lifecycle tracking
+    private DateTime? _deactivatedAt;
+    private Timer? _deactivationTimer;
+    private const int DeactivationTimeoutSeconds = 60;
+    private bool _isSystemSleeping;
+
+    private WebSocketRegistry()
+    {
+        // Subscribe to system sleep/wake events (matches macOS NSWorkspace willSleep/didWake)
+        SystemEvents.PowerModeChanged += OnPowerModeChanged;
+    }
+
+    // --- Sleep/Wake Handling (Section 2.2) ---
+
+    /// <summary>
+    /// Handle system sleep/wake events.
+    /// On Suspend: disconnect all WebSockets cleanly.
+    /// On Resume: wait 2 seconds for network stack, then verify and reconnect.
+    /// Matches macOS willSleepNotification / didWakeNotification.
+    /// </summary>
+    private void OnPowerModeChanged(object sender, PowerModeChangedEventArgs e)
+    {
+        switch (e.Mode)
+        {
+            case PowerModes.Suspend:
+                _isSystemSleeping = true;
+                FileLogger.Instance.Info("WebSocketRegistry", "System sleeping — disconnecting all transports");
+                DisconnectAllForSleep();
+                break;
+
+            case PowerModes.Resume:
+                _isSystemSleeping = false;
+                FileLogger.Instance.Info("WebSocketRegistry", "System waking — reconnecting after 2s delay");
+                _ = ReconnectAllAfterDelay(TimeSpan.FromSeconds(2));
+                break;
+        }
+    }
+
+    private void DisconnectAllForSleep()
+    {
+        // Intentional disconnect — don't trigger reconnect logic
+        try { _unifiedAudioTransport?.DisconnectAsync().Wait(TimeSpan.FromSeconds(2)); } catch { }
+        try { _dictationTransport?.DisconnectAsync().Wait(TimeSpan.FromSeconds(2)); } catch { }
+        try { _multiAgentTransport?.DisconnectAsync().Wait(TimeSpan.FromSeconds(2)); } catch { }
+        try { _voiceToTextTransport?.DisconnectAsync().Wait(TimeSpan.FromSeconds(2)); } catch { }
+        // Keep meeting transport if meeting is active
+        if (MeetingClient != null && MeetingService.Instance.IsActive)
+        {
+            FileLogger.Instance.Info("WebSocketRegistry", "Keeping meeting transport alive during sleep");
+        }
+        else
+        {
+            try { _meetingTransport?.DisconnectAsync().Wait(TimeSpan.FromSeconds(2)); } catch { }
+        }
+    }
+
+    private async Task ReconnectAllAfterDelay(TimeSpan delay)
+    {
+        await Task.Delay(delay);
+        if (_isSystemSleeping) return; // System went back to sleep
+
+        FileLogger.Instance.Info("WebSocketRegistry", "Reconnecting transports after wake...");
+        await VerifyAllConnections();
+    }
+
+    // --- App Lifecycle (Section 2.3) ---
+
+    /// <summary>
+    /// Called when app is activated (window focused). Reconnect if deactivated for >60s.
+    /// Matches macOS didBecomeActive observer.
+    /// </summary>
+    public async Task OnAppActivated()
+    {
+        _deactivationTimer?.Dispose();
+        _deactivationTimer = null;
+
+        if (_deactivatedAt != null)
+        {
+            var elapsed = DateTime.UtcNow - _deactivatedAt.Value;
+            _deactivatedAt = null;
+
+            if (elapsed.TotalSeconds > DeactivationTimeoutSeconds)
+            {
+                FileLogger.Instance.Info("WebSocketRegistry", $"App reactivated after {elapsed.TotalSeconds:F0}s — verifying connections");
+                await VerifyAllConnections();
+            }
+        }
+    }
+
+    /// <summary>
+    /// Called when app is deactivated (minimized/hidden). After 60s, disconnect non-essential.
+    /// Keeps meeting transport alive if meeting is active.
+    /// Matches macOS resignActive observer.
+    /// </summary>
+    public void OnAppDeactivated()
+    {
+        _deactivatedAt = DateTime.UtcNow;
+
+        // Set timer to disconnect non-essential transports after 60s
+        _deactivationTimer?.Dispose();
+        _deactivationTimer = new Timer(_ =>
+        {
+            FileLogger.Instance.Info("WebSocketRegistry", "App deactivated for >60s — disconnecting non-essential transports");
+            // Don't disconnect meeting if active
+            try { _multiAgentTransport?.DisconnectAsync().Wait(TimeSpan.FromSeconds(2)); } catch { }
+        }, null, TimeSpan.FromSeconds(DeactivationTimeoutSeconds), Timeout.InfiniteTimeSpan);
+    }
+
+    // --- Pending Transport Pattern (Section 2.4) ---
+
+    /// <summary>
+    /// Prepare a pending transport with fresh token. Does NOT disrupt active connections.
+    /// Call SwapPendingTransport() when the active operation completes.
+    /// Matches macOS pendingUnifiedAudioTransport pattern.
+    /// </summary>
+    public async Task PreparePendingUnifiedAudioTransport()
+    {
+        var baseUrl = BaseURLService.Instance.GetBaseUrl("unified_audio_ws_api");
+        if (baseUrl == null) return;
+
+        var tenantId = AuthManager.Instance.Storage.TenantId;
+        if (string.IsNullOrEmpty(tenantId)) return;
+
+        var sessionId = Guid.NewGuid().ToString("N").Substring(0, 24);
+        var url = $"{baseUrl}/{tenantId}/{sessionId}/invoke-predictor";
+
+        FileLogger.Instance.Info("WebSocketRegistry", "Preparing pending unified audio transport...");
+
+        _pendingUnifiedAudioTransport?.Dispose();
+        _pendingUnifiedAudioTransport = new WebSocketTransport(url);
+        await _pendingUnifiedAudioTransport.ConnectAsync();
+    }
+
+    /// <summary>
+    /// Swap the pending transport into active use. Dispose the old transport.
+    /// Called when ViewCoordinator confirms no active prediction/dictation in progress.
+    /// </summary>
+    public void SwapPendingTransport()
+    {
+        if (_pendingUnifiedAudioTransport == null) return;
+
+        // Only swap when no active operation
+        var state = ViewCoordinator.Instance.CombinedPredictionState;
+        var dictState = ViewCoordinator.Instance.DictationState;
+        if (state != CombinedPredictionState.Inactive || dictState != DictationState.Inactive)
+        {
+            FileLogger.Instance.Debug("WebSocketRegistry", "Active operation in progress — deferring swap");
+            return;
+        }
+
+        FileLogger.Instance.Info("WebSocketRegistry", "Swapping pending transport to active");
+        _oldUnifiedAudioTransport = _unifiedAudioTransport;
+        _unifiedAudioTransport = _pendingUnifiedAudioTransport;
+        UnifiedAudioClient = new UnifiedAudioSocketClient(_unifiedAudioTransport);
+        _pendingUnifiedAudioTransport = null;
+
+        // Dispose old transport
+        _oldUnifiedAudioTransport?.Dispose();
+        _oldUnifiedAudioTransport = null;
+    }
+
+    // --- Transport Connect Methods ---
 
     public async Task ConnectUnifiedAudioTransport()
     {
@@ -41,10 +212,7 @@ public sealed class WebSocketRegistry : IDisposable
             return;
         }
 
-        // Generate a unique session ID (hex string like macOS BSON ObjectId)
         var sessionId = Guid.NewGuid().ToString("N").Substring(0, 24);
-
-        // Construct URL: wss://cursor-intelligence.{region}.ve.ai/{tenantId}/{sessionId}/invoke-predictor
         var url = $"{baseUrl}/{tenantId}/{sessionId}/invoke-predictor";
 
         FileLogger.Instance.Info("WebSocketRegistry", $"Connecting unified audio to: {url}");
@@ -103,8 +271,6 @@ public sealed class WebSocketRegistry : IDisposable
         FileLogger.Instance.Info("WebSocketRegistry", "Multi-agent transport connected");
     }
 
-    public MeetingSocketClient? MeetingClient { get; private set; }
-
     public async Task ConnectMeetingTransport(string meetingId)
     {
         var token = AuthManager.Instance.Storage.UserToken;
@@ -115,7 +281,6 @@ public sealed class WebSocketRegistry : IDisposable
         }
 
         var encodedToken = Uri.EscapeDataString(token);
-        // macOS uses: wss://meetings.us-east-1.ve.ai/frontend/ws/{meetingId}?token={encodedToken}
         var url = $"wss://meetings.us-east-1.ve.ai/frontend/ws/{meetingId}?token={encodedToken}";
 
         FileLogger.Instance.Info("WebSocketRegistry", $"Connecting meeting transport for meeting: {meetingId}");
@@ -143,12 +308,16 @@ public sealed class WebSocketRegistry : IDisposable
         _multiAgentTransport?.Dispose();
         _voiceToTextTransport?.Dispose();
         _meetingTransport?.Dispose();
+        _pendingUnifiedAudioTransport?.Dispose();
+        _oldUnifiedAudioTransport?.Dispose();
 
         _unifiedAudioTransport = null;
         _dictationTransport = null;
         _multiAgentTransport = null;
         _voiceToTextTransport = null;
         _meetingTransport = null;
+        _pendingUnifiedAudioTransport = null;
+        _oldUnifiedAudioTransport = null;
 
         UnifiedAudioClient = null;
         VoiceToTextClient = null;
@@ -164,10 +333,14 @@ public sealed class WebSocketRegistry : IDisposable
             await _dictationTransport.VerifyConnectionHealth();
         if (_multiAgentTransport != null)
             await _multiAgentTransport.VerifyConnectionHealth();
+        if (_meetingTransport != null)
+            await _meetingTransport.VerifyConnectionHealth();
     }
 
     public void Dispose()
     {
+        _deactivationTimer?.Dispose();
+        SystemEvents.PowerModeChanged -= OnPowerModeChanged;
         DisconnectAll();
     }
 }
