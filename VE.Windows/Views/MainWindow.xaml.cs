@@ -377,20 +377,33 @@ public partial class MainWindow : Window
 
     private void OnPredictionCompleteHandler(object? sender, WebSocket.PredictionResult result)
     {
+        // Unsubscribe IMMEDIATELY so dictation doesn't trigger prediction handlers
+        UnsubscribePredictionHandlers();
+
         Dispatcher.BeginInvoke(() =>
         {
             ViewCoordinator.Instance.CombinedPredictionState = CombinedPredictionState.Success;
-            // Pass target window handle so paste goes to the right window
-            PasteToTargetWindow(result.Text);
-            ClosedContent.ShowPredictionSuccess(result.Text);
             Services.PredictionFeedbackService.Instance.OnPredictionSuccess(result.Id);
 
-            Task.Delay(4000).ContinueWith(_ =>
+            // Paste FIRST — before any UI update that could steal focus
+            PasteToTargetWindow(result.Text);
+
+            // Delay notch UI update to let paste complete (paste runs on background thread
+            // with ~350ms of delays before sending Ctrl+V)
+            Task.Delay(600).ContinueWith(_ =>
             {
                 Dispatcher.BeginInvoke(() =>
                 {
-                    ViewCoordinator.Instance.CombinedPredictionState = CombinedPredictionState.Inactive;
-                    ClosedContent.ResetToIdle();
+                    ClosedContent.ShowPredictionSuccess(result.Text);
+
+                    Task.Delay(4000).ContinueWith(_ =>
+                    {
+                        Dispatcher.BeginInvoke(() =>
+                        {
+                            ViewCoordinator.Instance.CombinedPredictionState = CombinedPredictionState.Inactive;
+                            ClosedContent.ResetToIdle();
+                        });
+                    });
                 });
             });
         });
@@ -398,12 +411,30 @@ public partial class MainWindow : Window
 
     private void OnPredictionErrorHandler(object? sender, string error)
     {
+        // Unsubscribe IMMEDIATELY so dictation doesn't trigger prediction handlers
+        UnsubscribePredictionHandlers();
+
         Dispatcher.BeginInvoke(() =>
         {
             ViewCoordinator.Instance.CombinedPredictionState = CombinedPredictionState.Error;
             ClosedContent.ResetToIdle();
             ErrorCapsuleWindow.ShowError(error); // Show in capsule below notch
         });
+    }
+
+    /// <summary>
+    /// Unsubscribe all prediction event handlers from the UnifiedAudioClient.
+    /// MUST be called after prediction completes or errors to prevent
+    /// dictation/other operations from triggering prediction UI.
+    /// </summary>
+    private void UnsubscribePredictionHandlers()
+    {
+        var client = WebSocket.WebSocketRegistry.Instance.UnifiedAudioClient;
+        if (client == null) return;
+        client.OnPredictionStreaming -= OnPredictionStreamingHandler;
+        client.OnPredictionComplete -= OnPredictionCompleteHandler;
+        client.OnPredictionComplete -= OnTapPredictionCompleteHandler;
+        client.OnError -= OnPredictionErrorHandler;
     }
 
     private void OnPredictionAudioData(object? sender, byte[] data)
@@ -485,19 +516,32 @@ public partial class MainWindow : Window
 
     private void OnTapPredictionCompleteHandler(object? sender, WebSocket.PredictionResult result)
     {
+        // Unsubscribe IMMEDIATELY
+        UnsubscribePredictionHandlers();
+
         Dispatcher.BeginInvoke(() =>
         {
             ViewCoordinator.Instance.CombinedPredictionState = CombinedPredictionState.Success;
-            PasteToTargetWindow(result.Text);
-            ClosedContent.ShowPredictionSuccess(result.Text);
             Services.PredictionFeedbackService.Instance.OnPredictionSuccess(result.Id);
 
-            Task.Delay(4000).ContinueWith(_ =>
+            // Paste FIRST — before any UI update that could steal focus
+            PasteToTargetWindow(result.Text);
+
+            // Delay notch UI update to let paste complete
+            Task.Delay(600).ContinueWith(_ =>
             {
                 Dispatcher.BeginInvoke(() =>
                 {
-                    ViewCoordinator.Instance.CombinedPredictionState = CombinedPredictionState.Inactive;
-                    ClosedContent.ResetToIdle();
+                    ClosedContent.ShowPredictionSuccess(result.Text);
+
+                    Task.Delay(4000).ContinueWith(_ =>
+                    {
+                        Dispatcher.BeginInvoke(() =>
+                        {
+                            ViewCoordinator.Instance.CombinedPredictionState = CombinedPredictionState.Inactive;
+                            ClosedContent.ResetToIdle();
+                        });
+                    });
                 });
             });
         });

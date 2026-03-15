@@ -96,6 +96,18 @@ public sealed class DictationService : INotifyPropertyChanged
         AudioService.Instance.OnAudioDataAvailable += OnAudioData;
         AudioService.Instance.StartCapture();
 
+        // Check if audio actually started — if no mic, abort immediately
+        if (!AudioService.Instance.IsRecording)
+        {
+            FileLogger.Instance.Error("Dictation", "Audio capture failed (no microphone)");
+            AudioService.Instance.OnAudioDataAvailable -= OnAudioData;
+            State = DictationState.Error;
+            ErrorMessage = "No microphone available";
+            OnDictationError?.Invoke(this, ErrorMessage);
+            ViewCoordinator.Instance.DictationState = DictationState.Inactive;
+            return;
+        }
+
         State = DictationState.Recording;
         OnDictationStarted?.Invoke(this, EventArgs.Empty);
         FileLogger.Instance.Info("Dictation", "Audio capture started immediately (buffering until WebSocket connects)");
