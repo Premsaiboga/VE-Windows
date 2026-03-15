@@ -6,7 +6,8 @@ namespace VE.Windows.Managers;
 
 /// <summary>
 /// Clipboard operations and text pasting via simulated Ctrl+V.
-/// Matches macOS PasteHelper: releases modifier keys, restores focus, simulates paste.
+/// Uses Win32 OpenClipboard/SetClipboardData/CloseClipboard directly to avoid
+/// WPF Clipboard.SetText lock issues (CLIPBRD_E_CANT_OPEN).
 /// Uses AttachThreadInput + SetForegroundWindow + SendInput for reliable paste on Windows.
 /// </summary>
 public sealed class ClipboardManager
@@ -36,6 +37,38 @@ public sealed class ClipboardManager
 
     [DllImport("user32.dll")]
     private static extern bool BringWindowToTop(IntPtr hWnd);
+
+    // Win32 clipboard API - bypasses WPF Clipboard lock issues
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern bool OpenClipboard(IntPtr hWndNewOwner);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern bool CloseClipboard();
+
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern bool EmptyClipboard();
+
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern IntPtr SetClipboardData(uint uFormat, IntPtr hMem);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern IntPtr GetClipboardData(uint uFormat);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern IntPtr GlobalAlloc(uint uFlags, UIntPtr dwBytes);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern IntPtr GlobalLock(IntPtr hMem);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool GlobalUnlock(IntPtr hMem);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern IntPtr GlobalFree(IntPtr hMem);
+
+    private const uint CF_UNICODETEXT = 13;
+    private const uint GMEM_MOVEABLE = 0x0002;
 
     private const ushort VK_CONTROL = 0x11;
     private const ushort VK_LCONTROL = 0xA2;
@@ -80,6 +113,12 @@ public sealed class ClipboardManager
         public IntPtr dwExtraInfo;
     }
 
+    // Paste cleanup: restore original clipboard after 2-minute timeout (matches macOS)
+    private string? _originalClipboardContent;
+    private DateTime _pasteTimestamp;
+    private Timer? _restoreTimer;
+    private const int ClipboardRestoreTimeoutMs = 120_000; // 2 minutes
+
     private ClipboardManager() { }
 
     public string? ReadClipboard()
@@ -94,10 +133,90 @@ public sealed class ClipboardManager
 
     public void WriteClipboard(string text)
     {
-        RunOnSTAThread(() =>
+        SetClipboardWithRetry(text);
+    }
+
+    /// <summary>
+    /// Set clipboard text using Win32 API with retry logic.
+    /// Avoids WPF Clipboard.SetText which causes CLIPBRD_E_CANT_OPEN errors.
+    /// </summary>
+    private bool SetClipboardWithRetry(string text, int maxRetries = 10)
+    {
+        for (int attempt = 1; attempt <= maxRetries; attempt++)
         {
-            try { Clipboard.SetText(text); } catch { }
-        });
+            if (SetClipboardWin32(text))
+            {
+                FileLogger.Instance.Info("Clipboard", $"Set clipboard OK on attempt {attempt}: {text.Length} chars");
+                return true;
+            }
+            // Wait before retry - clipboard may be held by another process briefly
+            Thread.Sleep(50 * attempt); // Increasing backoff: 50, 100, 150, ...
+        }
+        FileLogger.Instance.Error("Clipboard", $"Failed to set clipboard after {maxRetries} attempts");
+        return false;
+    }
+
+    /// <summary>
+    /// Set clipboard text using raw Win32 API (OpenClipboard/SetClipboardData/CloseClipboard).
+    /// This bypasses the WPF Clipboard class entirely.
+    /// </summary>
+    private static bool SetClipboardWin32(string text)
+    {
+        if (!OpenClipboard(IntPtr.Zero))
+        {
+            var err = Marshal.GetLastWin32Error();
+            FileLogger.Instance.Warning("Clipboard", $"OpenClipboard failed: 0x{err:X}");
+            return false;
+        }
+
+        try
+        {
+            EmptyClipboard();
+
+            // Allocate global memory for the Unicode string (including null terminator)
+            var chars = text.ToCharArray();
+            var byteCount = (chars.Length + 1) * 2; // UTF-16, +1 for null terminator
+            var hGlobal = GlobalAlloc(GMEM_MOVEABLE, (UIntPtr)byteCount);
+            if (hGlobal == IntPtr.Zero)
+            {
+                FileLogger.Instance.Error("Clipboard", "GlobalAlloc failed");
+                return false;
+            }
+
+            var ptr = GlobalLock(hGlobal);
+            if (ptr == IntPtr.Zero)
+            {
+                GlobalFree(hGlobal);
+                FileLogger.Instance.Error("Clipboard", "GlobalLock failed");
+                return false;
+            }
+
+            try
+            {
+                Marshal.Copy(chars, 0, ptr, chars.Length);
+                // Write null terminator
+                Marshal.WriteInt16(ptr, chars.Length * 2, 0);
+            }
+            finally
+            {
+                GlobalUnlock(hGlobal);
+            }
+
+            var result = SetClipboardData(CF_UNICODETEXT, hGlobal);
+            if (result == IntPtr.Zero)
+            {
+                GlobalFree(hGlobal);
+                FileLogger.Instance.Error("Clipboard", "SetClipboardData failed");
+                return false;
+            }
+            // Do NOT call GlobalFree after successful SetClipboardData - OS owns it now
+
+            return true;
+        }
+        finally
+        {
+            CloseClipboard();
+        }
     }
 
     /// <summary>
@@ -122,13 +241,17 @@ public sealed class ClipboardManager
     {
         try
         {
-            // Step 1: Set clipboard on STA thread
-            Application.Current?.Dispatcher.Invoke(() =>
-            {
-                Clipboard.SetText(text);
-            });
+            // Step 0: Save original clipboard content for restore after 2-minute timeout
+            SaveOriginalClipboard();
 
-            FileLogger.Instance.Info("Clipboard", $"Set clipboard: {text.Length} chars, target: 0x{targetWindow:X}");
+            // Step 1: Set clipboard using Win32 API with retry (NOT WPF Clipboard.SetText)
+            if (!SetClipboardWithRetry(text))
+            {
+                FileLogger.Instance.Error("Clipboard", "Cannot paste - clipboard set failed");
+                return;
+            }
+
+            FileLogger.Instance.Info("Clipboard", $"Clipboard set: {text.Length} chars, target: 0x{targetWindow:X}");
 
             // Step 2: Run paste simulation on background thread (matches macOS threading)
             Task.Run(() =>
@@ -140,7 +263,6 @@ public sealed class ClipboardManager
                     Thread.Sleep(100); // 100ms wait after release (matches macOS)
 
                     // Step 4: Restore focus to target window using AttachThreadInput
-                    // This is the Windows equivalent of macOS's frontmostApp.activate()
                     if (targetWindow != IntPtr.Zero)
                     {
                         var currentFg = GetForegroundWindow();
@@ -153,29 +275,22 @@ public sealed class ClipboardManager
                     // Step 5: Wait for focus to settle
                     Thread.Sleep(50);
 
-                    // Verify target window is focused
                     var fg = GetForegroundWindow();
-                    FileLogger.Instance.Info("Clipboard", $"Foreground window: 0x{fg:X}, target: 0x{targetWindow:X}, match: {fg == targetWindow}");
+                    FileLogger.Instance.Info("Clipboard", $"Foreground: 0x{fg:X}, target: 0x{targetWindow:X}, match: {fg == targetWindow}");
 
-                    // Step 6: Simulate Ctrl+V with DELAYS between events (matches macOS timing)
-                    // macOS: 30ms Cmd→V down, 50ms V down→V up, 10ms V up→Cmd up
-
-                    // Ctrl DOWN
+                    // Step 6: Simulate Ctrl+V with delays (matches macOS timing)
                     SendSingleKey(VK_CONTROL, false);
-                    Thread.Sleep(30); // 30ms (matches macOS)
-
-                    // V DOWN
+                    Thread.Sleep(30);
                     SendSingleKey(VK_V, false);
-                    Thread.Sleep(50); // 50ms (matches macOS)
-
-                    // V UP
+                    Thread.Sleep(50);
                     SendSingleKey(VK_V, true);
-                    Thread.Sleep(10); // 10ms (matches macOS)
-
-                    // Ctrl UP
+                    Thread.Sleep(10);
                     SendSingleKey(VK_CONTROL, true);
 
                     FileLogger.Instance.Info("Clipboard", $"Pasted {text.Length} chars with timed SendInput");
+
+                    // Start 2-minute timer to restore original clipboard
+                    StartClipboardRestoreTimer();
                 }
                 catch (Exception ex)
                 {
@@ -187,6 +302,50 @@ public sealed class ClipboardManager
         {
             FileLogger.Instance.Error("Clipboard", $"PasteInternal failed: {ex.Message}");
         }
+    }
+
+    /// <summary>
+    /// Save the user's current clipboard content before overwriting with prediction/dictation text.
+    /// </summary>
+    private void SaveOriginalClipboard()
+    {
+        try
+        {
+            _originalClipboardContent = ReadClipboard();
+            _pasteTimestamp = DateTime.UtcNow;
+        }
+        catch { }
+    }
+
+    /// <summary>
+    /// Start a 2-minute timer to restore original clipboard content.
+    /// Cancel previous timer if one exists. Matches macOS 2-minute paste cleanup.
+    /// </summary>
+    private void StartClipboardRestoreTimer()
+    {
+        _restoreTimer?.Dispose();
+        _restoreTimer = new Timer(_ =>
+        {
+            if (_originalClipboardContent != null)
+            {
+                FileLogger.Instance.Debug("Clipboard", "Restoring original clipboard content after 2-minute timeout");
+                SetClipboardWithRetry(_originalClipboardContent);
+                _originalClipboardContent = null;
+            }
+            _restoreTimer?.Dispose();
+            _restoreTimer = null;
+        }, null, ClipboardRestoreTimeoutMs, Timeout.Infinite);
+    }
+
+    /// <summary>
+    /// Cancel clipboard restore if user copies something new.
+    /// Call this when user performs their own clipboard operation.
+    /// </summary>
+    public void CancelClipboardRestore()
+    {
+        _originalClipboardContent = null;
+        _restoreTimer?.Dispose();
+        _restoreTimer = null;
     }
 
     /// <summary>

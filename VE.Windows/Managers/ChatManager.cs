@@ -396,6 +396,35 @@ public sealed class ChatManager : INotifyPropertyChanged
         CleanupWebSocket();
         Messages.Clear();
         _currentAssistantMessage = null;
+        _streamingAnswer = "";
+    }
+
+    // --- Recent Chats (Section 5.6) ---
+
+    /// <summary>
+    /// Fetch recent chat sessions with pagination.
+    /// Matches macOS recent chats sidebar.
+    /// </summary>
+    public async Task<List<RecentChatItem>> FetchRecentChats(int page = 1, int limit = 20)
+    {
+        try
+        {
+            var baseUrl = Services.BaseURLService.Instance.GetBaseUrl("chat_ws_api");
+            if (baseUrl == null) return new();
+
+            var httpUrl = baseUrl.Replace("wss://", "https://");
+            var workspaceId = AuthManager.Instance.Storage.WorkspaceId;
+            if (string.IsNullOrEmpty(workspaceId)) return new();
+
+            var url = $"{httpUrl}/{workspaceId}/chat-sessions?page={page}&limit={limit}";
+            var result = await Services.NetworkService.Instance.GetAsync<List<RecentChatItem>>(url);
+            return result ?? new();
+        }
+        catch (Exception ex)
+        {
+            FileLogger.Instance.Error("ChatManager", $"Fetch recent chats failed: {ex.Message}");
+            return new();
+        }
     }
 
     /// <summary>
