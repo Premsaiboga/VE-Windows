@@ -80,8 +80,8 @@ public sealed class ChatManager : INotifyPropertyChanged
             _ws = new ClientWebSocket();
             _cts = new CancellationTokenSource();
 
-            // macOS sets Authorization header as raw token (NOT "Bearer token")
-            _ws.Options.SetRequestHeader("Authorization", token);
+            // macOS stores token with "Bearer " prefix; Windows stores raw JWT
+            _ws.Options.SetRequestHeader("Authorization", $"Bearer {token}");
             _ws.Options.KeepAliveInterval = TimeSpan.FromSeconds(30);
 
             // Connect
