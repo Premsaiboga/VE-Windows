@@ -29,6 +29,9 @@ public partial class MainWindow : Window
     [DllImport("user32.dll")]
     private static extern int SetWindowLong(IntPtr hWnd, int nIndex, int dwNewLong);
 
+    [DllImport("user32.dll")]
+    private static extern IntPtr GetForegroundWindow();
+
     private static readonly IntPtr HWND_TOPMOST = new(-1);
     private const uint SWP_NOMOVE = 0x0002;
     private const uint SWP_NOSIZE = 0x0001;
@@ -126,12 +129,13 @@ public partial class MainWindow : Window
             // No-op: notch background stays black
         };
 
-        // WIRE DICTATION ERRORS TO NOTCH - DictationService fires events for errors
+        // Wire dictation errors to ERROR CAPSULE (below notch, not in notch)
         Services.DictationService.Instance.OnDictationError += (s, error) =>
         {
             Dispatcher.BeginInvoke(() =>
             {
-                ClosedContent.ShowError(error ?? "Dictation error");
+                ClosedContent.ResetToIdle();
+                ErrorCapsuleWindow.ShowError(error ?? "Dictation error");
             });
         };
 
@@ -251,10 +255,14 @@ public partial class MainWindow : Window
     private readonly List<byte[]> _predictionAudioBuffer = new();
     private bool _predictionAudioBuffering;
     private bool _predictionWsReady;
+    private IntPtr _targetWindowHandle; // Capture BEFORE prediction starts
 
     private void OnPredictionTriggered()
     {
         if (!AuthManager.Instance.IsAuthenticated) return;
+
+        // Capture the target window BEFORE we do anything
+        _targetWindowHandle = GetForegroundWindow();
 
         ViewCoordinator.Instance.CombinedPredictionState = CombinedPredictionState.Waiting;
         ClosedContent.ShowPredictionWaiting();
@@ -264,13 +272,12 @@ public partial class MainWindow : Window
         _predictionAppName = ScreenCaptureManager.Instance.GetActiveAppName();
         _predictionWindowTitle = ScreenCaptureManager.Instance.GetActiveWindowTitle();
 
-        // START AUDIO IMMEDIATELY (before WebSocket connects) - matches macOS preStartAudioCapture
+        // START AUDIO IMMEDIATELY (before WebSocket connects)
         _predictionAudioBuffer.Clear();
         _predictionAudioBuffering = true;
         _predictionAudioSending = true;
         AudioService.Instance.OnAudioDataAvailable += OnPredictionAudioData;
         AudioService.Instance.StartCapture();
-        FileLogger.Instance.Info("Prediction", "Audio capture started immediately (buffering until WS connects)");
 
         Task.Run(async () =>
         {
@@ -292,8 +299,8 @@ public partial class MainWindow : Window
                     AudioService.Instance.OnAudioDataAvailable -= OnPredictionAudioData;
                     AudioService.Instance.StopCapture();
                     ViewCoordinator.Instance.CombinedPredictionState = CombinedPredictionState.Error;
-                    ViewCoordinator.Instance.ErrorMessage = "Connection failed";
-                    ClosedContent.ShowError("Connection failed");
+                    ClosedContent.ResetToIdle();
+                    ErrorCapsuleWindow.ShowError("Connection failed");
                 });
                 return;
             }
@@ -308,7 +315,7 @@ public partial class MainWindow : Window
             client.OnPredictionComplete += OnPredictionCompleteHandler;
             client.OnError += OnPredictionErrorHandler;
 
-            // Flush buffered audio to WebSocket
+            // Flush buffered audio
             _predictionWsReady = true;
             _predictionAudioBuffering = false;
 
@@ -321,8 +328,6 @@ public partial class MainWindow : Window
                 }
                 _predictionAudioBuffer.Clear();
             }
-
-            FileLogger.Instance.Info("Prediction", "WebSocket connected, audio streaming live");
         });
     }
 
@@ -332,7 +337,6 @@ public partial class MainWindow : Window
         {
             ViewCoordinator.Instance.CombinedPredictionState = CombinedPredictionState.Streaming;
             ViewCoordinator.Instance.PredictionText = text;
-            // Show streaming text in notch for voice predictions
             ClosedContent.ShowPredictionStreaming(text);
         });
     }
@@ -342,7 +346,8 @@ public partial class MainWindow : Window
         Dispatcher.BeginInvoke(() =>
         {
             ViewCoordinator.Instance.CombinedPredictionState = CombinedPredictionState.Success;
-            ClipboardManager.Instance.PasteText(result.Text);
+            // Pass target window handle so paste goes to the right window
+            PasteToTargetWindow(result.Text);
             ClosedContent.ShowPredictionSuccess(result.Text);
             Services.PredictionFeedbackService.Instance.OnPredictionSuccess(result.Id);
 
@@ -362,8 +367,8 @@ public partial class MainWindow : Window
         Dispatcher.BeginInvoke(() =>
         {
             ViewCoordinator.Instance.CombinedPredictionState = CombinedPredictionState.Error;
-            ViewCoordinator.Instance.ErrorMessage = error;
-            ClosedContent.ShowError(error); // Auto-dismisses after 3s
+            ClosedContent.ResetToIdle();
+            ErrorCapsuleWindow.ShowError(error); // Show in capsule below notch
         });
     }
 
@@ -373,7 +378,6 @@ public partial class MainWindow : Window
 
         if (_predictionAudioBuffering)
         {
-            // Buffer audio until WebSocket is ready
             lock (_predictionAudioBuffer)
             {
                 _predictionAudioBuffer.Add(data);
@@ -390,11 +394,13 @@ public partial class MainWindow : Window
 
     /// <summary>
     /// Quick tap prediction: screenshot-only, no audio.
-    /// Don't show streaming text in the notch - just show "Predicting" then "Pasted".
     /// </summary>
     private void OnPredictionTapped()
     {
         if (!AuthManager.Instance.IsAuthenticated) return;
+
+        // Capture the target window BEFORE we do anything
+        _targetWindowHandle = GetForegroundWindow();
 
         ViewCoordinator.Instance.CombinedPredictionState = CombinedPredictionState.Waiting;
         ClosedContent.ShowPredictionWaiting();
@@ -420,14 +426,14 @@ public partial class MainWindow : Window
                 Dispatcher.BeginInvoke(() =>
                 {
                     ViewCoordinator.Instance.CombinedPredictionState = CombinedPredictionState.Error;
-                    ClosedContent.ShowError("Connection failed");
+                    ClosedContent.ResetToIdle();
+                    ErrorCapsuleWindow.ShowError("Connection failed");
                 });
                 return;
             }
 
             client.ResetAccumulatedText();
 
-            // For tap prediction: only subscribe to complete and error (no streaming display)
             client.OnPredictionComplete -= OnTapPredictionCompleteHandler;
             client.OnError -= OnPredictionErrorHandler;
 
@@ -448,7 +454,7 @@ public partial class MainWindow : Window
         Dispatcher.BeginInvoke(() =>
         {
             ViewCoordinator.Instance.CombinedPredictionState = CombinedPredictionState.Success;
-            ClipboardManager.Instance.PasteText(result.Text);
+            PasteToTargetWindow(result.Text);
             ClosedContent.ShowPredictionSuccess(result.Text);
             Services.PredictionFeedbackService.Instance.OnPredictionSuccess(result.Id);
 
@@ -463,6 +469,16 @@ public partial class MainWindow : Window
         });
     }
 
+    /// <summary>
+    /// Paste text to the target window that was active when prediction started.
+    /// </summary>
+    private void PasteToTargetWindow(string text)
+    {
+        if (string.IsNullOrEmpty(text)) return;
+        // Store the target handle for ClipboardManager to use
+        ClipboardManager.Instance.PasteTextToWindow(text, _targetWindowHandle);
+    }
+
     private void OnPredictionReleased()
     {
         _predictionAudioBuffering = false;
@@ -474,7 +490,6 @@ public partial class MainWindow : Window
             var client = WebSocket.WebSocketRegistry.Instance.UnifiedAudioClient;
             if (client != null)
             {
-                // Flush any remaining buffered audio
                 lock (_predictionAudioBuffer)
                 {
                     foreach (var chunk in _predictionAudioBuffer)
@@ -511,6 +526,9 @@ public partial class MainWindow : Window
     // Dictation flow (hold key to record, release to process)
     private void OnDictationTriggered()
     {
+        // Capture target window for dictation paste
+        _targetWindowHandle = GetForegroundWindow();
+        Services.DictationService.Instance.TargetWindowHandle = _targetWindowHandle;
         ViewCoordinator.Instance.DictationState = Services.DictationState.Waiting;
         ClosedContent.ShowDictationWaiting();
         _ = Services.DictationService.Instance.StartDictation();

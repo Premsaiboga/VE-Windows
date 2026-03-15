@@ -15,11 +15,13 @@ public partial class ChatView : UserControl
         InitializeComponent();
         DataContext = _vm;
 
+        // Set ItemsSource ONCE - ObservableCollection handles updates automatically
+        MessagesList.ItemsSource = _vm.Messages;
+
         _vm.Messages.CollectionChanged += (s, e) =>
         {
-            Dispatcher.Invoke(() =>
+            Dispatcher.BeginInvoke(() =>
             {
-                MessagesList.ItemsSource = _vm.Messages;
                 WelcomePanel.Visibility = _vm.HasMessages ? Visibility.Collapsed : Visibility.Visible;
 
                 // Auto-scroll to bottom
@@ -58,7 +60,6 @@ public partial class ChatView : UserControl
     private void ClearChat_Click(object sender, RoutedEventArgs e)
     {
         _vm.ClearHistory();
-        MessagesList.ItemsSource = null;
         WelcomePanel.Visibility = Visibility.Visible;
     }
 }

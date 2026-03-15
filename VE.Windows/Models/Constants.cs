@@ -195,12 +195,12 @@ public sealed class SettingsManager
     // Default: F1 (0x70) for prediction, F2 (0x71) for dictation
     public int PredictionKeyCode
     {
-        get => Get("PredictionKeyCode", 0x70); // VK_F1
+        get => Get("PredictionKeyCode", 0x71); // VK_F2
         set => Set("PredictionKeyCode", value);
     }
     public int DictationKeyCode
     {
-        get => Get("DictationKeyCode", 0x71); // VK_F2
+        get => Get("DictationKeyCode", 0x72); // VK_F3
         set => Set("DictationKeyCode", value);
     }
 

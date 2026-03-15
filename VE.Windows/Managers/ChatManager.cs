@@ -13,7 +13,7 @@ public sealed class ChatManager : INotifyPropertyChanged
     public static ChatManager Instance { get; } = new();
 
     private bool _isStreaming;
-    private WebSocketTransport? _activeTransport;
+    private WebSocketTransport? _chatTransport; // Own transport - no interference
     private ChatMessage? _currentAssistantMessage;
 
     public event PropertyChangedEventHandler? PropertyChanged;
@@ -57,35 +57,60 @@ public sealed class ChatManager : INotifyPropertyChanged
 
         try
         {
-            // Connect WebSocket (fresh session for each message)
-            await WebSocketRegistry.Instance.ConnectMultiAgentTransport();
+            // Create OWN WebSocket transport directly (not through WebSocketRegistry)
+            // This avoids interference from MultiAgentSocketClient which also subscribes
+            // to the same transport's MessageReceived event
+            CleanupTransport();
 
-            // Get the transport directly (bypass MultiAgentSocketClient)
-            var transport = WebSocketRegistry.Instance.MultiAgentTransport;
+            var baseUrl = Services.BaseURLService.Instance.GetBaseUrl("chat_ws_api");
+            var workspaceId = AuthManager.Instance.Storage.WorkspaceId;
+            var token = AuthManager.Instance.Storage.UserToken;
 
-            if (transport == null || !transport.IsConnected)
+            if (baseUrl == null || string.IsNullOrEmpty(workspaceId) || string.IsNullOrEmpty(token))
             {
-                // Wait for connection (5s max)
-                var maxWait = DateTime.UtcNow.AddSeconds(5);
-                while (transport != null && !transport.IsConnected && DateTime.UtcNow < maxWait)
-                {
-                    await Task.Delay(100);
-                }
-            }
-
-            if (transport == null || !transport.IsConnected)
-            {
-                UpdateAssistant(assistantMessage, "Failed to connect to AI service. Please check your connection.");
+                FileLogger.Instance.Error("ChatManager", $"Missing connection info: baseUrl={baseUrl != null}, workspaceId={!string.IsNullOrEmpty(workspaceId)}, token={!string.IsNullOrEmpty(token)}");
+                SetAssistant(assistantMessage, "Failed to connect. Please check your login.");
                 FinishStreaming(assistantMessage);
                 return;
             }
 
-            // Subscribe directly to transport messages (like macOS ChatManager does)
-            _activeTransport = transport;
-            transport.MessageReceived -= OnTransportMessage;
-            transport.MessageReceived += OnTransportMessage;
+            var sessionId = Guid.NewGuid().ToString("N").Substring(0, 24);
+            var encodedToken = Uri.EscapeDataString(token);
+            var url = $"{baseUrl}/{workspaceId}/{sessionId}/multi_agent_chat_streaming?token={encodedToken}";
 
-            // Build and send the chat payload
+            FileLogger.Instance.Info("ChatManager", $"Creating own transport: {baseUrl}/.../{sessionId}");
+
+            _chatTransport = new WebSocketTransport(url);
+            _chatTransport.MessageReceived += OnTransportMessage;
+            _chatTransport.Error += (s, err) =>
+            {
+                FileLogger.Instance.Error("ChatManager", $"Transport error: {err}");
+                SetAssistant(assistantMessage, $"Connection error: {err}");
+                FinishStreaming(assistantMessage);
+            };
+            _chatTransport.Disconnected += (s, reason) =>
+            {
+                FileLogger.Instance.Warning("ChatManager", $"Transport disconnected: {reason}");
+                if (IsStreaming && string.IsNullOrEmpty(assistantMessage.Content))
+                {
+                    SetAssistant(assistantMessage, "Connection lost. Please try again.");
+                    FinishStreaming(assistantMessage);
+                }
+            };
+
+            await _chatTransport.ConnectAsync();
+
+            if (!_chatTransport.IsConnected)
+            {
+                FileLogger.Instance.Error("ChatManager", "Transport failed to connect");
+                SetAssistant(assistantMessage, "Failed to connect to AI service. Please try again.");
+                FinishStreaming(assistantMessage);
+                return;
+            }
+
+            FileLogger.Instance.Info("ChatManager", "Transport connected, sending payload");
+
+            // Build and send the chat payload (matches macOS exactly)
             var timezone = TimeZoneInfo.Local.Id;
             var payload = new Dictionary<string, object?>
             {
@@ -106,13 +131,14 @@ public sealed class ChatManager : INotifyPropertyChanged
             };
 
             var json = Newtonsoft.Json.JsonConvert.SerializeObject(payload);
-            FileLogger.Instance.Info("ChatManager", $"Sending chat: {text.Substring(0, Math.Min(50, text.Length))}...");
-            await transport.SendAsync(json);
+            FileLogger.Instance.Info("ChatManager", $"Sending chat payload ({json.Length} chars): {text.Substring(0, Math.Min(50, text.Length))}...");
+            await _chatTransport.SendAsync(json);
+            FileLogger.Instance.Info("ChatManager", "Payload sent successfully");
         }
         catch (Exception ex)
         {
             FileLogger.Instance.Error("ChatManager", $"Send failed: {ex.Message}");
-            UpdateAssistant(assistantMessage, $"Error: {ex.Message}");
+            SetAssistant(assistantMessage, $"Error: {ex.Message}");
             FinishStreaming(assistantMessage);
         }
     }
@@ -124,10 +150,14 @@ public sealed class ChatManager : INotifyPropertyChanged
             var json = JObject.Parse(message);
             var keys = string.Join(", ", json.Properties().Select(p => p.Name));
             FileLogger.Instance.Info("ChatManager",
-                $"Received keys: [{keys}] - {message.Substring(0, Math.Min(300, message.Length))}");
+                $"MSG keys: [{keys}] - {message.Substring(0, Math.Min(300, message.Length))}");
 
             var assistantMessage = _currentAssistantMessage;
-            if (assistantMessage == null) return;
+            if (assistantMessage == null)
+            {
+                FileLogger.Instance.Warning("ChatManager", "No current assistant message for incoming data");
+                return;
+            }
 
             // 1. Check status field
             var status = json["status"]?.Type == JTokenType.String ? json["status"]?.ToString() : null;
@@ -135,7 +165,7 @@ public sealed class ChatManager : INotifyPropertyChanged
             if (status == "error")
             {
                 var error = json["error"]?.ToString() ?? json["message"]?.ToString() ?? "Server error";
-                UpdateAssistant(assistantMessage, $"Error: {error}");
+                SetAssistant(assistantMessage, $"Error: {error}");
                 FinishStreaming(assistantMessage);
                 return;
             }
@@ -144,7 +174,7 @@ public sealed class ChatManager : INotifyPropertyChanged
             var errorStr = json["error"]?.Type == JTokenType.String ? json["error"]?.ToString() : null;
             if (!string.IsNullOrEmpty(errorStr))
             {
-                UpdateAssistant(assistantMessage, $"Error: {errorStr}");
+                SetAssistant(assistantMessage, $"Error: {errorStr}");
                 FinishStreaming(assistantMessage);
                 return;
             }
@@ -230,15 +260,15 @@ public sealed class ChatManager : INotifyPropertyChanged
         System.Windows.Application.Current?.Dispatcher.BeginInvoke(() =>
         {
             msg.Content += chunk;
+            FileLogger.Instance.Debug("ChatManager", $"Content now: {msg.Content.Length} chars");
         });
     }
 
-    private void UpdateAssistant(ChatMessage msg, string content)
+    private void SetAssistant(ChatMessage msg, string content)
     {
         System.Windows.Application.Current?.Dispatcher.BeginInvoke(() =>
         {
-            if (string.IsNullOrEmpty(msg.Content))
-                msg.Content = content;
+            msg.Content = content;
         });
     }
 
@@ -248,16 +278,17 @@ public sealed class ChatManager : INotifyPropertyChanged
         {
             msg.IsStreaming = false;
             IsStreaming = false;
-            CleanupTransport();
+            FileLogger.Instance.Info("ChatManager", $"Streaming finished. Content: {msg.Content.Length} chars");
         });
     }
 
     private void CleanupTransport()
     {
-        if (_activeTransport != null)
+        if (_chatTransport != null)
         {
-            _activeTransport.MessageReceived -= OnTransportMessage;
-            _activeTransport = null;
+            _chatTransport.MessageReceived -= OnTransportMessage;
+            _chatTransport.Dispose();
+            _chatTransport = null;
         }
     }
 

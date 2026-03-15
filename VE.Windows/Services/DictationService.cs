@@ -40,6 +40,12 @@ public sealed class DictationService : INotifyPropertyChanged
     private bool _isBuffering;
     private bool _webSocketReady;
 
+    /// <summary>
+    /// Target window handle to paste dictation result into.
+    /// Set by MainWindow before starting dictation.
+    /// </summary>
+    public IntPtr TargetWindowHandle { get; set; }
+
     public event PropertyChangedEventHandler? PropertyChanged;
 
     // Event for notifying errors to UI (MainWindow listens to this)
@@ -282,7 +288,10 @@ public sealed class DictationService : INotifyPropertyChanged
             if (!string.IsNullOrWhiteSpace(enhancedText))
             {
                 State = DictationState.Success;
-                ClipboardManager.Instance.PasteText(enhancedText);
+                if (TargetWindowHandle != IntPtr.Zero)
+                    ClipboardManager.Instance.PasteTextToWindow(enhancedText, TargetWindowHandle);
+                else
+                    ClipboardManager.Instance.PasteText(enhancedText);
                 FileLogger.Instance.Info("Dictation", $"Success: {enhancedText.Length} chars pasted");
                 ViewCoordinator.Instance.DictationState = DictationState.Inactive;
 

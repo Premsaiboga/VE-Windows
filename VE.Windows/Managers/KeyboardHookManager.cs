@@ -9,9 +9,10 @@ namespace VE.Windows.Managers;
 /// <summary>
 /// Global keyboard hook for shortcut key detection.
 /// Uses Win32 SetWindowsHookEx with WH_KEYBOARD_LL.
-/// Supports configurable keys (default: F1 for prediction, F2 for dictation).
-/// F1 tap = screenshot prediction, F1 hold = voice+screenshot prediction.
-/// F2 hold = dictation recording, F2 release = process dictation.
+/// Supports configurable keys (default: F2 for prediction, F3 for dictation).
+/// F2 tap = screenshot prediction, F2 hold = voice+screenshot prediction.
+/// F3 hold = dictation recording, F3 release = process dictation.
+/// SWALLOWS configured keys so they don't reach other apps.
 /// </summary>
 public sealed class KeyboardHookManager : IDisposable
 {
@@ -190,8 +191,20 @@ public sealed class KeyboardHookManager : IDisposable
 
             try
             {
+                // Check if this is one of our configured keys - SWALLOW it
+                var settings = SettingsManager.Instance;
+                var predictionKey = settings.PredictionKeyCode;
+                var dictationKey = settings.DictationKeyCode;
+                bool isOurKey = MatchesKey(vkCode, predictionKey) || MatchesKey(vkCode, dictationKey);
+
                 if (isKeyDown) HandleKeyDown(vkCode);
                 else if (isKeyUp) HandleKeyUp(vkCode);
+
+                // SWALLOW configured keys - return 1 to prevent them reaching other apps
+                if (isOurKey)
+                {
+                    return (IntPtr)1;
+                }
             }
             catch (Exception ex)
             {

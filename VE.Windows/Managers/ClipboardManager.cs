@@ -100,6 +100,15 @@ public sealed class ClipboardManager
     }
 
     /// <summary>
+    /// Sets clipboard text and simulates Ctrl+V to paste into a specific target window.
+    /// </summary>
+    public void PasteTextToWindow(string text, IntPtr targetWindow)
+    {
+        if (string.IsNullOrEmpty(text)) return;
+        PasteTextInternal(text, targetWindow);
+    }
+
+    /// <summary>
     /// Sets clipboard text and simulates Ctrl+V to paste into active window.
     /// Matches macOS PasteHelper: releases all held modifier/trigger keys before pasting.
     /// Uses SendInput (more reliable than keybd_event on modern Windows).
@@ -107,12 +116,13 @@ public sealed class ClipboardManager
     public void PasteText(string text)
     {
         if (string.IsNullOrEmpty(text)) return;
+        PasteTextInternal(text, GetForegroundWindow());
+    }
 
+    private void PasteTextInternal(string text, IntPtr targetWindow)
+    {
         try
         {
-            // Capture the foreground window BEFORE we touch clipboard
-            // (clipboard operations might briefly steal focus)
-            var targetWindow = GetForegroundWindow();
 
             // Set clipboard on UI thread (must be STA)
             Application.Current?.Dispatcher.Invoke(() =>
