@@ -6,7 +6,8 @@ namespace VE.Windows.Managers;
 
 /// <summary>
 /// Clipboard operations and text pasting via simulated Ctrl+V.
-/// Equivalent to macOS AppHelper + PasteHelper.
+/// Matches macOS PasteHelper: releases modifier keys, restores focus, simulates paste.
+/// Uses AttachThreadInput + SetForegroundWindow + SendInput for reliable paste on Windows.
 /// </summary>
 public sealed class ClipboardManager
 {
@@ -24,10 +25,22 @@ public sealed class ClipboardManager
     [DllImport("user32.dll")]
     private static extern bool SetForegroundWindow(IntPtr hWnd);
 
+    [DllImport("user32.dll")]
+    private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint processId);
+
+    [DllImport("kernel32.dll")]
+    private static extern uint GetCurrentThreadId();
+
+    [DllImport("user32.dll")]
+    private static extern bool AttachThreadInput(uint idAttach, uint idAttachTo, bool fAttach);
+
+    [DllImport("user32.dll")]
+    private static extern bool BringWindowToTop(IntPtr hWnd);
+
     private const ushort VK_CONTROL = 0x11;
     private const ushort VK_LCONTROL = 0xA2;
     private const ushort VK_RCONTROL = 0xA3;
-    private const ushort VK_MENU = 0x12;     // Alt
+    private const ushort VK_MENU = 0x12;
     private const ushort VK_LMENU = 0xA4;
     private const ushort VK_RMENU = 0xA5;
     private const ushort VK_SHIFT = 0x10;
@@ -37,18 +50,8 @@ public sealed class ClipboardManager
     private const ushort VK_RWIN = 0x5C;
     private const ushort VK_V = 0x56;
 
-    // F-keys that might be held down as trigger keys
+    // F-keys that might be held as trigger keys
     private const ushort VK_F1 = 0x70;
-    private const ushort VK_F2 = 0x71;
-    private const ushort VK_F3 = 0x72;
-    private const ushort VK_F4 = 0x73;
-    private const ushort VK_F5 = 0x74;
-    private const ushort VK_F6 = 0x75;
-    private const ushort VK_F7 = 0x76;
-    private const ushort VK_F8 = 0x77;
-    private const ushort VK_F9 = 0x78;
-    private const ushort VK_F10 = 0x79;
-    private const ushort VK_F11 = 0x7A;
     private const ushort VK_F12 = 0x7B;
 
     private const uint INPUT_KEYBOARD = 1;
@@ -84,8 +87,7 @@ public sealed class ClipboardManager
         string? text = null;
         RunOnSTAThread(() =>
         {
-            try { text = Clipboard.GetText(); }
-            catch { }
+            try { text = Clipboard.GetText(); } catch { }
         });
         return text;
     }
@@ -94,140 +96,178 @@ public sealed class ClipboardManager
     {
         RunOnSTAThread(() =>
         {
-            try { Clipboard.SetText(text); }
-            catch { }
+            try { Clipboard.SetText(text); } catch { }
         });
     }
 
     /// <summary>
-    /// Sets clipboard text and simulates Ctrl+V to paste into a specific target window.
+    /// Paste text to a specific target window.
     /// </summary>
     public void PasteTextToWindow(string text, IntPtr targetWindow)
     {
         if (string.IsNullOrEmpty(text)) return;
-        PasteTextInternal(text, targetWindow);
+        PasteInternal(text, targetWindow);
     }
 
     /// <summary>
-    /// Sets clipboard text and simulates Ctrl+V to paste into active window.
-    /// Matches macOS PasteHelper: releases all held modifier/trigger keys before pasting.
-    /// Uses SendInput (more reliable than keybd_event on modern Windows).
+    /// Paste text to the current foreground window.
     /// </summary>
     public void PasteText(string text)
     {
         if (string.IsNullOrEmpty(text)) return;
-        PasteTextInternal(text, GetForegroundWindow());
+        PasteInternal(text, GetForegroundWindow());
     }
 
-    private void PasteTextInternal(string text, IntPtr targetWindow)
+    private void PasteInternal(string text, IntPtr targetWindow)
     {
         try
         {
-
-            // Set clipboard on UI thread (must be STA)
+            // Step 1: Set clipboard on STA thread
             Application.Current?.Dispatcher.Invoke(() =>
             {
                 Clipboard.SetText(text);
             });
 
-            // Run key simulation on background thread to avoid blocking UI
+            FileLogger.Instance.Info("Clipboard", $"Set clipboard: {text.Length} chars, target: 0x{targetWindow:X}");
+
+            // Step 2: Run paste simulation on background thread (matches macOS threading)
             Task.Run(() =>
             {
                 try
                 {
-                    // Release ALL held keys (modifiers + F-keys) before pasting
+                    // Step 3: Release ALL held keys (modifiers + F-keys)
                     ReleaseAllHeldKeys();
-                    Thread.Sleep(150);
+                    Thread.Sleep(100); // 100ms wait after release (matches macOS)
 
-                    // Ensure the target window is still focused
-                    var currentFg = GetForegroundWindow();
-                    if (currentFg != targetWindow && targetWindow != IntPtr.Zero)
+                    // Step 4: Restore focus to target window using AttachThreadInput
+                    // This is the Windows equivalent of macOS's frontmostApp.activate()
+                    if (targetWindow != IntPtr.Zero)
                     {
-                        SetForegroundWindow(targetWindow);
-                        Thread.Sleep(100);
+                        var currentFg = GetForegroundWindow();
+                        if (currentFg != targetWindow)
+                        {
+                            ForceForeground(targetWindow);
+                        }
                     }
 
-                    // Simulate Ctrl+V using SendInput (more reliable than keybd_event)
-                    var inputs = new INPUT[4];
+                    // Step 5: Wait for focus to settle
+                    Thread.Sleep(50);
 
-                    // Ctrl down
-                    inputs[0] = MakeKeyInput(VK_CONTROL, false);
-                    // V down
-                    inputs[1] = MakeKeyInput(VK_V, false);
-                    // V up
-                    inputs[2] = MakeKeyInput(VK_V, true);
-                    // Ctrl up
-                    inputs[3] = MakeKeyInput(VK_CONTROL, true);
+                    // Verify target window is focused
+                    var fg = GetForegroundWindow();
+                    FileLogger.Instance.Info("Clipboard", $"Foreground window: 0x{fg:X}, target: 0x{targetWindow:X}, match: {fg == targetWindow}");
 
-                    var sent = SendInput(4, inputs, Marshal.SizeOf<INPUT>());
-                    FileLogger.Instance.Debug("Clipboard", $"Pasted {text.Length} chars (SendInput sent {sent}/4 events)");
+                    // Step 6: Simulate Ctrl+V with DELAYS between events (matches macOS timing)
+                    // macOS: 30ms Cmd→V down, 50ms V down→V up, 10ms V up→Cmd up
 
-                    if (sent != 4)
-                    {
-                        FileLogger.Instance.Warning("Clipboard", $"SendInput only sent {sent}/4 events, error: {Marshal.GetLastWin32Error()}");
-                    }
+                    // Ctrl DOWN
+                    SendSingleKey(VK_CONTROL, false);
+                    Thread.Sleep(30); // 30ms (matches macOS)
+
+                    // V DOWN
+                    SendSingleKey(VK_V, false);
+                    Thread.Sleep(50); // 50ms (matches macOS)
+
+                    // V UP
+                    SendSingleKey(VK_V, true);
+                    Thread.Sleep(10); // 10ms (matches macOS)
+
+                    // Ctrl UP
+                    SendSingleKey(VK_CONTROL, true);
+
+                    FileLogger.Instance.Info("Clipboard", $"Pasted {text.Length} chars with timed SendInput");
                 }
                 catch (Exception ex)
                 {
-                    FileLogger.Instance.Error("Clipboard", $"Paste key sim failed: {ex.Message}");
+                    FileLogger.Instance.Error("Clipboard", $"Paste failed: {ex.Message}");
                 }
             });
         }
         catch (Exception ex)
         {
-            FileLogger.Instance.Error("Clipboard", $"Paste failed: {ex.Message}");
+            FileLogger.Instance.Error("Clipboard", $"PasteInternal failed: {ex.Message}");
         }
-    }
-
-    private static INPUT MakeKeyInput(ushort vk, bool keyUp)
-    {
-        return new INPUT
-        {
-            type = INPUT_KEYBOARD,
-            union = new INPUTUNION
-            {
-                ki = new KEYBDINPUT
-                {
-                    wVk = vk,
-                    wScan = 0,
-                    dwFlags = keyUp ? KEYEVENTF_KEYUP : 0,
-                    time = 0,
-                    dwExtraInfo = IntPtr.Zero
-                }
-            }
-        };
     }
 
     /// <summary>
-    /// Release all modifier keys AND F-keys that are currently held down.
-    /// Matches macOS PasteHelper which releases Option, Shift, Control before Cmd+V.
-    /// Also releases F1-F12 since they may be our trigger keys.
+    /// Send a single key event via SendInput.
+    /// </summary>
+    private static void SendSingleKey(ushort vk, bool keyUp)
+    {
+        var input = new INPUT[]
+        {
+            new INPUT
+            {
+                type = INPUT_KEYBOARD,
+                union = new INPUTUNION
+                {
+                    ki = new KEYBDINPUT
+                    {
+                        wVk = vk,
+                        wScan = 0,
+                        dwFlags = keyUp ? KEYEVENTF_KEYUP : 0,
+                        time = 0,
+                        dwExtraInfo = IntPtr.Zero
+                    }
+                }
+            }
+        };
+        SendInput(1, input, Marshal.SizeOf<INPUT>());
+    }
+
+    /// <summary>
+    /// Force a window to the foreground using AttachThreadInput trick.
+    /// This is the reliable way to call SetForegroundWindow from a background process.
+    /// Equivalent to macOS frontmostApp.activate(options: [.activateIgnoringOtherApps])
+    /// </summary>
+    private static void ForceForeground(IntPtr targetWindow)
+    {
+        var targetThreadId = GetWindowThreadProcessId(targetWindow, out _);
+        var ourThreadId = GetCurrentThreadId();
+
+        if (targetThreadId != ourThreadId)
+        {
+            AttachThreadInput(ourThreadId, targetThreadId, true);
+        }
+
+        SetForegroundWindow(targetWindow);
+        BringWindowToTop(targetWindow);
+
+        if (targetThreadId != ourThreadId)
+        {
+            AttachThreadInput(ourThreadId, targetThreadId, false);
+        }
+    }
+
+    /// <summary>
+    /// Release all held modifier keys AND F-keys.
+    /// Matches macOS PasteHelper.releaseAllModifierKeys.
     /// </summary>
     private void ReleaseAllHeldKeys()
     {
-        ushort[] keysToRelease = {
+        // Modifier keys
+        ushort[] modifiers = {
             VK_CONTROL, VK_LCONTROL, VK_RCONTROL,
             VK_MENU, VK_LMENU, VK_RMENU,
             VK_SHIFT, VK_LSHIFT, VK_RSHIFT,
-            VK_LWIN, VK_RWIN,
-            VK_F1, VK_F2, VK_F3, VK_F4, VK_F5, VK_F6,
-            VK_F7, VK_F8, VK_F9, VK_F10, VK_F11, VK_F12
+            VK_LWIN, VK_RWIN
         };
 
-        var releaseInputs = new List<INPUT>();
-
-        foreach (var key in keysToRelease)
+        foreach (var key in modifiers)
         {
             if ((GetAsyncKeyState(key) & 0x8000) != 0)
             {
-                releaseInputs.Add(MakeKeyInput(key, true));
-                FileLogger.Instance.Debug("Clipboard", $"Releasing held key: 0x{key:X2}");
+                SendSingleKey(key, true);
             }
         }
 
-        if (releaseInputs.Count > 0)
+        // F-keys (F1-F12) - our trigger keys
+        for (ushort fk = VK_F1; fk <= VK_F12; fk++)
         {
-            SendInput((uint)releaseInputs.Count, releaseInputs.ToArray(), Marshal.SizeOf<INPUT>());
+            if ((GetAsyncKeyState(fk) & 0x8000) != 0)
+            {
+                SendSingleKey(fk, true);
+            }
         }
     }
 

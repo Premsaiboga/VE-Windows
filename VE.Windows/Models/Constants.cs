@@ -192,7 +192,7 @@ public sealed class SettingsManager
     }
 
     // MARK: Configurable Shortcut Keys (virtual key codes)
-    // Default: F1 (0x70) for prediction, F2 (0x71) for dictation
+    // Default: F2 (0x71) for prediction, F3 (0x72) for dictation
     public int PredictionKeyCode
     {
         get => Get("PredictionKeyCode", 0x71); // VK_F2

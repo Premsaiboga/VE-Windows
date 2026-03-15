@@ -53,12 +53,12 @@ public class WebSocketTransport : IDisposable
             _cts = new CancellationTokenSource();
 
             // Add auth headers - match macOS exactly
-            // macOS only sends Authorization: Bearer header on WebSocket connections
+            // macOS sets Authorization header as raw token (NOT "Bearer token")
             // It does NOT send x-csrf-token or x-workspace-id on WebSockets
             var token = AuthManager.Instance.Storage.UserToken;
             if (!string.IsNullOrEmpty(token))
             {
-                _webSocket.Options.SetRequestHeader("Authorization", $"Bearer {token}");
+                _webSocket.Options.SetRequestHeader("Authorization", token);
             }
 
             _webSocket.Options.KeepAliveInterval = TimeSpan.FromSeconds(30);
