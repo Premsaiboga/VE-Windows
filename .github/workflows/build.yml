@@ -2,7 +2,7 @@ name: Build VE Windows
 
 on:
   push:
-    branches: [main]
+    branches: [main, ve/feature/windows-production-hardening]
   workflow_dispatch:
 
 jobs:
