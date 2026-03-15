@@ -86,9 +86,27 @@ public sealed class AudioService : INotifyPropertyChanged, IDisposable
 
         try
         {
+            // Refresh devices before each capture to handle plugged/unplugged mics
+            RefreshDevices();
+
+            if (AvailableMicrophones.Count == 0)
+            {
+                FileLogger.Instance.Error("Audio", "No microphone available");
+                return;
+            }
+
+            var deviceId = SelectedMicrophone?.Id ?? 0;
+
+            // Validate device ID is in range
+            if (deviceId < 0 || deviceId >= WaveIn.DeviceCount)
+            {
+                FileLogger.Instance.Warning("Audio", $"Device {deviceId} out of range (0-{WaveIn.DeviceCount - 1}), using device 0");
+                deviceId = 0;
+            }
+
             _waveIn = new WaveInEvent
             {
-                DeviceNumber = SelectedMicrophone?.Id ?? 0,
+                DeviceNumber = deviceId,
                 WaveFormat = new WaveFormat(16000, 16, 1), // 16kHz, 16-bit, mono
                 BufferMilliseconds = 100
             };

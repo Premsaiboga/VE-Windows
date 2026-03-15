@@ -146,6 +146,28 @@ public partial class MainWindow : Window
                 ClosedContent.ShowPredictionWaiting(); // Show "processing" dots
             });
         };
+
+        // Dictation success — show "Pasted" in notch (NOT prediction animation)
+        Services.DictationService.Instance.OnDictationSuccess += (s, text) =>
+        {
+            Dispatcher.BeginInvoke(() =>
+            {
+                ClosedContent.ShowDictationSuccess();
+
+                // Auto-reset to idle after 3 seconds
+                Task.Delay(3000).ContinueWith(_ =>
+                {
+                    Dispatcher.BeginInvoke(() =>
+                    {
+                        if (ViewCoordinator.Instance.DictationState == Services.DictationState.Success ||
+                            ViewCoordinator.Instance.DictationState == Services.DictationState.Inactive)
+                        {
+                            ClosedContent.ResetToIdle();
+                        }
+                    });
+                });
+            });
+        };
     }
 
     private void Window_Loaded(object sender, RoutedEventArgs e)

@@ -45,26 +45,43 @@ public sealed class FileLogger : IDisposable
 #endif
     }
 
+    private int _flushing; // 0 = not flushing, 1 = flushing (atomic guard)
+
     private void Flush(object? state)
     {
         if (_queue.IsEmpty) return;
 
-        var lines = new List<string>();
-        while (_queue.TryDequeue(out var line))
-        {
-            lines.Add(line);
-        }
+        // Prevent concurrent flushes (timer overlap or FlushNow during timer)
+        if (Interlocked.CompareExchange(ref _flushing, 1, 0) != 0) return;
 
-        if (lines.Count == 0) return;
-
-        lock (_fileLock)
+        try
         {
-            try
+            var lines = new List<string>();
+            while (_queue.TryDequeue(out var line))
             {
-                RotateIfNeeded();
-                File.AppendAllLines(_logPath, lines);
+                lines.Add(line);
             }
-            catch { }
+
+            if (lines.Count == 0) return;
+
+            lock (_fileLock)
+            {
+                try
+                {
+                    RotateIfNeeded();
+                    using var writer = new StreamWriter(_logPath, append: true, System.Text.Encoding.UTF8);
+                    foreach (var line in lines)
+                    {
+                        writer.WriteLine(line);
+                    }
+                    writer.Flush();
+                }
+                catch { }
+            }
+        }
+        finally
+        {
+            Interlocked.Exchange(ref _flushing, 0);
         }
     }
 

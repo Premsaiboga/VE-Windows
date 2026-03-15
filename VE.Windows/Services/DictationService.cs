@@ -48,10 +48,11 @@ public sealed class DictationService : INotifyPropertyChanged
 
     public event PropertyChangedEventHandler? PropertyChanged;
 
-    // Event for notifying errors to UI (MainWindow listens to this)
+    // Events for notifying UI (MainWindow listens to these)
     public event EventHandler<string>? OnDictationError;
     public event EventHandler? OnDictationStarted;
     public event EventHandler? OnDictationProcessing;
+    public event EventHandler<string>? OnDictationSuccess;
 
     public DictationState State
     {
@@ -230,7 +231,7 @@ public sealed class DictationService : INotifyPropertyChanged
         {
             if (State == DictationState.Processing)
             {
-                System.Windows.Application.Current?.Dispatcher.BeginInvoke(() =>
+                Helpers.DispatcherHelper.PostOnUI(() =>
                 {
                     State = DictationState.Error;
                     ErrorMessage = "Processing timed out";
@@ -280,7 +281,7 @@ public sealed class DictationService : INotifyPropertyChanged
 
     private void OnDictationResultHandler(object? sender, string enhancedText)
     {
-        System.Windows.Application.Current?.Dispatcher.BeginInvoke(() =>
+        Helpers.DispatcherHelper.PostOnUI(() =>
         {
             TranscribedText = enhancedText;
             CleanupSubscriptions();
@@ -288,18 +289,29 @@ public sealed class DictationService : INotifyPropertyChanged
             if (!string.IsNullOrWhiteSpace(enhancedText))
             {
                 State = DictationState.Success;
+                ViewCoordinator.Instance.DictationState = DictationState.Success;
+
+                // Paste to target window
                 if (TargetWindowHandle != IntPtr.Zero)
                     ClipboardManager.Instance.PasteTextToWindow(enhancedText, TargetWindowHandle);
                 else
                     ClipboardManager.Instance.PasteText(enhancedText);
-                FileLogger.Instance.Info("Dictation", $"Success: {enhancedText.Length} chars pasted");
-                ViewCoordinator.Instance.DictationState = DictationState.Inactive;
 
+                FileLogger.Instance.Info("Dictation", $"Success: {enhancedText.Length} chars pasted");
+
+                // Notify UI to show "Pasted" state (NOT prediction animation)
+                OnDictationSuccess?.Invoke(this, enhancedText);
+
+                // Auto-reset to idle after 3 seconds
                 _ = Task.Delay(3000).ContinueWith(_ =>
                 {
-                    System.Windows.Application.Current?.Dispatcher.BeginInvoke(() =>
+                    Helpers.DispatcherHelper.PostOnUI(() =>
                     {
-                        if (State == DictationState.Success) State = DictationState.Inactive;
+                        if (State == DictationState.Success)
+                        {
+                            State = DictationState.Inactive;
+                            ViewCoordinator.Instance.DictationState = DictationState.Inactive;
+                        }
                     });
                 });
             }
@@ -315,7 +327,7 @@ public sealed class DictationService : INotifyPropertyChanged
 
     private void OnDictationErrorHandler(object? sender, string error)
     {
-        System.Windows.Application.Current?.Dispatcher.BeginInvoke(() =>
+        Helpers.DispatcherHelper.PostOnUI(() =>
         {
             FileLogger.Instance.Error("Dictation", $"Error received: {error}");
             CleanupSubscriptions();

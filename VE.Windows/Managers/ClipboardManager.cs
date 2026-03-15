@@ -260,34 +260,43 @@ public sealed class ClipboardManager
                 {
                     // Step 3: Release ALL held keys (modifiers + F-keys)
                     ReleaseAllHeldKeys();
-                    Thread.Sleep(100); // 100ms wait after release (matches macOS)
+                    Thread.Sleep(150); // Wait for keys to fully release
 
                     // Step 4: Restore focus to target window using AttachThreadInput
                     if (targetWindow != IntPtr.Zero)
                     {
-                        var currentFg = GetForegroundWindow();
-                        if (currentFg != targetWindow)
-                        {
-                            ForceForeground(targetWindow);
-                        }
+                        // Always force foreground — even if we think it's already focused,
+                        // the input field inside it may have lost focus
+                        ForceForeground(targetWindow);
                     }
 
-                    // Step 5: Wait for focus to settle
-                    Thread.Sleep(50);
+                    // Step 5: Wait for focus to settle — apps need time to accept focus
+                    // and route it to the active input field
+                    Thread.Sleep(200);
 
                     var fg = GetForegroundWindow();
                     FileLogger.Instance.Info("Clipboard", $"Foreground: 0x{fg:X}, target: 0x{targetWindow:X}, match: {fg == targetWindow}");
 
-                    // Step 6: Simulate Ctrl+V with delays (matches macOS timing)
-                    SendSingleKey(VK_CONTROL, false);
-                    Thread.Sleep(30);
-                    SendSingleKey(VK_V, false);
-                    Thread.Sleep(50);
-                    SendSingleKey(VK_V, true);
-                    Thread.Sleep(10);
-                    SendSingleKey(VK_CONTROL, true);
+                    // If target window didn't get focus, try again
+                    if (fg != targetWindow && targetWindow != IntPtr.Zero)
+                    {
+                        FileLogger.Instance.Warning("Clipboard", "Focus mismatch, retrying ForceForeground");
+                        ForceForeground(targetWindow);
+                        Thread.Sleep(200);
+                    }
 
-                    FileLogger.Instance.Info("Clipboard", $"Pasted {text.Length} chars with timed SendInput");
+                    // Step 6: Simulate Ctrl+V — use SendInput array for atomic delivery
+                    // Sending as a batch is more reliable than individual key events
+                    var inputs = new INPUT[]
+                    {
+                        MakeKeyInput(VK_CONTROL, false),
+                        MakeKeyInput(VK_V, false),
+                        MakeKeyInput(VK_V, true),
+                        MakeKeyInput(VK_CONTROL, true)
+                    };
+                    SendInput((uint)inputs.Length, inputs, Marshal.SizeOf<INPUT>());
+
+                    FileLogger.Instance.Info("Clipboard", $"Pasted {text.Length} chars with batch SendInput");
 
                     // Start 2-minute timer to restore original clipboard
                     StartClipboardRestoreTimer();
@@ -346,6 +355,28 @@ public sealed class ClipboardManager
         _originalClipboardContent = null;
         _restoreTimer?.Dispose();
         _restoreTimer = null;
+    }
+
+    /// <summary>
+    /// Create an INPUT struct for a key event (used in batch SendInput calls).
+    /// </summary>
+    private static INPUT MakeKeyInput(ushort vk, bool keyUp)
+    {
+        return new INPUT
+        {
+            type = INPUT_KEYBOARD,
+            union = new INPUTUNION
+            {
+                ki = new KEYBDINPUT
+                {
+                    wVk = vk,
+                    wScan = 0,
+                    dwFlags = keyUp ? KEYEVENTF_KEYUP : 0,
+                    time = 0,
+                    dwExtraInfo = IntPtr.Zero
+                }
+            }
+        };
     }
 
     /// <summary>
