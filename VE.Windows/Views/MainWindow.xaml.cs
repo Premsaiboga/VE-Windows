@@ -125,6 +125,23 @@ public partial class MainWindow : Window
         {
             // No-op: notch background stays black
         };
+
+        // WIRE DICTATION ERRORS TO NOTCH - DictationService fires events for errors
+        Services.DictationService.Instance.OnDictationError += (s, error) =>
+        {
+            Dispatcher.BeginInvoke(() =>
+            {
+                ClosedContent.ShowError(error ?? "Dictation error");
+            });
+        };
+
+        Services.DictationService.Instance.OnDictationProcessing += (s, e) =>
+        {
+            Dispatcher.BeginInvoke(() =>
+            {
+                ClosedContent.ShowPredictionWaiting(); // Show "processing" dots
+            });
+        };
     }
 
     private void Window_Loaded(object sender, RoutedEventArgs e)
@@ -231,6 +248,9 @@ public partial class MainWindow : Window
     private string? _predictionAppName;
     private string? _predictionWindowTitle;
     private bool _predictionAudioSending;
+    private readonly List<byte[]> _predictionAudioBuffer = new();
+    private bool _predictionAudioBuffering;
+    private bool _predictionWsReady;
 
     private void OnPredictionTriggered()
     {
@@ -239,9 +259,18 @@ public partial class MainWindow : Window
         ViewCoordinator.Instance.CombinedPredictionState = CombinedPredictionState.Waiting;
         ClosedContent.ShowPredictionWaiting();
         _predictionAudioSending = false;
+        _predictionWsReady = false;
 
         _predictionAppName = ScreenCaptureManager.Instance.GetActiveAppName();
         _predictionWindowTitle = ScreenCaptureManager.Instance.GetActiveWindowTitle();
+
+        // START AUDIO IMMEDIATELY (before WebSocket connects) - matches macOS preStartAudioCapture
+        _predictionAudioBuffer.Clear();
+        _predictionAudioBuffering = true;
+        _predictionAudioSending = true;
+        AudioService.Instance.OnAudioDataAvailable += OnPredictionAudioData;
+        AudioService.Instance.StartCapture();
+        FileLogger.Instance.Info("Prediction", "Audio capture started immediately (buffering until WS connects)");
 
         Task.Run(async () =>
         {
@@ -258,8 +287,10 @@ public partial class MainWindow : Window
 
             if (client == null || !client.IsConnected)
             {
-                Dispatcher.Invoke(() =>
+                Dispatcher.BeginInvoke(() =>
                 {
+                    AudioService.Instance.OnAudioDataAvailable -= OnPredictionAudioData;
+                    AudioService.Instance.StopCapture();
                     ViewCoordinator.Instance.CombinedPredictionState = CombinedPredictionState.Error;
                     ViewCoordinator.Instance.ErrorMessage = "Connection failed";
                     ClosedContent.ShowError("Connection failed");
@@ -277,10 +308,21 @@ public partial class MainWindow : Window
             client.OnPredictionComplete += OnPredictionCompleteHandler;
             client.OnError += OnPredictionErrorHandler;
 
-            // Start audio capture immediately
-            _predictionAudioSending = true;
-            AudioService.Instance.OnAudioDataAvailable += OnPredictionAudioData;
-            AudioService.Instance.StartCapture();
+            // Flush buffered audio to WebSocket
+            _predictionWsReady = true;
+            _predictionAudioBuffering = false;
+
+            lock (_predictionAudioBuffer)
+            {
+                FileLogger.Instance.Info("Prediction", $"Flushing {_predictionAudioBuffer.Count} buffered audio chunks");
+                foreach (var chunk in _predictionAudioBuffer)
+                {
+                    _ = client.SendAudioChunk(chunk);
+                }
+                _predictionAudioBuffer.Clear();
+            }
+
+            FileLogger.Instance.Info("Prediction", "WebSocket connected, audio streaming live");
         });
     }
 
@@ -328,8 +370,22 @@ public partial class MainWindow : Window
     private void OnPredictionAudioData(object? sender, byte[] data)
     {
         if (!_predictionAudioSending) return;
-        var client = WebSocket.WebSocketRegistry.Instance.UnifiedAudioClient;
-        _ = client?.SendAudioChunk(data);
+
+        if (_predictionAudioBuffering)
+        {
+            // Buffer audio until WebSocket is ready
+            lock (_predictionAudioBuffer)
+            {
+                _predictionAudioBuffer.Add(data);
+            }
+            return;
+        }
+
+        if (_predictionWsReady)
+        {
+            var client = WebSocket.WebSocketRegistry.Instance.UnifiedAudioClient;
+            _ = client?.SendAudioChunk(data);
+        }
     }
 
     /// <summary>
@@ -409,6 +465,7 @@ public partial class MainWindow : Window
 
     private void OnPredictionReleased()
     {
+        _predictionAudioBuffering = false;
         AudioService.Instance.OnAudioDataAvailable -= OnPredictionAudioData;
         AudioService.Instance.StopCapture();
 
@@ -417,6 +474,16 @@ public partial class MainWindow : Window
             var client = WebSocket.WebSocketRegistry.Instance.UnifiedAudioClient;
             if (client != null)
             {
+                // Flush any remaining buffered audio
+                lock (_predictionAudioBuffer)
+                {
+                    foreach (var chunk in _predictionAudioBuffer)
+                    {
+                        _ = client.SendAudioChunk(chunk);
+                    }
+                    _predictionAudioBuffer.Clear();
+                }
+
                 await client.SendEndPayload(
                     audioCompleted: _predictionAudioSending,
                     screenshot: _predictionScreenshot,
