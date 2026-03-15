@@ -3,14 +3,17 @@ using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using VE.Windows.Helpers;
 using VE.Windows.Managers;
 
 namespace VE.Windows.Services;
 
 /// <summary>
-/// HTTP networking layer with auth headers, CSRF tokens, cookie handling, and retry logic.
-/// Equivalent to macOS NetworkService.
+/// HTTP networking layer with auth headers, CSRF tokens, HTTPOnly cookie handling,
+/// and automatic 401/406 retry logic.
+/// Matches macOS NetworkService exactly: x-access-token header, x-csrf-token for
+/// state-changing methods, cookie-based refresh token flow, single retry on token expiry.
 /// </summary>
 public sealed class NetworkService
 {
@@ -26,6 +29,8 @@ public sealed class NetworkService
         {
             CookieContainer = _cookieContainer,
             UseCookies = true,
+            // Accept HTTPOnly cookies from the server (refresh token flow)
+            // CookieContainer automatically handles HTTPOnly cookies sent by the server
             AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate,
         };
 
@@ -39,6 +44,28 @@ public sealed class NetworkService
         _httpClient.DefaultRequestHeaders.UserAgent.ParseAdd("VE-Windows/1.0");
     }
 
+    /// <summary>
+    /// Scope cookies to the .ve.ai domain to match macOS behavior.
+    /// Called after login to ensure refresh token cookies are properly scoped.
+    /// </summary>
+    public void ScopeCookiesToDomain(Uri baseUri)
+    {
+        try
+        {
+            var domain = baseUri.Host;
+            // Ensure cookies are scoped to the API domain
+            foreach (Cookie cookie in _cookieContainer.GetCookies(baseUri))
+            {
+                cookie.Domain = domain;
+                cookie.Secure = true;
+            }
+        }
+        catch (Exception ex)
+        {
+            FileLogger.Instance.Warning("Network", $"Cookie scoping failed: {ex.Message}");
+        }
+    }
+
     private void AttachAuthHeaders(HttpRequestMessage request)
     {
         // macOS uses x-access-token header for REST APIs (NOT Authorization: Bearer)
@@ -48,92 +75,51 @@ public sealed class NetworkService
             request.Headers.TryAddWithoutValidation("x-access-token", token);
         }
 
-        // CSRF token for POST/PUT/DELETE (matches macOS)
+        // CSRF token for state-changing methods (POST/PUT/DELETE/PATCH) — matches macOS exactly
         var csrf = AuthManager.Instance.Storage.CSRFToken;
         var method = request.Method.Method.ToUpper();
-        if (!string.IsNullOrEmpty(csrf) && (method == "POST" || method == "PUT" || method == "DELETE"))
+        if (!string.IsNullOrEmpty(csrf) &&
+            (method == "POST" || method == "PUT" || method == "DELETE" || method == "PATCH"))
         {
-            request.Headers.Add("x-csrf-token", csrf);
+            request.Headers.TryAddWithoutValidation("x-csrf-token", csrf);
         }
 
         var workspaceId = AuthManager.Instance.Storage.WorkspaceId;
         if (!string.IsNullOrEmpty(workspaceId))
         {
-            request.Headers.Add("x-workspace-id", workspaceId);
+            request.Headers.TryAddWithoutValidation("x-workspace-id", workspaceId);
         }
     }
 
     public async Task<T?> GetAsync<T>(string url) where T : class
     {
-        return await ExecuteWithRetry<T>(async () =>
-        {
-            using var request = new HttpRequestMessage(HttpMethod.Get, url);
-            AttachAuthHeaders(request);
-            var response = await _httpClient.SendAsync(request);
-            return await HandleResponse<T>(response);
-        });
+        return await ExecuteWithRetry<T>(HttpMethod.Get, url, null);
     }
 
     public async Task<T?> PostAsync<T>(string url, object? body = null) where T : class
     {
-        return await ExecuteWithRetry<T>(async () =>
-        {
-            using var request = new HttpRequestMessage(HttpMethod.Post, url);
-            AttachAuthHeaders(request);
-            if (body != null)
-            {
-                request.Content = new StringContent(
-                    JsonConvert.SerializeObject(body), Encoding.UTF8, "application/json");
-            }
-            var response = await _httpClient.SendAsync(request);
-            return await HandleResponse<T>(response);
-        });
+        return await ExecuteWithRetry<T>(HttpMethod.Post, url, body);
     }
 
     public async Task<T?> PutAsync<T>(string url, object? body = null) where T : class
     {
-        return await ExecuteWithRetry<T>(async () =>
-        {
-            using var request = new HttpRequestMessage(HttpMethod.Put, url);
-            AttachAuthHeaders(request);
-            if (body != null)
-            {
-                request.Content = new StringContent(
-                    JsonConvert.SerializeObject(body), Encoding.UTF8, "application/json");
-            }
-            var response = await _httpClient.SendAsync(request);
-            return await HandleResponse<T>(response);
-        });
+        return await ExecuteWithRetry<T>(HttpMethod.Put, url, body);
     }
 
     public async Task<T?> PatchAsync<T>(string url, object? body = null) where T : class
     {
-        return await ExecuteWithRetry<T>(async () =>
-        {
-            using var request = new HttpRequestMessage(HttpMethod.Patch, url);
-            AttachAuthHeaders(request);
-            if (body != null)
-            {
-                request.Content = new StringContent(
-                    JsonConvert.SerializeObject(body), Encoding.UTF8, "application/json");
-            }
-            var response = await _httpClient.SendAsync(request);
-            return await HandleResponse<T>(response);
-        });
+        return await ExecuteWithRetry<T>(HttpMethod.Patch, url, body);
     }
 
     public async Task<bool> DeleteAsync(string url)
     {
         try
         {
-            using var request = new HttpRequestMessage(HttpMethod.Delete, url);
-            AttachAuthHeaders(request);
-            var response = await _httpClient.SendAsync(request);
-            return response.IsSuccessStatusCode;
+            var result = await ExecuteWithRetry<object>(HttpMethod.Delete, url, null);
+            return true;
         }
-        catch (Exception ex)
+        catch
         {
-            FileLogger.Instance.Error("Network", $"DELETE failed: {url} - {ex.Message}");
             return false;
         }
     }
@@ -178,54 +164,108 @@ public sealed class NetworkService
         }
     }
 
-    private async Task<T?> HandleResponse<T>(HttpResponseMessage response) where T : class
+    /// <summary>
+    /// Core request execution with 401/406 auto-retry.
+    /// Matches macOS: on 401 "jwt expired" or 406 "Not Approved", refresh token and retry once.
+    /// On 5xx, log to error service. No retry on other 4xx codes.
+    /// </summary>
+    private async Task<T?> ExecuteWithRetry<T>(HttpMethod method, string url, object? body) where T : class
     {
-        var content = await response.Content.ReadAsStringAsync();
+        var (result, statusCode, responseBody) = await ExecuteRequest<T>(method, url, body);
+        if (result != null || statusCode == 0) return result;
 
-        if (response.IsSuccessStatusCode)
+        // Check for retryable status codes (matches macOS exactly)
+        bool shouldRetry = false;
+        if (statusCode == 401)
         {
-            if (string.IsNullOrEmpty(content)) return default;
-            return JsonConvert.DeserializeObject<T>(content);
+            var message = ExtractMessage(responseBody);
+            shouldRetry = message == "jwt expired";
+            if (shouldRetry)
+                FileLogger.Instance.Info("Network", "401 jwt expired — refreshing token");
         }
-
-        if (response.StatusCode == HttpStatusCode.Unauthorized)
+        else if (statusCode == 406)
         {
-            throw new UnauthorizedAccessException("Token expired");
+            var message = ExtractMessage(responseBody);
+            shouldRetry = message == "Not Approved";
+            if (shouldRetry)
+                FileLogger.Instance.Info("Network", "406 Not Approved — refreshing token");
         }
-
-        FileLogger.Instance.Warning("Network",
-            $"Request failed: {(int)response.StatusCode} {response.RequestMessage?.RequestUri} - {content}");
-        return default;
-    }
-
-    private async Task<T?> ExecuteWithRetry<T>(Func<Task<T?>> action) where T : class
-    {
-        try
+        else if (statusCode >= 500)
         {
-            return await action();
-        }
-        catch (UnauthorizedAccessException)
-        {
-            // Token expired - try refresh
-            FileLogger.Instance.Info("Network", "Token expired, attempting refresh...");
-            var refreshed = await TokenRefreshService.Instance.RefreshToken();
-            if (refreshed)
-            {
-                try { return await action(); }
-                catch (Exception ex)
+            // Log 5xx server errors (matches macOS)
+            ErrorService.Instance.LogMessage(
+                $"HTTP {statusCode} server error",
+                ErrorCategory.Network, ErrorSeverity.Error,
+                new Dictionary<string, string>
                 {
-                    FileLogger.Instance.Error("Network", $"Retry after refresh failed: {ex.Message}");
-                    return default;
-                }
-            }
-            // Refresh failed - logout
+                    ["url"] = url,
+                    ["method"] = method.Method,
+                    ["status_code"] = statusCode.ToString()
+                });
+        }
+
+        if (!shouldRetry) return result;
+
+        // Refresh token via guarded method, then retry once
+        var refreshed = await TokenRefreshService.Instance.EnsureTokenRefreshed();
+        if (!refreshed)
+        {
+            FileLogger.Instance.Warning("Network", "Token refresh failed — logging out");
             AuthManager.Instance.Logout();
             return default;
         }
+
+        // Retry with new token
+        var (retryResult, _, _) = await ExecuteRequest<T>(method, url, body);
+        return retryResult;
+    }
+
+    private async Task<(T? result, int statusCode, string? responseBody)> ExecuteRequest<T>(
+        HttpMethod method, string url, object? body) where T : class
+    {
+        try
+        {
+            using var request = new HttpRequestMessage(method, url);
+            AttachAuthHeaders(request);
+            if (body != null)
+            {
+                request.Content = new StringContent(
+                    JsonConvert.SerializeObject(body), Encoding.UTF8, "application/json");
+            }
+
+            var response = await _httpClient.SendAsync(request);
+            var content = await response.Content.ReadAsStringAsync();
+            var statusCode = (int)response.StatusCode;
+
+            if (response.IsSuccessStatusCode)
+            {
+                if (string.IsNullOrEmpty(content)) return (default, statusCode, content);
+                var parsed = JsonConvert.DeserializeObject<T>(content);
+                return (parsed, statusCode, content);
+            }
+
+            FileLogger.Instance.Warning("Network",
+                $"Request failed: {statusCode} {method} {url} - {content.Substring(0, Math.Min(200, content.Length))}");
+            return (default, statusCode, content);
+        }
         catch (Exception ex)
         {
-            FileLogger.Instance.Error("Network", $"Request failed: {ex.Message}");
-            return default;
+            FileLogger.Instance.Error("Network", $"{method} {url} failed: {ex.Message}");
+            return (default, 0, null);
         }
+    }
+
+    /// <summary>
+    /// Extract "message" field from JSON response body for 401/406 handling.
+    /// </summary>
+    private static string ExtractMessage(string? responseBody)
+    {
+        if (string.IsNullOrEmpty(responseBody)) return "";
+        try
+        {
+            var json = JObject.Parse(responseBody);
+            return json["message"]?.ToString() ?? "";
+        }
+        catch { return ""; }
     }
 }

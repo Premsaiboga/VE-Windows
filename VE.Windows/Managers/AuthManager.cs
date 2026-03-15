@@ -266,8 +266,10 @@ public sealed class AuthManager : INotifyPropertyChanged
 }
 
 /// <summary>
-/// Secure credential storage using DPAPI encryption.
-/// Equivalent to macOS AuthStorage + KeychainService.
+/// Secure credential storage with DEBUG/RELEASE split.
+/// DEBUG: plain JSON file (survives rebuilds, easy to inspect).
+/// RELEASE: Windows DPAPI (ProtectedData.Protect/Unprotect) for encrypted storage.
+/// Matches macOS AuthStorage: DEBUG uses UserDefaults, RELEASE uses Keychain.
 /// </summary>
 public sealed class AuthStorage
 {
@@ -280,7 +282,11 @@ public sealed class AuthStorage
         var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
         var veDir = Path.Combine(appData, "VE");
         Directory.CreateDirectory(veDir);
+#if DEBUG
+        _storagePath = Path.Combine(veDir, "auth_debug.json");
+#else
         _storagePath = Path.Combine(veDir, "auth.dat");
+#endif
         _store = LoadStore();
     }
 
@@ -331,11 +337,19 @@ public sealed class AuthStorage
         {
             if (File.Exists(_storagePath))
             {
+#if DEBUG
+                // DEBUG: plain JSON file for easy development
+                var json = File.ReadAllText(_storagePath);
+                return JsonConvert.DeserializeObject<Dictionary<string, string>>(json)
+                       ?? new Dictionary<string, string>();
+#else
+                // RELEASE: DPAPI-encrypted storage
                 var encrypted = File.ReadAllBytes(_storagePath);
                 var decrypted = ProtectedData.Unprotect(encrypted, null, DataProtectionScope.CurrentUser);
                 var json = Encoding.UTF8.GetString(decrypted);
                 return JsonConvert.DeserializeObject<Dictionary<string, string>>(json)
                        ?? new Dictionary<string, string>();
+#endif
             }
         }
         catch { }
@@ -347,9 +361,15 @@ public sealed class AuthStorage
         try
         {
             var json = JsonConvert.SerializeObject(_store);
+#if DEBUG
+            // DEBUG: plain JSON file
+            File.WriteAllText(_storagePath, json);
+#else
+            // RELEASE: DPAPI-encrypted storage
             var bytes = Encoding.UTF8.GetBytes(json);
             var encrypted = ProtectedData.Protect(bytes, null, DataProtectionScope.CurrentUser);
             File.WriteAllBytes(_storagePath, encrypted);
+#endif
         }
         catch (Exception ex)
         {

@@ -7,9 +7,10 @@ using VE.Windows.Managers;
 namespace VE.Windows.WebSocket;
 
 /// <summary>
-/// Low-level WebSocket transport layer.
-/// Owns: connect, disconnect, reconnect, retry with backoff, auth headers.
-/// Equivalent to macOS WebSocketTransport.
+/// Low-level WebSocket transport layer with connection guard, keep-alive pings,
+/// and exponential backoff reconnection.
+/// Matches macOS WebSocketTransport: connection guard prevents duplicate connects,
+/// 120-second ping timer prevents idle timeout, sleep/wake handling for clean reconnection.
 /// </summary>
 public class WebSocketTransport : IDisposable
 {
@@ -19,6 +20,15 @@ public class WebSocketTransport : IDisposable
     private int _retryAttempt;
     private bool _isDisposed;
     private bool _intentionalDisconnect;
+
+    // Connection guard: prevents duplicate concurrent ConnectAsync() calls (matches macOS ConnectionGuard actor)
+    private readonly SemaphoreSlim _connectLock = new(1, 1);
+    private Task? _activeConnectTask;
+
+    // Keep-alive ping timer (matches macOS 120-second interval)
+    private Timer? _pingTimer;
+    private DateTime _lastMessageTime = DateTime.UtcNow;
+    private const int PingIntervalSeconds = 120;
 
     public string Url { get; private set; }
     public bool IsConnected => _webSocket?.State == WebSocketState.Open;
@@ -40,9 +50,54 @@ public class WebSocketTransport : IDisposable
         Url = newUrl;
     }
 
+    /// <summary>
+    /// Connect with guard: if a connection is already in progress, await it instead of starting a new one.
+    /// Matches macOS ConnectionGuard actor pattern.
+    /// </summary>
     public async Task ConnectAsync()
     {
         if (_isDisposed) return;
+
+        // Fast path: already connected
+        if (_webSocket?.State == WebSocketState.Open) return;
+
+        // If a connection is in progress, await it
+        var existing = _activeConnectTask;
+        if (existing != null)
+        {
+            FileLogger.Instance.Debug("WebSocket", "Awaiting existing connection attempt...");
+            await existing;
+            return;
+        }
+
+        if (!await _connectLock.WaitAsync(TimeSpan.FromSeconds(10)))
+        {
+            FileLogger.Instance.Warning("WebSocket", "Connection lock timeout");
+            return;
+        }
+
+        try
+        {
+            // Double-check after acquiring lock
+            if (_webSocket?.State == WebSocketState.Open) return;
+            if (_activeConnectTask != null)
+            {
+                await _activeConnectTask;
+                return;
+            }
+
+            _activeConnectTask = ConnectInternalAsync();
+            await _activeConnectTask;
+        }
+        finally
+        {
+            _activeConnectTask = null;
+            _connectLock.Release();
+        }
+    }
+
+    private async Task ConnectInternalAsync()
+    {
         _intentionalDisconnect = false;
 
         try
@@ -52,9 +107,7 @@ public class WebSocketTransport : IDisposable
             _webSocket = new ClientWebSocket();
             _cts = new CancellationTokenSource();
 
-            // Add auth headers
-            // macOS stores token WITH "Bearer " prefix; Windows stores raw JWT
-            // So we add "Bearer " prefix here
+            // Add auth headers — macOS stores token WITH "Bearer " prefix; Windows stores raw JWT
             var token = AuthManager.Instance.Storage.UserToken;
             if (!string.IsNullOrEmpty(token))
             {
@@ -67,8 +120,12 @@ public class WebSocketTransport : IDisposable
             await _webSocket.ConnectAsync(new Uri(Url), _cts.Token);
 
             _retryAttempt = 0;
+            _lastMessageTime = DateTime.UtcNow;
             FileLogger.Instance.Info("WebSocket", $"Connected to {Url}");
             Connected?.Invoke(this, EventArgs.Empty);
+
+            // Start keep-alive ping timer
+            StartPingTimer();
 
             // Start receiving
             _ = Task.Run(() => ReceiveLoop(_cts.Token));
@@ -84,12 +141,14 @@ public class WebSocketTransport : IDisposable
     public async Task DisconnectAsync()
     {
         _intentionalDisconnect = true;
+        StopPingTimer();
         await DisconnectInternalAsync();
         Disconnected?.Invoke(this, "Intentional disconnect");
     }
 
     private async Task DisconnectInternalAsync()
     {
+        StopPingTimer();
         _cts?.Cancel();
 
         if (_webSocket != null)
@@ -150,6 +209,9 @@ public class WebSocketTransport : IDisposable
                     ms.Write(buffer, 0, result.Count);
                 } while (!result.EndOfMessage);
 
+                // Reset ping timer on any message received
+                _lastMessageTime = DateTime.UtcNow;
+
                 if (result.MessageType == WebSocketMessageType.Close)
                 {
                     FileLogger.Instance.Info("WebSocket", $"Server closed connection: {Url}");
@@ -201,6 +263,56 @@ public class WebSocketTransport : IDisposable
         }
     }
 
+    // --- Keep-alive ping (matches macOS 120-second interval) ---
+
+    /// <summary>
+    /// Start periodic ping timer. Sends WebSocket ping every 120 seconds to prevent
+    /// server/proxy idle timeout (typically 5 minutes). Timer resets on any message received.
+    /// </summary>
+    private void StartPingTimer()
+    {
+        StopPingTimer();
+        _pingTimer = new Timer(OnPingTimer, null,
+            TimeSpan.FromSeconds(PingIntervalSeconds),
+            TimeSpan.FromSeconds(PingIntervalSeconds));
+    }
+
+    private void StopPingTimer()
+    {
+        _pingTimer?.Dispose();
+        _pingTimer = null;
+    }
+
+    private async void OnPingTimer(object? state)
+    {
+        if (_webSocket?.State != WebSocketState.Open) return;
+
+        var idleTime = DateTime.UtcNow - _lastMessageTime;
+        if (idleTime.TotalSeconds < PingIntervalSeconds - 10) return; // Skip if recent activity
+
+        try
+        {
+            // Send an empty text frame as a ping (compatible with all servers)
+            var pingBytes = Encoding.UTF8.GetBytes("ping");
+            await _webSocket.SendAsync(pingBytes, WebSocketMessageType.Text, true,
+                _cts?.Token ?? CancellationToken.None);
+            _lastMessageTime = DateTime.UtcNow;
+        }
+        catch (Exception ex)
+        {
+            FileLogger.Instance.Warning("WebSocket", $"Ping failed: {ex.Message}");
+            // Connection may be dead — trigger reconnect
+            if (!_intentionalDisconnect && !_isDisposed)
+            {
+                await ScheduleReconnect();
+            }
+        }
+    }
+
+    /// <summary>
+    /// Verify connection health. If not connected, attempt reconnect.
+    /// Called after system wake to ensure connections are alive.
+    /// </summary>
     public async Task VerifyConnectionHealth()
     {
         if (_webSocket?.State != WebSocketState.Open)
@@ -208,6 +320,7 @@ public class WebSocketTransport : IDisposable
             FileLogger.Instance.Warning("WebSocket", $"Health check failed: {Url} - not open");
             if (!_intentionalDisconnect)
             {
+                _retryAttempt = 0; // Reset backoff after wake
                 await ConnectAsync();
             }
         }
@@ -217,8 +330,10 @@ public class WebSocketTransport : IDisposable
     {
         _isDisposed = true;
         _intentionalDisconnect = true;
+        StopPingTimer();
         _cts?.Cancel();
         _webSocket?.Dispose();
         _cts?.Dispose();
+        _connectLock.Dispose();
     }
 }

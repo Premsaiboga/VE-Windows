@@ -6,8 +6,9 @@ using VE.Windows.Managers;
 namespace VE.Windows.Services;
 
 /// <summary>
-/// Proactive JWT token refresh - refreshes 60 seconds before expiry.
-/// Equivalent to macOS TokenRefreshService.
+/// Proactive JWT token refresh with guard against duplicate concurrent refreshes.
+/// Matches macOS AuthManager+TokenRefresh: scheduled timer, 30-second periodic check,
+/// SemaphoreSlim guard so only one refresh executes at a time (others await the same result).
 /// </summary>
 public sealed class TokenRefreshService : IDisposable
 {
@@ -15,13 +16,16 @@ public sealed class TokenRefreshService : IDisposable
 
     private Timer? _refreshTimer;
     private Timer? _checkTimer;
-    private readonly SemaphoreSlim _refreshLock = new(1, 1);
     private const int RefreshBufferSeconds = 60;
     private const int CheckIntervalSeconds = 30;
 
+    // Guard: prevents duplicate concurrent token refreshes (matches macOS RefreshTokenGuard actor)
+    private static readonly SemaphoreSlim _refreshLock = new(1, 1);
+    private Task<bool>? _activeRefreshTask;
+
     private TokenRefreshService()
     {
-        // Check every 30 seconds
+        // Check every 30 seconds (matches macOS periodic check)
         _checkTimer = new Timer(OnCheckTimer, null, TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(CheckIntervalSeconds));
     }
 
@@ -39,10 +43,11 @@ public sealed class TokenRefreshService : IDisposable
             var expiresAt = jwtToken.ValidTo;
             var timeToExpiry = expiresAt - DateTime.UtcNow;
 
+            // macOS uses 180s aggressive threshold; we use 60s for scheduled + 30s check interval
             if (timeToExpiry.TotalSeconds <= RefreshBufferSeconds)
             {
                 FileLogger.Instance.Info("TokenRefresh", $"Token expires in {timeToExpiry.TotalSeconds:F0}s, refreshing...");
-                await RefreshToken();
+                await EnsureTokenRefreshed();
             }
         }
         catch (Exception ex)
@@ -51,6 +56,9 @@ public sealed class TokenRefreshService : IDisposable
         }
     }
 
+    /// <summary>
+    /// Schedule a proactive refresh before the token expires.
+    /// </summary>
     public void ScheduleRefresh(string token)
     {
         try
@@ -64,13 +72,13 @@ public sealed class TokenRefreshService : IDisposable
             if (delay.TotalSeconds > 0)
             {
                 _refreshTimer?.Dispose();
-                _refreshTimer = new Timer(async _ => await RefreshToken(), null, delay, Timeout.InfiniteTimeSpan);
+                _refreshTimer = new Timer(async _ => await EnsureTokenRefreshed(), null, delay, Timeout.InfiniteTimeSpan);
                 FileLogger.Instance.Info("TokenRefresh", $"Scheduled refresh in {delay.TotalMinutes:F1}m");
             }
             else
             {
                 // Already past refresh time, refresh now
-                Task.Run(async () => await RefreshToken());
+                Task.Run(async () => await EnsureTokenRefreshed());
             }
         }
         catch (Exception ex)
@@ -79,14 +87,44 @@ public sealed class TokenRefreshService : IDisposable
         }
     }
 
-    public async Task<bool> RefreshToken()
+    /// <summary>
+    /// Guarded token refresh: ensures only one refresh executes at a time.
+    /// If a refresh is already in progress, callers await the same result.
+    /// Matches macOS RefreshTokenGuard actor pattern.
+    /// </summary>
+    public async Task<bool> EnsureTokenRefreshed()
     {
-        if (!await _refreshLock.WaitAsync(TimeSpan.FromSeconds(5)))
+        // Fast path: if there's already an active refresh, await it
+        var existing = _activeRefreshTask;
+        if (existing != null)
         {
-            FileLogger.Instance.Warning("TokenRefresh", "Refresh already in progress");
-            return false;
+            FileLogger.Instance.Debug("TokenRefresh", "Awaiting existing refresh...");
+            return await existing;
         }
 
+        await _refreshLock.WaitAsync();
+        try
+        {
+            // Double-check after acquiring lock
+            if (_activeRefreshTask != null) return await _activeRefreshTask;
+
+            _activeRefreshTask = RefreshTokenInternal();
+            return await _activeRefreshTask;
+        }
+        finally
+        {
+            _activeRefreshTask = null;
+            _refreshLock.Release();
+        }
+    }
+
+    /// <summary>
+    /// Legacy method for backward compatibility. Prefer EnsureTokenRefreshed().
+    /// </summary>
+    public Task<bool> RefreshToken() => EnsureTokenRefreshed();
+
+    private async Task<bool> RefreshTokenInternal()
+    {
         try
         {
             var authUrl = BaseURLService.Instance.GetGlobalUrl("auth");
@@ -113,10 +151,6 @@ public sealed class TokenRefreshService : IDisposable
         {
             FileLogger.Instance.Error("TokenRefresh", $"Refresh failed: {ex.Message}");
             return false;
-        }
-        finally
-        {
-            _refreshLock.Release();
         }
     }
 
