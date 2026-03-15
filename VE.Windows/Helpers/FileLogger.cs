@@ -5,7 +5,8 @@ namespace VE.Windows.Helpers;
 
 /// <summary>
 /// File-based logging with rotation. Logs to %AppData%/VE/Logs/main.log.
-/// Equivalent to macOS FileLogger.
+/// Matches macOS Logger.swift: 5MB max file size, rotate to .old, thread-safe ConcurrentQueue.
+/// Format: [2026-03-15 14:30:22.123] [INFO] [Category] Message
 /// </summary>
 public sealed class FileLogger : IDisposable
 {
@@ -16,8 +17,7 @@ public sealed class FileLogger : IDisposable
     private readonly ConcurrentQueue<string> _queue = new();
     private readonly Timer _flushTimer;
     private readonly object _fileLock = new();
-    private const long MaxFileSize = 10 * 1024 * 1024; // 10MB
-    private const int MaxFiles = 5;
+    private const long MaxFileSize = 5 * 1024 * 1024; // 5MB (matches macOS)
 
     private FileLogger()
     {
@@ -68,6 +68,18 @@ public sealed class FileLogger : IDisposable
         }
     }
 
+    /// <summary>
+    /// Force flush all queued log entries immediately. Called before crash/exit.
+    /// </summary>
+    public void FlushNow()
+    {
+        Flush(null);
+    }
+
+    /// <summary>
+    /// Rotate log file when it exceeds 5MB.
+    /// Matches macOS: rename to main.old.log (single backup), overwriting previous.
+    /// </summary>
     private void RotateIfNeeded()
     {
         try
@@ -76,17 +88,9 @@ public sealed class FileLogger : IDisposable
             var fi = new FileInfo(_logPath);
             if (fi.Length < MaxFileSize) return;
 
-            // Rotate: main.log -> main.1.log -> ... -> main.4.log
-            for (int i = MaxFiles - 1; i >= 1; i--)
-            {
-                var src = Path.Combine(_logDir, $"main.{i}.log");
-                var dst = Path.Combine(_logDir, $"main.{i + 1}.log");
-                if (File.Exists(dst)) File.Delete(dst);
-                if (File.Exists(src)) File.Move(src, dst);
-            }
-
-            var rotated = Path.Combine(_logDir, "main.1.log");
-            File.Move(_logPath, rotated);
+            var oldPath = Path.Combine(_logDir, "main.old.log");
+            if (File.Exists(oldPath)) File.Delete(oldPath);
+            File.Move(_logPath, oldPath);
         }
         catch { }
     }

@@ -324,41 +324,26 @@ public partial class App : Application
         }
     }
 
+    /// <summary>
+    /// Register three global exception handlers matching macOS NSSetUncaughtExceptionHandler.
+    /// Logs to FileLogger, sends to Sentry with device context, flushes before termination.
+    /// </summary>
     private void SetupCrashHandler()
     {
         AppDomain.CurrentDomain.UnhandledException += (sender, args) =>
         {
-            var exception = args.ExceptionObject as Exception;
-            FileLogger.Instance.Critical("Crash", exception?.ToString() ?? "Unknown crash");
-            ErrorService.Instance.LogMessage(
-                exception?.Message ?? "Unknown crash",
-                ErrorCategory.Crash,
-                ErrorSeverity.Critical,
-                new Dictionary<string, string>
-                {
-                    ["stackTrace"] = exception?.StackTrace ?? "",
-                    ["type"] = exception?.GetType().Name ?? ""
-                });
+            ErrorService.Instance.LogCrashAndReport(args.ExceptionObject as Exception);
         };
 
         Current.DispatcherUnhandledException += (sender, args) =>
         {
-            FileLogger.Instance.Critical("UIThread", args.Exception.ToString());
-            ErrorService.Instance.LogMessage(
-                args.Exception.Message,
-                ErrorCategory.Crash,
-                ErrorSeverity.Critical,
-                new Dictionary<string, string>
-                {
-                    ["stackTrace"] = args.Exception.StackTrace ?? "",
-                    ["type"] = args.Exception.GetType().Name
-                });
+            ErrorService.Instance.LogCrashAndReport(args.Exception);
             args.Handled = true;
         };
 
         TaskScheduler.UnobservedTaskException += (sender, args) =>
         {
-            FileLogger.Instance.Error("Task", args.Exception.ToString());
+            ErrorService.Instance.LogCrashAndReport(args.Exception);
             args.SetObserved();
         };
     }
