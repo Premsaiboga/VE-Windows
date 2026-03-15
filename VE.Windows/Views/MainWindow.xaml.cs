@@ -167,6 +167,18 @@ public partial class MainWindow : Window
         {
             Dispatcher.Invoke(EnsureTopmost);
         }, null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
+
+        // Monitor display changes (connect/disconnect) — reposition notch
+        Microsoft.Win32.SystemEvents.DisplaySettingsChanged += OnDisplaySettingsChanged;
+    }
+
+    private void OnDisplaySettingsChanged(object? sender, EventArgs e)
+    {
+        Dispatcher.BeginInvoke(() =>
+        {
+            FileLogger.Instance.Info("MainWindow", "Display settings changed, repositioning notch");
+            PositionWindow();
+        });
     }
 
     private void EnsureTopmost()

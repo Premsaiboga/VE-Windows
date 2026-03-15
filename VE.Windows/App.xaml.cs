@@ -52,7 +52,7 @@ public partial class App : Application
         _ = BaseURLService.Instance;
         _ = NetworkService.Instance;
 
-        // Register ve:// protocol handler
+        // Register ve:// protocol handler (verifies path on every launch)
         ProtocolHandler.RegisterProtocol();
 
         // Setup auto-start on first launch
@@ -62,6 +62,12 @@ public partial class App : Application
             AutoStartHelper.IsEnabled = true;
             settings.Set("HasLaunchedBefore", true);
         }
+
+        // Verify auto-start registry matches current exe path (handles app moved/updated)
+        AutoStartHelper.VerifyRegistryPath();
+
+        // Clean up any pending installers from previous sessions
+        UpdateService.Instance.CheckPendingInstall();
 
         // Create system tray icon
         CreateNotifyIcon();
@@ -119,11 +125,13 @@ public partial class App : Application
 
     /// <summary>
     /// Listen for args from new instances (OAuth callbacks) via named pipe.
+    /// Auto-restarts on crash with backoff. Handles broken pipe edge cases.
     /// </summary>
     private void StartPipeServer()
     {
         _pipeCts = new CancellationTokenSource();
         var ct = _pipeCts.Token;
+        var consecutiveErrors = 0;
 
         Task.Run(async () =>
         {
@@ -135,6 +143,7 @@ public partial class App : Application
                         PipeTransmissionMode.Byte, PipeOptions.Asynchronous);
 
                     await server.WaitForConnectionAsync(ct);
+                    consecutiveErrors = 0; // Reset on successful connection
 
                     using var reader = new StreamReader(server);
                     var message = await reader.ReadLineAsync();
@@ -149,10 +158,19 @@ public partial class App : Application
                 {
                     break;
                 }
+                catch (IOException ex) when (ex.Message.Contains("broken"))
+                {
+                    // Broken pipe — client disconnected before sending. Normal, just restart.
+                    FileLogger.Instance.Debug("App", "Pipe client disconnected (broken pipe)");
+                }
                 catch (Exception ex)
                 {
-                    FileLogger.Instance.Error("App", $"Pipe server error: {ex.Message}");
-                    await Task.Delay(500, ct);
+                    consecutiveErrors++;
+                    FileLogger.Instance.Error("App", $"Pipe server error ({consecutiveErrors}): {ex.Message}");
+
+                    // Exponential backoff: 500ms, 1s, 2s, 4s, max 10s
+                    var delay = Math.Min(500 * (1 << Math.Min(consecutiveErrors - 1, 4)), 10_000);
+                    await Task.Delay(delay, ct);
                 }
             }
         }, ct);
