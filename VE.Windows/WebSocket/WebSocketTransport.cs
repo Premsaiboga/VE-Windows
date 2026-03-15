@@ -92,7 +92,7 @@ public class WebSocketTransport : IDisposable
         finally
         {
             _activeConnectTask = null;
-            _connectLock.Release();
+            try { if (!_isDisposed) _connectLock.Release(); } catch (ObjectDisposedException) { }
         }
     }
 

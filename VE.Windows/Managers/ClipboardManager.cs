@@ -90,6 +90,14 @@ public sealed class ClipboardManager
     private const uint INPUT_KEYBOARD = 1;
     private const uint KEYEVENTF_KEYUP = 0x0002;
 
+    [DllImport("user32.dll")]
+    private static extern uint MapVirtualKey(uint uCode, uint uMapType);
+
+    private const uint MAPVK_VK_TO_VSC = 0;
+
+    // INPUT struct must include MOUSEINPUT in the union so that
+    // Marshal.SizeOf<INPUT>() == 40 on x64, matching Win32's sizeof(INPUT).
+    // Without MOUSEINPUT, the struct is only 32 bytes and SendInput silently fails.
     [StructLayout(LayoutKind.Sequential)]
     private struct INPUT
     {
@@ -100,7 +108,19 @@ public sealed class ClipboardManager
     [StructLayout(LayoutKind.Explicit)]
     private struct INPUTUNION
     {
+        [FieldOffset(0)] public MOUSEINPUT mi;
         [FieldOffset(0)] public KEYBDINPUT ki;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct MOUSEINPUT
+    {
+        public int dx;
+        public int dy;
+        public uint mouseData;
+        public uint dwFlags;
+        public uint time;
+        public IntPtr dwExtraInfo;
     }
 
     [StructLayout(LayoutKind.Sequential)]
@@ -294,9 +314,10 @@ public sealed class ClipboardManager
                         MakeKeyInput(VK_V, true),
                         MakeKeyInput(VK_CONTROL, true)
                     };
-                    SendInput((uint)inputs.Length, inputs, Marshal.SizeOf<INPUT>());
+                    var cbSize = Marshal.SizeOf<INPUT>();
+                    var sent = SendInput((uint)inputs.Length, inputs, cbSize);
 
-                    FileLogger.Instance.Info("Clipboard", $"Pasted {text.Length} chars with batch SendInput");
+                    FileLogger.Instance.Info("Clipboard", $"Pasted {text.Length} chars: SendInput sent={sent}/4, cbSize={cbSize}");
 
                     // Start 2-minute timer to restore original clipboard
                     StartClipboardRestoreTimer();
@@ -362,6 +383,7 @@ public sealed class ClipboardManager
     /// </summary>
     private static INPUT MakeKeyInput(ushort vk, bool keyUp)
     {
+        var scan = (ushort)MapVirtualKey(vk, MAPVK_VK_TO_VSC);
         return new INPUT
         {
             type = INPUT_KEYBOARD,
@@ -370,7 +392,7 @@ public sealed class ClipboardManager
                 ki = new KEYBDINPUT
                 {
                     wVk = vk,
-                    wScan = 0,
+                    wScan = scan,
                     dwFlags = keyUp ? KEYEVENTF_KEYUP : 0,
                     time = 0,
                     dwExtraInfo = IntPtr.Zero
@@ -384,6 +406,7 @@ public sealed class ClipboardManager
     /// </summary>
     private static void SendSingleKey(ushort vk, bool keyUp)
     {
+        var scan = (ushort)MapVirtualKey(vk, MAPVK_VK_TO_VSC);
         var input = new INPUT[]
         {
             new INPUT
@@ -394,7 +417,7 @@ public sealed class ClipboardManager
                     ki = new KEYBDINPUT
                     {
                         wVk = vk,
-                        wScan = 0,
+                        wScan = scan,
                         dwFlags = keyUp ? KEYEVENTF_KEYUP : 0,
                         time = 0,
                         dwExtraInfo = IntPtr.Zero
