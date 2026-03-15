@@ -23,6 +23,8 @@ public sealed class ChatManager : INotifyPropertyChanged
     private ClientWebSocket? _ws;
     private CancellationTokenSource? _cts;
     private ChatMessage? _currentAssistantMessage;
+    private AIModel _selectedModel = AIModel.Auto;
+    private string _streamingAnswer = "";
 
     public event PropertyChangedEventHandler? PropertyChanged;
 
@@ -32,6 +34,15 @@ public sealed class ChatManager : INotifyPropertyChanged
     {
         get => _isStreaming;
         private set { _isStreaming = value; OnPropertyChanged(); }
+    }
+
+    /// <summary>
+    /// Currently selected AI model. Matches macOS model selection.
+    /// </summary>
+    public AIModel SelectedModel
+    {
+        get => _selectedModel;
+        set { _selectedModel = value; OnPropertyChanged(); }
     }
 
     private ChatManager() { }
@@ -101,7 +112,8 @@ public sealed class ChatManager : INotifyPropertyChanged
             _ = Task.Run(() => ReceiveLoop(assistantMessage));
 
             // Build payload - matches macOS buildChatPayload exactly
-            var timezone = TimeZoneInfo.Local.Id;
+            _streamingAnswer = "";
+            var timezone = GetIanaTimezone();
             var payload = new Dictionary<string, object?>
             {
                 ["types"] = "text",
@@ -110,7 +122,9 @@ public sealed class ChatManager : INotifyPropertyChanged
                 ["location"] = new Dictionary<string, string>
                 {
                     ["city"] = "Unknown",
+                    ["state"] = "",
                     ["countryRegion"] = "",
+                    ["countryRegionCode"] = "",
                     ["country"] = "Unknown",
                     ["timezone"] = timezone
                 },
@@ -119,6 +133,12 @@ public sealed class ChatManager : INotifyPropertyChanged
                 ["deep_search"] = false,
                 ["deep_research"] = false
             };
+
+            // Add model selection (skip if "auto" — let backend choose, matches macOS)
+            if (_selectedModel.Id != "auto")
+            {
+                payload["model"] = _selectedModel.Id;
+            }
 
             var json = JsonConvert.SerializeObject(payload);
             var bytes = Encoding.UTF8.GetBytes(json);
@@ -195,16 +215,29 @@ public sealed class ChatManager : INotifyPropertyChanged
             // 4. status_code (presence = error for chat)
             // 5. answer chunk (streaming)
 
-            // Step text (thinking indicator) - can coexist with other fields
+            // Step text (thinking indicator) - parse into structured ThinkingStep (matches macOS)
             if (json.ContainsKey("step"))
             {
-                var step = json["step"]?.ToString() ?? "";
-                if (!string.IsNullOrEmpty(step))
+                var stepText = json["step"]?.ToString() ?? "";
+                var stepId = json["step_id"]?.ToString() ?? Guid.NewGuid().ToString();
+
+                if (!string.IsNullOrEmpty(stepText))
                 {
                     System.Windows.Application.Current?.Dispatcher.BeginInvoke(() =>
                     {
                         if (string.IsNullOrEmpty(assistantMessage.Content))
-                            assistantMessage.ThinkingContent = step;
+                            assistantMessage.ThinkingContent = stepText;
+
+                        // Add or update structured thinking step
+                        var existing = assistantMessage.ThinkingSteps.FirstOrDefault(s => s.Id == stepId);
+                        if (existing != null)
+                        {
+                            existing.Text = stepText;
+                        }
+                        else
+                        {
+                            assistantMessage.ThinkingSteps.Add(new ThinkingStep { Id = stepId, Text = stepText });
+                        }
                     });
                 }
             }
@@ -260,14 +293,38 @@ public sealed class ChatManager : INotifyPropertyChanged
             }
             if (status == "cancelled") return;
 
-            // 3. Stream end
+            // 2b. is_error flag (server indicates error in response)
+            if (json.ContainsKey("is_error") && (json["is_error"]?.Value<bool>() ?? false))
+            {
+                var errorAnswer = json["answer"]?.ToString();
+                var errorMsg = !string.IsNullOrEmpty(errorAnswer) ? errorAnswer : "Server error occurred";
+                FileLogger.Instance.Error("ChatManager", $"is_error=true: {errorMsg}");
+                SetAssistant(assistantMessage, $"Error: {errorMsg}");
+                FinishStreaming(assistantMessage);
+                return;
+            }
+
+            // 3. Stream end (matches macOS: flush buffered answer, set isCancelled)
             if (json.ContainsKey("stream_end") && (json["stream_end"]?.Value<bool>() ?? false))
             {
                 var finalChunk = json["answer"]?.ToString();
                 if (!string.IsNullOrEmpty(finalChunk))
                 {
-                    AppendToAssistant(assistantMessage, finalChunk);
+                    _streamingAnswer += finalChunk;
                 }
+
+                var isCancelled = json["status"]?.ToString() == "cancelled";
+
+                System.Windows.Application.Current?.Dispatcher.BeginInvoke(() =>
+                {
+                    if (!string.IsNullOrEmpty(_streamingAnswer) && string.IsNullOrEmpty(assistantMessage.Content))
+                    {
+                        assistantMessage.Content = _streamingAnswer;
+                    }
+                    assistantMessage.IsCancelled = isCancelled;
+                    assistantMessage.IsThinkingExpanded = false;
+                });
+
                 FinishStreaming(assistantMessage);
                 return;
             }
@@ -282,12 +339,13 @@ public sealed class ChatManager : INotifyPropertyChanged
                 return;
             }
 
-            // 5. Answer chunk (streaming)
+            // 5. Answer chunk (streaming) — accumulate like macOS streamingAnswers
             if (json.ContainsKey("answer"))
             {
                 var answer = json["answer"]?.ToString() ?? "";
                 if (!string.IsNullOrEmpty(answer))
                 {
+                    _streamingAnswer += answer;
                     AppendToAssistant(assistantMessage, answer);
                 }
             }
@@ -338,6 +396,26 @@ public sealed class ChatManager : INotifyPropertyChanged
         CleanupWebSocket();
         Messages.Clear();
         _currentAssistantMessage = null;
+    }
+
+    /// <summary>
+    /// Convert Windows timezone ID to IANA format (e.g. "Central Standard Time" → "America/Chicago").
+    /// Server expects IANA timezone strings like macOS provides.
+    /// </summary>
+    private static string GetIanaTimezone()
+    {
+        try
+        {
+            var tz = TimeZoneInfo.Local;
+            // .NET 6+ has TryConvertWindowsIdToIanaId
+            if (TimeZoneInfo.TryConvertWindowsIdToIanaId(tz.Id, out var ianaId))
+            {
+                return ianaId;
+            }
+        }
+        catch { }
+        // Fallback to Windows ID if conversion fails
+        return TimeZoneInfo.Local.Id;
     }
 
     private void OnPropertyChanged([CallerMemberName] string? name = null)

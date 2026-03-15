@@ -100,6 +100,22 @@ public sealed class ViewCoordinator : INotifyPropertyChanged
     public bool ShowPermissionHUD { get; set; }
     public string? PermissionHUDType { get; set; }
 
+    // Meeting detection (populated by MeetingDetectionService)
+    private bool _isMeetingDetected;
+    private string? _detectedMeetingAppName;
+
+    public bool IsMeetingDetected
+    {
+        get => _isMeetingDetected;
+        set { _isMeetingDetected = value; OnPropertyChanged(); }
+    }
+
+    public string? DetectedMeetingAppName
+    {
+        get => _detectedMeetingAppName;
+        set { _detectedMeetingAppName = value; OnPropertyChanged(); }
+    }
+
     private ViewCoordinator()
     {
         // Monitor network

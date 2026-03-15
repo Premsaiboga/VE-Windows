@@ -32,4 +32,10 @@
     <Resource Include="Assets\**" />
   </ItemGroup>
 
+  <!-- UI Automation for focused input field text capture (equivalent to macOS XPC Helper) -->
+  <ItemGroup>
+    <Reference Include="UIAutomationClient" />
+    <Reference Include="UIAutomationTypes" />
+  </ItemGroup>
+
 </Project>
