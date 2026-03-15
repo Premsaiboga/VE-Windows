@@ -64,10 +64,10 @@ public sealed class UpdateService : INotifyPropertyChanged
     /// </summary>
     public bool AutoInstallEnabled
     {
-        get => Managers.SettingsManager.Instance.Get("AutoInstallUpdates", true);
+        get => Models.SettingsManager.Instance.Get("AutoInstallUpdates", true);
         set
         {
-            Managers.SettingsManager.Instance.Set("AutoInstallUpdates", value);
+            Models.SettingsManager.Instance.Set("AutoInstallUpdates", value);
             OnPropertyChanged();
         }
     }

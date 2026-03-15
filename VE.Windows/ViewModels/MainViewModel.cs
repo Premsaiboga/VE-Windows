@@ -118,7 +118,7 @@ public class MainViewModel : INotifyPropertyChanged
                 if (windowPosition.X >= screen.Left && windowPosition.X < screen.Left + screen.Width)
                 {
                     var key = $"{screen.Width}x{screen.Height}@{screen.Left},{screen.Top}";
-                    Managers.SettingsManager.Instance.Set("PreferredNotchDisplay", key);
+                    Models.SettingsManager.Instance.Set("PreferredNotchDisplay", key);
                     Helpers.FileLogger.Instance.Debug("MainVM", $"Saved display preference: {key}");
                     return;
                 }
@@ -131,7 +131,7 @@ public class MainViewModel : INotifyPropertyChanged
     {
         try
         {
-            var savedKey = Managers.SettingsManager.Instance.Get<string?>("PreferredNotchDisplay", null);
+            var savedKey = Models.SettingsManager.Instance.Get<string?>("PreferredNotchDisplay", null);
             if (savedKey != null)
             {
                 // Try to find the saved display
