@@ -108,7 +108,9 @@ public sealed class MeetingGraphQLService
         }
     }
 
-    // --- Get Meeting (replaces old getMeetingSummary which was removed from backend schema) ---
+    // --- Get Meeting ---
+    // getMeeting returns ListMeetingType directly (same fields as listMeetings data items).
+    // For summary text, we use analytics data instead (analytics has the "summary" field).
 
     public async Task<MeetingSummaryData?> GetMeetingSummary(string meetingId)
     {
@@ -117,17 +119,17 @@ public sealed class MeetingGraphQLService
             var url = GetGraphQLUrl();
             if (url == null) return null;
 
+            // ListMeetingType only has: _id, title, createdAt, status, isTranscription
+            // It does NOT have: meetingId, transcriptionSummary, transcriptionSource, success, message, data
             var payload = new
             {
                 query = @"query Query($meetingId: ID!) {
                     getMeeting(meetingId: $meetingId) {
                         _id
-                        meetingId
                         title
                         status
                         createdAt
-                        transcriptionSummary
-                        transcriptionSource
+                        isTranscription
                     }
                 }",
                 variables = new { meetingId }
@@ -145,7 +147,6 @@ public sealed class MeetingGraphQLService
                 return null;
             }
 
-            // getMeeting returns ListMeetingType directly (no success/message/data wrapper)
             var meetingData = json["data"]?["getMeeting"];
             if (meetingData == null || meetingData.Type == JTokenType.Null)
             {
@@ -156,15 +157,14 @@ public sealed class MeetingGraphQLService
             var result = new MeetingSummaryData();
             result.MeetingData = new MeetingData
             {
-                Id = meetingData["meetingId"]?.ToString() ?? meetingData["_id"]?.ToString(),
+                Id = meetingData["_id"]?.ToString(),
                 Title = meetingData["title"]?.ToString(),
                 CreatedAt = meetingData["createdAt"]?.Value<double>(),
                 Status = meetingData["status"]?.ToString(),
-                TranscriptionSource = meetingData["transcriptionSource"]?.ToString()
             };
-            result.TranscriptionSummary = meetingData["transcriptionSummary"]?.ToString();
+            // TranscriptionSummary not available on ListMeetingType — will be populated from analytics
 
-            FileLogger.Instance.Info("MeetingGQL", $"Got meeting for {meetingId}, hasSummary={result.TranscriptionSummary != null}");
+            FileLogger.Instance.Info("MeetingGQL", $"Got meeting for {meetingId}, status={result.MeetingData.Status}");
             return result;
         }
         catch (Exception ex)

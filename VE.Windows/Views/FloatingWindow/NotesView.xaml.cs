@@ -227,7 +227,14 @@ public partial class NotesView : UserControl
 
         try
         {
-            var summaryData = await MeetingGraphQLService.Instance.GetMeetingSummary(meetingId);
+            // Fetch meeting metadata and analytics in parallel
+            // getMeeting returns basic info; analytics has the actual summary text + action items etc.
+            var meetingTask = MeetingGraphQLService.Instance.GetMeetingSummary(meetingId);
+            var analyticsTask = MeetingGraphQLService.Instance.GetMeetingAnalytics(meetingId);
+            await Task.WhenAll(meetingTask, analyticsTask);
+
+            var summaryData = meetingTask.Result;
+            var analyticsData = analyticsTask.Result;
 
             DispatcherHelper.RunOnUI(() =>
             {
@@ -240,8 +247,8 @@ public partial class NotesView : UserControl
                     SummaryDate.Text = $"{summaryData.MeetingData.FormattedDate} at {summaryData.MeetingData.FormattedTime}";
                 }
 
-                // Summary text
-                var summaryText = summaryData?.TranscriptionSummary;
+                // Summary text comes from analytics (getMeeting's ListMeetingType doesn't have it)
+                var summaryText = analyticsData?.Summary;
                 if (!string.IsNullOrEmpty(summaryText))
                 {
                     SummaryText.Text = summaryText;
@@ -252,11 +259,29 @@ public partial class NotesView : UserControl
                 {
                     SummaryText.Text = "";
                     SummaryText.Visibility = Visibility.Collapsed;
-                    // Show Generate Summary button when no summary exists
                     GenerateSummaryBtn.Visibility = Visibility.Visible;
                 }
 
-                // Don't pre-fetch analytics here — let each tab fetch its own data
+                // Action items from analytics
+                if (analyticsData?.ActionItems.Count > 0)
+                {
+                    ActionItemsHeader.Visibility = Visibility.Visible;
+                    ActionItemsList.ItemsSource = analyticsData.ActionItems;
+                }
+
+                // Decisions from analytics
+                if (analyticsData?.Decisions.Count > 0)
+                {
+                    DecisionsHeader.Visibility = Visibility.Visible;
+                    DecisionsList.ItemsSource = analyticsData.Decisions;
+                }
+
+                // Highlights from analytics
+                if (analyticsData?.Highlights.Count > 0)
+                {
+                    HighlightsHeader.Visibility = Visibility.Visible;
+                    HighlightsList.ItemsSource = analyticsData.Highlights;
+                }
             });
         }
         catch (Exception ex)
