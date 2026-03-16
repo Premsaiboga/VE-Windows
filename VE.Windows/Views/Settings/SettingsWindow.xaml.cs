@@ -38,6 +38,9 @@ public partial class SettingsWindow : Window
             case "chat":
                 ContentArea.Content = new FloatingWindow.ChatView();
                 break;
+            case "notes":
+                ContentArea.Content = new FloatingWindow.NotesView();
+                break;
             case "shortcuts":
                 ContentArea.Content = CreateShortcutsView();
                 break;

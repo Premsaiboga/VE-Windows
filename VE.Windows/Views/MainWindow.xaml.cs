@@ -114,7 +114,13 @@ public partial class MainWindow : Window
             {
                 Dispatcher.Invoke(() =>
                 {
-                    if (AuthManager.Instance.IsAuthenticated)
+                    // Close notch when browser opens for login (Authenticating)
+                    // or when auth completes (Authorized)
+                    if (AuthManager.Instance.AuthState == Models.AuthState.Authenticating)
+                    {
+                        if (_vm.IsOpen) AnimateClose();
+                    }
+                    else if (AuthManager.Instance.IsAuthenticated)
                     {
                         if (_vm.IsOpen) AnimateClose();
                         ClosedContent.ShowWelcome();
