@@ -150,20 +150,27 @@ public sealed class TokenRefreshService : IDisposable
 
             FileLogger.Instance.Debug("TokenRefresh", $"Refresh response ({response.Length} chars): {response.Substring(0, Math.Min(200, response.Length))}");
 
-            var result = JsonConvert.DeserializeObject<TokenRefreshResponse>(response);
-            if (result?.AccessToken == null)
+            // Server returns {"tokens":{"accessToken":"...","csrfToken":"..."}}
+            // Parse with wrapper support
+            var json = Newtonsoft.Json.Linq.JObject.Parse(response);
+            var accessToken = json["tokens"]?["accessToken"]?.Value<string>()
+                ?? json["accessToken"]?.Value<string>();
+            var csrfToken = json["tokens"]?["csrfToken"]?.Value<string>()
+                ?? json["csrfToken"]?.Value<string>();
+
+            if (string.IsNullOrEmpty(accessToken))
             {
                 FileLogger.Instance.Error("TokenRefresh", $"No accessToken in refresh response");
                 return false;
             }
 
-            AuthManager.Instance.Storage.UserToken = result.AccessToken;
-            if (result.CsrfToken != null)
+            AuthManager.Instance.Storage.UserToken = accessToken;
+            if (csrfToken != null)
             {
-                AuthManager.Instance.Storage.CSRFToken = result.CsrfToken;
+                AuthManager.Instance.Storage.CSRFToken = csrfToken;
             }
 
-            ScheduleRefresh(result.AccessToken);
+            ScheduleRefresh(accessToken);
             FileLogger.Instance.Info("TokenRefresh", "Token refreshed successfully");
             return true;
         }
