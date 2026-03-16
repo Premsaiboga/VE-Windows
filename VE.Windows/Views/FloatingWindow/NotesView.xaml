@@ -212,6 +212,17 @@
                             <TextBlock x:Name="SummaryDate" Foreground="#878E92" FontSize="11"
                                        Margin="0,8,0,12" />
 
+                            <!-- Generate Summary button -->
+                            <Button x:Name="GenerateSummaryBtn" Content="Generate Summary"
+                                    Style="{StaticResource VEButton}"
+                                    Padding="16,8" Margin="0,0,0,12"
+                                    HorizontalAlignment="Left"
+                                    Click="GenerateSummary_Click"
+                                    Visibility="Collapsed" />
+                            <TextBlock x:Name="GeneratingText" Text="Generating summary..."
+                                       Foreground="#007CEC" FontSize="12"
+                                       Margin="0,0,0,12" Visibility="Collapsed" />
+
                             <!-- Summary text -->
                             <TextBlock x:Name="SummaryText" Foreground="#F4F5F5" FontSize="13"
                                        TextWrapping="Wrap" Margin="0,0,0,16" />

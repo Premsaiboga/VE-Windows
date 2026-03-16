@@ -19,11 +19,6 @@ public partial class NotesView : UserControl
     private string? _selectedMeetingId;
     private string _currentDetailTab = "Summary";
 
-    // Cached detail data
-    private MeetingSummaryData? _summaryData;
-    private MeetingAnalyticsData? _analyticsData;
-    private List<TranscriptionItem>? _transcriptions;
-
     public NotesView()
     {
         InitializeComponent();
@@ -67,9 +62,7 @@ public partial class NotesView : UserControl
 
             DispatcherHelper.RunOnUI(() =>
             {
-                // Show all meetings (macOS filters to IsTranscription but we show all)
                 _allMeetings = meetings;
-
                 UpdateMeetingsList();
                 LoadingText.Visibility = Visibility.Collapsed;
                 EmptyPanel.Visibility = _allMeetings.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
@@ -91,7 +84,6 @@ public partial class NotesView : UserControl
 
     private void UpdateMeetingsList()
     {
-        // Group meetings by date (matches macOS groupedMeetings)
         var grouped = _allMeetings
             .GroupBy(m => m.FormattedDate)
             .OrderByDescending(g => g.First().CreatedAt)
@@ -118,20 +110,52 @@ public partial class NotesView : UserControl
     private void ShowMeetingDetail(string meetingId, string title)
     {
         _selectedMeetingId = meetingId;
-        _summaryData = null;
-        _analyticsData = null;
-        _transcriptions = null;
         _currentDetailTab = "Summary";
 
         DetailTitle.Text = title;
         ListPanel.Visibility = Visibility.Collapsed;
         DetailPanel.Visibility = Visibility.Visible;
 
+        // Reset all detail UI to loading state
+        ResetDetailUI();
         UpdateDetailTabSelection();
         ShowDetailTab("Summary");
+    }
 
-        // Load summary data
-        _ = LoadSummary(meetingId);
+    private void ResetDetailUI()
+    {
+        // Summary
+        SummaryLoading.Text = "Loading summary...";
+        SummaryLoading.Visibility = Visibility.Visible;
+        SummaryData.Visibility = Visibility.Collapsed;
+        SummaryText.Text = "";
+        SummaryDate.Text = "";
+        GenerateSummaryBtn.Visibility = Visibility.Collapsed;
+        GeneratingText.Visibility = Visibility.Collapsed;
+        ActionItemsHeader.Visibility = Visibility.Collapsed;
+        ActionItemsList.ItemsSource = null;
+        DecisionsHeader.Visibility = Visibility.Collapsed;
+        DecisionsList.ItemsSource = null;
+        HighlightsHeader.Visibility = Visibility.Collapsed;
+        HighlightsList.ItemsSource = null;
+
+        // Transcript
+        TranscriptLoading.Text = "Loading transcript...";
+        TranscriptLoading.Visibility = Visibility.Visible;
+        TranscriptEmpty.Visibility = Visibility.Collapsed;
+        TranscriptList.ItemsSource = null;
+
+        // Analytics
+        AnalyticsLoading.Text = "Loading analytics...";
+        AnalyticsLoading.Visibility = Visibility.Visible;
+        AnalyticsData.Visibility = Visibility.Collapsed;
+        AnalyticsNotGenerated.Visibility = Visibility.Collapsed;
+        ChaptersHeader.Visibility = Visibility.Collapsed;
+        ChaptersList.ItemsSource = null;
+        QuestionsHeader.Visibility = Visibility.Collapsed;
+        QuestionsList.ItemsSource = null;
+        ParticipantsHeader.Visibility = Visibility.Collapsed;
+        ParticipantsList.ItemsSource = null;
     }
 
     private void BackToList_Click(object sender, RoutedEventArgs e)
@@ -176,16 +200,16 @@ public partial class NotesView : UserControl
 
         if (_selectedMeetingId == null) return;
 
+        // Always fetch fresh data for the selected meeting
         switch (tab)
         {
-            case "Summary" when _summaryData == null:
+            case "Summary":
                 _ = LoadSummary(_selectedMeetingId);
                 break;
-            case "Transcript" when _transcriptions == null:
+            case "Transcript":
                 _ = LoadTranscriptions(_selectedMeetingId);
                 break;
             case "Analytics":
-                // Always call LoadAnalytics to populate UI — it uses cached _analyticsData if available
                 _ = LoadAnalytics(_selectedMeetingId);
                 break;
         }
@@ -203,10 +227,7 @@ public partial class NotesView : UserControl
 
         try
         {
-            _summaryData = await MeetingGraphQLService.Instance.GetMeetingSummary(meetingId);
-
-            // Also load analytics for summary section (action items, decisions, highlights)
-            _analyticsData ??= await MeetingGraphQLService.Instance.GetMeetingAnalytics(meetingId);
+            var summaryData = await MeetingGraphQLService.Instance.GetMeetingSummary(meetingId);
 
             DispatcherHelper.RunOnUI(() =>
             {
@@ -214,59 +235,28 @@ public partial class NotesView : UserControl
                 SummaryData.Visibility = Visibility.Visible;
 
                 // Meeting date info
-                if (_summaryData?.MeetingData != null)
+                if (summaryData?.MeetingData != null)
                 {
-                    SummaryDate.Text = $"{_summaryData.MeetingData.FormattedDate} at {_summaryData.MeetingData.FormattedTime}";
+                    SummaryDate.Text = $"{summaryData.MeetingData.FormattedDate} at {summaryData.MeetingData.FormattedTime}";
                 }
 
-                // Summary text — prefer analytics summary, fallback to transcriptionSummary
-                var summaryText = _analyticsData?.Summary ?? _summaryData?.TranscriptionSummary;
+                // Summary text
+                var summaryText = summaryData?.TranscriptionSummary;
                 if (!string.IsNullOrEmpty(summaryText))
                 {
                     SummaryText.Text = summaryText;
                     SummaryText.Visibility = Visibility.Visible;
+                    GenerateSummaryBtn.Visibility = Visibility.Collapsed;
                 }
                 else
                 {
-                    SummaryText.Text = "No summary available. The meeting may still be processing.";
-                    SummaryText.Visibility = Visibility.Visible;
+                    SummaryText.Text = "";
+                    SummaryText.Visibility = Visibility.Collapsed;
+                    // Show Generate Summary button when no summary exists
+                    GenerateSummaryBtn.Visibility = Visibility.Visible;
                 }
 
-                // Action items
-                if (_analyticsData?.ActionItems.Count > 0)
-                {
-                    ActionItemsHeader.Visibility = Visibility.Visible;
-                    ActionItemsList.ItemsSource = _analyticsData.ActionItems;
-                }
-                else
-                {
-                    ActionItemsHeader.Visibility = Visibility.Collapsed;
-                    ActionItemsList.ItemsSource = null;
-                }
-
-                // Decisions
-                if (_analyticsData?.Decisions.Count > 0)
-                {
-                    DecisionsHeader.Visibility = Visibility.Visible;
-                    DecisionsList.ItemsSource = _analyticsData.Decisions;
-                }
-                else
-                {
-                    DecisionsHeader.Visibility = Visibility.Collapsed;
-                    DecisionsList.ItemsSource = null;
-                }
-
-                // Highlights
-                if (_analyticsData?.Highlights.Count > 0)
-                {
-                    HighlightsHeader.Visibility = Visibility.Visible;
-                    HighlightsList.ItemsSource = _analyticsData.Highlights;
-                }
-                else
-                {
-                    HighlightsHeader.Visibility = Visibility.Collapsed;
-                    HighlightsList.ItemsSource = null;
-                }
+                // Don't pre-fetch analytics here — let each tab fetch its own data
             });
         }
         catch (Exception ex)
@@ -274,8 +264,36 @@ public partial class NotesView : UserControl
             FileLogger.Instance.Error("NotesView", $"LoadSummary failed: {ex.Message}");
             DispatcherHelper.RunOnUI(() =>
             {
-                SummaryLoading.Text = "Failed to load summary.";
+                SummaryLoading.Visibility = Visibility.Collapsed;
+                SummaryData.Visibility = Visibility.Visible;
+                SummaryText.Text = "Failed to load summary.";
+                SummaryText.Visibility = Visibility.Visible;
+                GenerateSummaryBtn.Visibility = Visibility.Visible;
             });
+        }
+    }
+
+    // --- Generate Summary ---
+
+    private async void GenerateSummary_Click(object sender, RoutedEventArgs e)
+    {
+        if (_selectedMeetingId == null) return;
+
+        GenerateSummaryBtn.Visibility = Visibility.Collapsed;
+        GeneratingText.Visibility = Visibility.Visible;
+
+        var success = await MeetingGraphQLService.Instance.GenerateMeetingSummary(_selectedMeetingId);
+
+        if (success)
+        {
+            // Wait a bit for server to process, then reload
+            await Task.Delay(3000);
+            await LoadSummary(_selectedMeetingId);
+        }
+        else
+        {
+            GeneratingText.Visibility = Visibility.Collapsed;
+            GenerateSummaryBtn.Visibility = Visibility.Visible;
         }
     }
 
@@ -292,15 +310,15 @@ public partial class NotesView : UserControl
 
         try
         {
-            _transcriptions = await MeetingGraphQLService.Instance.ListTranscriptions(meetingId);
+            var transcriptions = await MeetingGraphQLService.Instance.ListTranscriptions(meetingId);
 
             DispatcherHelper.RunOnUI(() =>
             {
                 TranscriptLoading.Visibility = Visibility.Collapsed;
 
-                if (_transcriptions.Count > 0)
+                if (transcriptions.Count > 0)
                 {
-                    TranscriptList.ItemsSource = _transcriptions;
+                    TranscriptList.ItemsSource = transcriptions;
                     TranscriptEmpty.Visibility = Visibility.Collapsed;
                 }
                 else
@@ -331,29 +349,59 @@ public partial class NotesView : UserControl
 
         try
         {
-            _analyticsData ??= await MeetingGraphQLService.Instance.GetMeetingAnalytics(meetingId);
+            var analyticsData = await MeetingGraphQLService.Instance.GetMeetingAnalytics(meetingId);
 
             DispatcherHelper.RunOnUI(() =>
             {
                 AnalyticsLoading.Visibility = Visibility.Collapsed;
                 AnalyticsData.Visibility = Visibility.Visible;
 
-                if (_analyticsData == null || !_analyticsData.AnalyticsGenerated)
+                // Determine if analytics actually has data (don't rely solely on AnalyticsGenerated flag)
+                bool hasData = analyticsData != null &&
+                    (analyticsData.Chapters.Count > 0 ||
+                     analyticsData.Highlights.Count > 0 ||
+                     analyticsData.ActionItems.Count > 0 ||
+                     analyticsData.Participants.Count > 0 ||
+                     !string.IsNullOrEmpty(analyticsData.Summary));
+
+                if (!hasData)
                 {
                     AnalyticsNotGenerated.Visibility = Visibility.Visible;
                     ChaptersHeader.Visibility = Visibility.Collapsed;
+                    ChaptersList.ItemsSource = null;
                     QuestionsHeader.Visibility = Visibility.Collapsed;
+                    QuestionsList.ItemsSource = null;
                     ParticipantsHeader.Visibility = Visibility.Collapsed;
+                    ParticipantsList.ItemsSource = null;
                     return;
                 }
 
                 AnalyticsNotGenerated.Visibility = Visibility.Collapsed;
 
+                // Also populate summary action items/decisions/highlights if we have them
+                if (analyticsData!.ActionItems.Count > 0)
+                {
+                    ActionItemsHeader.Visibility = Visibility.Visible;
+                    ActionItemsList.ItemsSource = analyticsData.ActionItems;
+                }
+
+                if (analyticsData.Decisions.Count > 0)
+                {
+                    DecisionsHeader.Visibility = Visibility.Visible;
+                    DecisionsList.ItemsSource = analyticsData.Decisions;
+                }
+
+                if (analyticsData.Highlights.Count > 0)
+                {
+                    HighlightsHeader.Visibility = Visibility.Visible;
+                    HighlightsList.ItemsSource = analyticsData.Highlights;
+                }
+
                 // Chapters
-                if (_analyticsData.Chapters.Count > 0)
+                if (analyticsData.Chapters.Count > 0)
                 {
                     ChaptersHeader.Visibility = Visibility.Visible;
-                    ChaptersList.ItemsSource = _analyticsData.Chapters;
+                    ChaptersList.ItemsSource = analyticsData.Chapters;
                 }
                 else
                 {
@@ -362,10 +410,10 @@ public partial class NotesView : UserControl
                 }
 
                 // Open Questions
-                if (_analyticsData.OpenQuestions.Count > 0)
+                if (analyticsData.OpenQuestions.Count > 0)
                 {
                     QuestionsHeader.Visibility = Visibility.Visible;
-                    QuestionsList.ItemsSource = _analyticsData.OpenQuestions;
+                    QuestionsList.ItemsSource = analyticsData.OpenQuestions;
                 }
                 else
                 {
@@ -374,10 +422,10 @@ public partial class NotesView : UserControl
                 }
 
                 // Participants
-                if (_analyticsData.Participants.Count > 0)
+                if (analyticsData.Participants.Count > 0)
                 {
                     ParticipantsHeader.Visibility = Visibility.Visible;
-                    ParticipantsList.ItemsSource = _analyticsData.Participants;
+                    ParticipantsList.ItemsSource = analyticsData.Participants;
                 }
                 else
                 {
@@ -391,7 +439,9 @@ public partial class NotesView : UserControl
             FileLogger.Instance.Error("NotesView", $"LoadAnalytics failed: {ex.Message}");
             DispatcherHelper.RunOnUI(() =>
             {
-                AnalyticsLoading.Text = "Failed to load analytics.";
+                AnalyticsLoading.Visibility = Visibility.Collapsed;
+                AnalyticsData.Visibility = Visibility.Visible;
+                AnalyticsNotGenerated.Visibility = Visibility.Visible;
             });
         }
     }
