@@ -108,7 +108,7 @@ public sealed class MeetingGraphQLService
         }
     }
 
-    // --- Get Meeting Summary ---
+    // --- Get Meeting (replaces old getMeetingSummary which was removed from backend schema) ---
 
     public async Task<MeetingSummaryData?> GetMeetingSummary(string meetingId)
     {
@@ -120,7 +120,18 @@ public sealed class MeetingGraphQLService
             var payload = new
             {
                 query = @"query Query($meetingId: ID!) {
-                    getMeetingSummary(meetingId: $meetingId)
+                    getMeeting(meetingId: $meetingId) {
+                        success
+                        message
+                        data {
+                            meetingId
+                            title
+                            status
+                            createdAt
+                            transcriptionSummary
+                            transcriptionSource
+                        }
+                    }
                 }",
                 variables = new { meetingId }
             };
@@ -129,41 +140,38 @@ public sealed class MeetingGraphQLService
             if (response == null) return null;
 
             var json = JObject.Parse(response);
-            var summaryRaw = json["data"]?["getMeetingSummary"];
-            if (summaryRaw == null)
+
+            // Check for GraphQL errors
+            if (json["errors"] != null)
             {
-                FileLogger.Instance.Warning("MeetingGQL", $"GetMeetingSummary: null response for {meetingId}. Errors: {json["errors"]}");
+                FileLogger.Instance.Warning("MeetingGQL", $"GetMeeting errors for {meetingId}: {json["errors"]}");
                 return null;
             }
 
-            // The response is a JSON string that needs to be parsed
-            JObject summaryObj;
-            if (summaryRaw.Type == JTokenType.String)
-                summaryObj = JObject.Parse(summaryRaw.Value<string>()!);
-            else
-                summaryObj = (JObject)summaryRaw;
-
-            var result = new MeetingSummaryData();
-
-            if (summaryObj["meetingData"] is JObject meetingData)
+            var meetingData = json["data"]?["getMeeting"]?["data"];
+            if (meetingData == null)
             {
-                result.MeetingData = new MeetingData
-                {
-                    Id = meetingData["_id"]?.Value<string>(),
-                    Title = meetingData["title"]?.Value<string>(),
-                    CreatedAt = meetingData["createdAt"]?.Value<double>(),
-                    Status = meetingData["status"]?.Value<string>(),
-                    TranscriptionSource = meetingData["transcriptionSource"]?.Value<string>()
-                };
-                result.TranscriptionSummary = meetingData["transcriptionSummary"]?.Value<string>();
+                FileLogger.Instance.Warning("MeetingGQL", $"GetMeeting: no data for {meetingId}");
+                return null;
             }
 
-            FileLogger.Instance.Info("MeetingGQL", $"Got summary for {meetingId}, hasMeetingData={result.MeetingData != null}, hasSummary={result.TranscriptionSummary != null}");
+            var result = new MeetingSummaryData();
+            result.MeetingData = new MeetingData
+            {
+                Id = meetingData["meetingId"]?.ToString(),
+                Title = meetingData["title"]?.ToString(),
+                CreatedAt = meetingData["createdAt"]?.Value<double>(),
+                Status = meetingData["status"]?.ToString(),
+                TranscriptionSource = meetingData["transcriptionSource"]?.ToString()
+            };
+            result.TranscriptionSummary = meetingData["transcriptionSummary"]?.ToString();
+
+            FileLogger.Instance.Info("MeetingGQL", $"Got meeting for {meetingId}, hasSummary={result.TranscriptionSummary != null}");
             return result;
         }
         catch (Exception ex)
         {
-            FileLogger.Instance.Error("MeetingGQL", $"GetMeetingSummary failed: {ex.Message}");
+            FileLogger.Instance.Error("MeetingGQL", $"GetMeeting failed: {ex.Message}");
             return null;
         }
     }
