@@ -270,3 +270,41 @@ public class MeetingParticipantItem
     public int? Engagement { get; set; }
     public int? Sentiment { get; set; }
 }
+
+// --- Meeting Prep ---
+
+public class MeetingPrepData
+{
+    public string? Summary { get; set; }
+    public List<MeetingPrepItem> Items { get; set; } = new();
+    public bool HasContent => !string.IsNullOrEmpty(Summary) || Items.Count > 0;
+
+    public static MeetingPrepData ParseFromJson(JObject json)
+    {
+        var result = new MeetingPrepData();
+        result.Summary = json["summary"]?.Value<string>();
+
+        var items = (json["items"] ?? json["prep_items"] ?? json["prepItems"]) as JArray;
+        if (items != null)
+        {
+            foreach (var item in items)
+            {
+                result.Items.Add(new MeetingPrepItem
+                {
+                    Title = item["title"]?.Value<string>(),
+                    Description = item["description"]?.Value<string>() ?? item["text"]?.Value<string>(),
+                    Type = item["type"]?.Value<string>()
+                });
+            }
+        }
+
+        return result;
+    }
+}
+
+public class MeetingPrepItem
+{
+    public string? Title { get; set; }
+    public string? Description { get; set; }
+    public string? Type { get; set; }
+}

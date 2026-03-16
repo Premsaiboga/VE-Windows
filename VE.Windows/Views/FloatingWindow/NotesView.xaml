@@ -207,13 +207,14 @@
                 <RowDefinition Height="*" />
             </Grid.RowDefinitions>
 
-            <!-- Detail Header with back button -->
+            <!-- Detail Header with back button and delete -->
             <Border Grid.Row="0" Padding="12,10" BorderThickness="0,0,0,1"
                     BorderBrush="#1AFFFFFF">
                 <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
                     <Button Grid.Column="0" Content="&#x2190; Back"
                             Foreground="#007CEC" Background="Transparent"
@@ -225,6 +226,10 @@
                                VerticalAlignment="Center"
                                TextTrimming="CharacterEllipsis"
                                Margin="8,0,0,0" />
+                    <Button Grid.Column="2" Content="Delete"
+                            Foreground="#FF4444" Background="Transparent"
+                            BorderThickness="0" Cursor="Hand" FontSize="12"
+                            Click="DeleteMeeting_Click" Padding="4,2" />
                 </Grid>
             </Border>
 
@@ -257,6 +262,33 @@
                             <!-- Meeting info -->
                             <TextBlock x:Name="SummaryDate" Foreground="#878E92" FontSize="11"
                                        Margin="0,8,0,12" />
+
+                            <!-- Meeting Prep: "Things you need to know" -->
+                            <StackPanel x:Name="MeetingPrepSection" Visibility="Collapsed"
+                                        Margin="0,0,0,16">
+                                <TextBlock Text="Things you need to know"
+                                           Foreground="#FF9800" FontSize="13" FontWeight="SemiBold"
+                                           Margin="0,0,0,8" />
+                                <TextBlock x:Name="MeetingPrepSummary" Foreground="#DDD" FontSize="12"
+                                           TextWrapping="Wrap" Margin="0,0,0,6"
+                                           Visibility="Collapsed" />
+                                <ItemsControl x:Name="MeetingPrepList">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border Background="#0DFF9800" CornerRadius="6"
+                                                    Padding="10,6" Margin="0,2">
+                                                <StackPanel>
+                                                    <TextBlock Text="{Binding Title}" Foreground="#F4F5F5"
+                                                               FontSize="12" FontWeight="Medium" />
+                                                    <TextBlock Text="{Binding Description}" Foreground="#CCC"
+                                                               FontSize="11" TextWrapping="Wrap"
+                                                               Margin="0,2,0,0" />
+                                                </StackPanel>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
 
                             <!-- Generate Summary button -->
                             <Button x:Name="GenerateSummaryBtn" Content="Generate Summary"
@@ -339,6 +371,31 @@
                                    Foreground="#878E92" FontSize="13"
                                    HorizontalAlignment="Center" Margin="0,40,0,0"
                                    Visibility="Collapsed" />
+
+                        <!-- Transcript toolbar: search + copy -->
+                        <Grid x:Name="TranscriptToolbar" Margin="0,4,0,8" Visibility="Collapsed">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <Border Grid.Column="0" Background="#1AFFFFFF" CornerRadius="6"
+                                    Padding="8,4" Margin="0,0,8,0">
+                                <TextBox x:Name="TranscriptSearchBox"
+                                         Background="Transparent" Foreground="#F4F5F5"
+                                         BorderThickness="0" FontSize="12"
+                                         TextChanged="TranscriptSearch_Changed">
+                                    <TextBox.Style>
+                                        <Style TargetType="TextBox">
+                                            <Setter Property="CaretBrush" Value="White" />
+                                        </Style>
+                                    </TextBox.Style>
+                                </TextBox>
+                            </Border>
+                            <Button Grid.Column="1" Content="Copy All"
+                                    Style="{StaticResource VEGhostButton}"
+                                    FontSize="11" Padding="8,4"
+                                    Click="CopyTranscript_Click" />
+                        </Grid>
 
                         <ItemsControl x:Name="TranscriptList">
                             <ItemsControl.ItemTemplate>
@@ -448,5 +505,34 @@
                 </Grid>
             </ScrollViewer>
         </Grid>
+        <!-- Inactivity Alert Overlay -->
+        <Border x:Name="InactivityOverlay" Visibility="Collapsed"
+                Background="#E6000000" VerticalAlignment="Bottom"
+                CornerRadius="8,8,0,0" Padding="16,14">
+            <StackPanel>
+                <TextBlock Text="No audio detected for a while"
+                           Foreground="#FF9800" FontSize="13" FontWeight="SemiBold"
+                           HorizontalAlignment="Center" Margin="0,0,0,4" />
+                <TextBlock Text="Are you still in the meeting?"
+                           Foreground="#878E92" FontSize="12"
+                           HorizontalAlignment="Center" Margin="0,0,0,12" />
+                <Grid HorizontalAlignment="Center">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="16" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <Button Grid.Column="0" Content="I'm still on meet"
+                            Style="{StaticResource VEButton}"
+                            Padding="16,8"
+                            Click="ContinueMeeting_Click" />
+                    <Button Grid.Column="2" Content="End Now"
+                            Foreground="#FF4444" Background="Transparent"
+                            BorderBrush="#FF4444" BorderThickness="1"
+                            Padding="16,8" Cursor="Hand"
+                            Click="EndMeetingFromAlert_Click" />
+                </Grid>
+            </StackPanel>
+        </Border>
     </Grid>
 </UserControl>

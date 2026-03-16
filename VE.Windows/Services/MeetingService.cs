@@ -34,8 +34,22 @@ public sealed class MeetingService : INotifyPropertyChanged
     private DateTime? _startTime;
     private Timer? _durationTimer;
 
+    // Inactivity detection (matches macOS: 5-min threshold, 30s check interval)
+    private DateTime _lastTranscriptionTime = DateTime.UtcNow;
+    private Timer? _inactivityTimer;
+    private const int InactivityThresholdSeconds = 300; // 5 minutes
+    private const int InactivityCheckIntervalSeconds = 30;
+    private bool _inactivityAlertShown;
+
+    // Summary generation state
+    private bool _isSummaryGenerationInProgress;
+    public bool IsSummaryGenerationInProgress => _isSummaryGenerationInProgress;
+
     public event PropertyChangedEventHandler? PropertyChanged;
     public event EventHandler? MeetingListNeedsRefresh;
+    public event EventHandler? InactivityAlertTriggered;
+    public event EventHandler<MeetingAnalyticsData>? SummaryGenerationComplete;
+    public event EventHandler? SummaryGenerationSkipped;
 
     public MeetingState State
     {
@@ -110,6 +124,13 @@ public sealed class MeetingService : INotifyPropertyChanged
             _durationTimer = new Timer(_ => OnPropertyChanged(nameof(Duration)),
                 null, TimeSpan.Zero, TimeSpan.FromSeconds(1));
 
+            // Start inactivity detection (matches macOS 5-min threshold)
+            _lastTranscriptionTime = DateTime.UtcNow;
+            _inactivityAlertShown = false;
+            _inactivityTimer = new Timer(CheckInactivity, null,
+                TimeSpan.FromSeconds(InactivityCheckIntervalSeconds),
+                TimeSpan.FromSeconds(InactivityCheckIntervalSeconds));
+
             // Update ViewCoordinator
             ViewCoordinator.Instance.MeetingState = MeetingState.Active;
 
@@ -133,6 +154,8 @@ public sealed class MeetingService : INotifyPropertyChanged
         AudioService.Instance.StopCapture();
         _durationTimer?.Dispose();
         _durationTimer = null;
+        _inactivityTimer?.Dispose();
+        _inactivityTimer = null;
 
         try
         {
@@ -247,6 +270,9 @@ public sealed class MeetingService : INotifyPropertyChanged
 
     private void OnTranscriptionReceived(object? sender, MeetingTranscription transcription)
     {
+        _lastTranscriptionTime = DateTime.UtcNow;
+        _inactivityAlertShown = false; // Reset alert if we get new transcription
+
         System.Windows.Application.Current?.Dispatcher.Invoke(() =>
         {
             LiveTranscriptions.Add(transcription);
@@ -287,6 +313,110 @@ public sealed class MeetingService : INotifyPropertyChanged
         {
             ViewCoordinator.Instance.ErrorMessage = error;
         });
+    }
+
+    // --- Inactivity Detection (matches macOS 5-min threshold) ---
+
+    private void CheckInactivity(object? state)
+    {
+        if (!IsActive || _inactivityAlertShown) return;
+
+        var elapsed = (DateTime.UtcNow - _lastTranscriptionTime).TotalSeconds;
+        if (elapsed >= InactivityThresholdSeconds)
+        {
+            _inactivityAlertShown = true;
+            FileLogger.Instance.Warning("Meeting", $"No transcription for {elapsed:F0}s — triggering inactivity alert");
+            System.Windows.Application.Current?.Dispatcher.Invoke(() =>
+            {
+                InactivityAlertTriggered?.Invoke(this, EventArgs.Empty);
+            });
+        }
+    }
+
+    /// <summary>User confirmed still in meeting — reset inactivity timer.</summary>
+    public void ContinueFromInactivityAlert()
+    {
+        _lastTranscriptionTime = DateTime.UtcNow;
+        _inactivityAlertShown = false;
+        FileLogger.Instance.Info("Meeting", "User confirmed still in meeting");
+    }
+
+    /// <summary>User chose to end meeting from inactivity alert.</summary>
+    public async Task EndMeetingFromInactivityAlert()
+    {
+        FileLogger.Instance.Info("Meeting", "User ended meeting from inactivity alert");
+        await StopMeeting();
+    }
+
+    // --- Summary Generation via WebSocket ---
+
+    /// <summary>
+    /// Trigger streaming summary generation via Summary WebSocket.
+    /// Matches macOS: connects to genarateSummary/ws, sends trigger, receives streaming analytics.
+    /// </summary>
+    public async Task<bool> TriggerSummaryGeneration(string meetingId)
+    {
+        if (_isSummaryGenerationInProgress) return false;
+        if (IsActive) return false; // Cannot generate while meeting is active
+
+        _isSummaryGenerationInProgress = true;
+        OnPropertyChanged(nameof(IsSummaryGenerationInProgress));
+
+        try
+        {
+            await WebSocketRegistry.Instance.ConnectSummaryTransport(meetingId);
+            var client = WebSocketRegistry.Instance.SummaryClient;
+            if (client == null)
+            {
+                FileLogger.Instance.Error("Meeting", "Failed to connect summary WebSocket");
+                _isSummaryGenerationInProgress = false;
+                return false;
+            }
+
+            client.OnSummaryComplete += (s, analytics) =>
+            {
+                _isSummaryGenerationInProgress = false;
+                OnPropertyChanged(nameof(IsSummaryGenerationInProgress));
+                WebSocketRegistry.Instance.DisconnectSummaryTransport();
+                System.Windows.Application.Current?.Dispatcher.Invoke(() =>
+                {
+                    SummaryGenerationComplete?.Invoke(this, analytics);
+                });
+            };
+
+            client.OnSummarySkipped += (s, e) =>
+            {
+                _isSummaryGenerationInProgress = false;
+                OnPropertyChanged(nameof(IsSummaryGenerationInProgress));
+                WebSocketRegistry.Instance.DisconnectSummaryTransport();
+                System.Windows.Application.Current?.Dispatcher.Invoke(() =>
+                {
+                    SummaryGenerationSkipped?.Invoke(this, EventArgs.Empty);
+                });
+            };
+
+            client.OnError += (s, error) =>
+            {
+                _isSummaryGenerationInProgress = false;
+                OnPropertyChanged(nameof(IsSummaryGenerationInProgress));
+                WebSocketRegistry.Instance.DisconnectSummaryTransport();
+            };
+
+            // Generate session ID and get tenant ID
+            var sessionId = Guid.NewGuid().ToString("N").Substring(0, 24);
+            var tenantId = AuthManager.Instance.Storage.TenantId ?? "";
+
+            await client.SendTriggerPayload(sessionId, tenantId);
+            FileLogger.Instance.Info("Meeting", $"Summary generation triggered for {meetingId}");
+            return true;
+        }
+        catch (Exception ex)
+        {
+            FileLogger.Instance.Error("Meeting", $"Summary generation failed: {ex.Message}");
+            _isSummaryGenerationInProgress = false;
+            OnPropertyChanged(nameof(IsSummaryGenerationInProgress));
+            return false;
+        }
     }
 
     private void OnPropertyChanged([CallerMemberName] string? name = null)

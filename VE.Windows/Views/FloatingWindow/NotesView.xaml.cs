@@ -15,6 +15,7 @@ namespace VE.Windows.Views.FloatingWindow;
 public partial class NotesView : UserControl
 {
     private List<MeetingListItem> _allMeetings = new();
+    private List<TranscriptionItem> _allTranscriptions = new();
     private bool _isLoading;
     private string? _selectedMeetingId;
     private string _currentDetailTab = "Summary";
@@ -33,6 +34,31 @@ public partial class NotesView : UserControl
         MeetingService.Instance.MeetingListNeedsRefresh += (s, e) =>
         {
             _ = LoadAllMeetings();
+        };
+
+        // Inactivity alert
+        MeetingService.Instance.InactivityAlertTriggered += (s, e) =>
+        {
+            DispatcherHelper.RunOnUI(() => InactivityOverlay.Visibility = Visibility.Visible);
+        };
+
+        // Summary generation complete via WebSocket
+        MeetingService.Instance.SummaryGenerationComplete += (s, analytics) =>
+        {
+            DispatcherHelper.RunOnUI(() =>
+            {
+                GeneratingText.Visibility = Visibility.Collapsed;
+                if (_selectedMeetingId != null)
+                    _ = LoadSummary(_selectedMeetingId);
+            });
+        };
+
+        MeetingService.Instance.SummaryGenerationSkipped += (s, e) =>
+        {
+            DispatcherHelper.RunOnUI(() =>
+            {
+                GeneratingText.Text = "Not enough transcription to generate summary.";
+            });
         };
 
         // Load meetings on first show
@@ -153,6 +179,7 @@ public partial class NotesView : UserControl
         SummaryDate.Text = "";
         GenerateSummaryBtn.Visibility = Visibility.Collapsed;
         GeneratingText.Visibility = Visibility.Collapsed;
+        GeneratingText.Text = "Writing Notes...";
         ActionItemsHeader.Visibility = Visibility.Collapsed;
         ActionItemsList.ItemsSource = null;
         DecisionsHeader.Visibility = Visibility.Collapsed;
@@ -160,11 +187,20 @@ public partial class NotesView : UserControl
         HighlightsHeader.Visibility = Visibility.Collapsed;
         HighlightsList.ItemsSource = null;
 
+        // Meeting Prep
+        MeetingPrepSection.Visibility = Visibility.Collapsed;
+        MeetingPrepSummary.Visibility = Visibility.Collapsed;
+        MeetingPrepSummary.Text = "";
+        MeetingPrepList.ItemsSource = null;
+
         // Transcript
         TranscriptLoading.Text = "Loading transcript...";
         TranscriptLoading.Visibility = Visibility.Visible;
         TranscriptEmpty.Visibility = Visibility.Collapsed;
         TranscriptList.ItemsSource = null;
+        TranscriptToolbar.Visibility = Visibility.Collapsed;
+        TranscriptSearchBox.Text = "";
+        _allTranscriptions = new();
 
         // Analytics
         AnalyticsLoading.Text = "Loading analytics...";
@@ -248,14 +284,15 @@ public partial class NotesView : UserControl
 
         try
         {
-            // Fetch meeting metadata and analytics in parallel
-            // getMeeting returns basic info; analytics has the actual summary text + action items etc.
+            // Fetch meeting metadata, analytics, and prep in parallel
             var meetingTask = MeetingGraphQLService.Instance.GetMeetingSummary(meetingId);
             var analyticsTask = MeetingGraphQLService.Instance.GetMeetingAnalytics(meetingId);
-            await Task.WhenAll(meetingTask, analyticsTask);
+            var prepTask = MeetingGraphQLService.Instance.GetMeetingPrep(meetingId);
+            await Task.WhenAll(meetingTask, analyticsTask, prepTask);
 
             var summaryData = meetingTask.Result;
             var analyticsData = analyticsTask.Result;
+            var prepData = prepTask.Result;
 
             DispatcherHelper.RunOnUI(() =>
             {
@@ -266,6 +303,21 @@ public partial class NotesView : UserControl
                 if (summaryData?.MeetingData != null)
                 {
                     SummaryDate.Text = $"{summaryData.MeetingData.FormattedDate} at {summaryData.MeetingData.FormattedTime}";
+                }
+
+                // Meeting Prep: "Things you need to know" (shown before summary if available)
+                if (prepData?.HasContent == true)
+                {
+                    MeetingPrepSection.Visibility = Visibility.Visible;
+                    if (!string.IsNullOrEmpty(prepData.Summary))
+                    {
+                        MeetingPrepSummary.Text = prepData.Summary;
+                        MeetingPrepSummary.Visibility = Visibility.Visible;
+                    }
+                    if (prepData.Items.Count > 0)
+                    {
+                        MeetingPrepList.ItemsSource = prepData.Items;
+                    }
                 }
 
                 // Summary text comes from analytics (getMeeting's ListMeetingType doesn't have it)
@@ -326,21 +378,29 @@ public partial class NotesView : UserControl
         if (_selectedMeetingId == null) return;
 
         GenerateSummaryBtn.Visibility = Visibility.Collapsed;
+        GeneratingText.Text = "Writing Notes...";
         GeneratingText.Visibility = Visibility.Visible;
 
-        var success = await MeetingGraphQLService.Instance.GenerateMeetingSummary(_selectedMeetingId);
+        // Use WebSocket-based streaming summary generation (matches macOS)
+        var success = await MeetingService.Instance.TriggerSummaryGeneration(_selectedMeetingId);
 
-        if (success)
+        if (!success)
         {
-            // Wait a bit for server to process, then reload
-            await Task.Delay(3000);
-            await LoadSummary(_selectedMeetingId);
+            // Fallback to GraphQL mutation if WebSocket fails
+            FileLogger.Instance.Warning("NotesView", "WebSocket summary failed, falling back to GraphQL");
+            var gqlSuccess = await MeetingGraphQLService.Instance.GenerateMeetingSummary(_selectedMeetingId);
+            if (gqlSuccess)
+            {
+                await Task.Delay(3000);
+                await LoadSummary(_selectedMeetingId);
+            }
+            else
+            {
+                GeneratingText.Visibility = Visibility.Collapsed;
+                GenerateSummaryBtn.Visibility = Visibility.Visible;
+            }
         }
-        else
-        {
-            GeneratingText.Visibility = Visibility.Collapsed;
-            GenerateSummaryBtn.Visibility = Visibility.Visible;
-        }
+        // If WebSocket success, SummaryGenerationComplete event will reload the summary
     }
 
     // --- Transcript Tab ---
@@ -351,6 +411,7 @@ public partial class NotesView : UserControl
         {
             TranscriptLoading.Visibility = Visibility.Visible;
             TranscriptEmpty.Visibility = Visibility.Collapsed;
+            TranscriptToolbar.Visibility = Visibility.Collapsed;
             TranscriptList.ItemsSource = null;
         });
 
@@ -361,10 +422,12 @@ public partial class NotesView : UserControl
             DispatcherHelper.RunOnUI(() =>
             {
                 TranscriptLoading.Visibility = Visibility.Collapsed;
+                _allTranscriptions = transcriptions;
 
                 if (transcriptions.Count > 0)
                 {
                     TranscriptList.ItemsSource = transcriptions;
+                    TranscriptToolbar.Visibility = Visibility.Visible;
                     TranscriptEmpty.Visibility = Visibility.Collapsed;
                 }
                 else
@@ -531,6 +594,80 @@ public partial class NotesView : UserControl
     private async void StopMeeting_Click(object sender, RoutedEventArgs e)
     {
         await MeetingService.Instance.StopMeeting();
+    }
+
+    // --- Transcript Search & Copy ---
+
+    private void TranscriptSearch_Changed(object sender, TextChangedEventArgs e)
+    {
+        var query = TranscriptSearchBox.Text?.Trim();
+        if (string.IsNullOrEmpty(query))
+        {
+            TranscriptList.ItemsSource = _allTranscriptions;
+            return;
+        }
+
+        var filtered = _allTranscriptions.Where(t =>
+            t.Transcript.Contains(query, StringComparison.OrdinalIgnoreCase) ||
+            t.SpeakerName.Contains(query, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+        TranscriptList.ItemsSource = filtered;
+    }
+
+    private void CopyTranscript_Click(object sender, RoutedEventArgs e)
+    {
+        if (_allTranscriptions.Count == 0) return;
+
+        var text = string.Join("\n\n", _allTranscriptions.Select(t =>
+            $"[{t.FormattedTime}] {t.SpeakerName}: {t.Transcript}"));
+
+        try
+        {
+            System.Windows.Clipboard.SetText(text);
+            FileLogger.Instance.Info("NotesView", $"Copied {_allTranscriptions.Count} transcript entries to clipboard");
+        }
+        catch (Exception ex)
+        {
+            FileLogger.Instance.Error("NotesView", $"Copy to clipboard failed: {ex.Message}");
+        }
+    }
+
+    // --- Delete Meeting ---
+
+    private async void DeleteMeeting_Click(object sender, RoutedEventArgs e)
+    {
+        if (_selectedMeetingId == null) return;
+
+        var result = System.Windows.MessageBox.Show(
+            "Are you sure you want to delete this meeting?",
+            "Delete Meeting",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Warning);
+
+        if (result != MessageBoxResult.Yes) return;
+
+        var success = await MeetingGraphQLService.Instance.DeleteMeeting(_selectedMeetingId);
+        if (success)
+        {
+            _selectedMeetingId = null;
+            DetailPanel.Visibility = Visibility.Collapsed;
+            ListPanel.Visibility = Visibility.Visible;
+            await LoadAllMeetings();
+        }
+    }
+
+    // --- Inactivity Alert ---
+
+    private void ContinueMeeting_Click(object sender, RoutedEventArgs e)
+    {
+        InactivityOverlay.Visibility = Visibility.Collapsed;
+        MeetingService.Instance.ContinueFromInactivityAlert();
+    }
+
+    private async void EndMeetingFromAlert_Click(object sender, RoutedEventArgs e)
+    {
+        InactivityOverlay.Visibility = Visibility.Collapsed;
+        await MeetingService.Instance.EndMeetingFromInactivityAlert();
     }
 }
 

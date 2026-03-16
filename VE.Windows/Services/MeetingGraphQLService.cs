@@ -372,4 +372,95 @@ public sealed class MeetingGraphQLService
             return false;
         }
     }
+
+    // --- Bulk Delete Meetings ---
+
+    public async Task<bool> DeleteMeetingsByIds(List<string> meetingIds)
+    {
+        try
+        {
+            var url = GetGraphQLUrl();
+            if (url == null) return false;
+
+            var payload = new
+            {
+                query = @"mutation Mutation($meetingIds: [ID!]!) {
+                    deleteMeetingsByIds(meetingIds: $meetingIds) {
+                        success
+                        message
+                    }
+                }",
+                variables = new { meetingIds }
+            };
+
+            var response = await NetworkService.Instance.PostRawAsync(url, payload);
+            if (response == null) return false;
+
+            var json = JObject.Parse(response);
+            var success = json["data"]?["deleteMeetingsByIds"]?["success"]?.Value<bool>() ?? false;
+            FileLogger.Instance.Info("MeetingGQL", $"Bulk delete {meetingIds.Count} meetings: {success}");
+            return success;
+        }
+        catch (Exception ex)
+        {
+            FileLogger.Instance.Error("MeetingGQL", $"BulkDeleteMeetings failed: {ex.Message}");
+            return false;
+        }
+    }
+
+    // --- Get Meeting Prep ---
+
+    public async Task<MeetingPrepData?> GetMeetingPrep(string meetingId)
+    {
+        try
+        {
+            var url = GetGraphQLUrl();
+            if (url == null) return null;
+
+            var payload = new
+            {
+                query = @"query Query($meetingId: ID!) {
+                    getMeetingPrep(meetingId: $meetingId)
+                }",
+                variables = new { meetingId }
+            };
+
+            var response = await NetworkService.Instance.PostRawAsync(url, payload);
+            if (response == null) return null;
+
+            var json = JObject.Parse(response);
+
+            if (json["errors"] != null)
+            {
+                FileLogger.Instance.Warning("MeetingGQL", $"GetMeetingPrep errors for {meetingId}: {json["errors"]}");
+                return null;
+            }
+
+            var prepRaw = json["data"]?["getMeetingPrep"];
+            if (prepRaw == null || prepRaw.Type == JTokenType.Null)
+            {
+                FileLogger.Instance.Debug("MeetingGQL", $"No meeting prep for {meetingId}");
+                return null;
+            }
+
+            JObject prepObj;
+            if (prepRaw.Type == JTokenType.String)
+            {
+                prepObj = JObject.Parse(prepRaw.Value<string>()!);
+            }
+            else
+            {
+                prepObj = (JObject)prepRaw;
+            }
+
+            var result = MeetingPrepData.ParseFromJson(prepObj);
+            FileLogger.Instance.Info("MeetingGQL", $"Got meeting prep for {meetingId}: items={result.Items.Count}");
+            return result;
+        }
+        catch (Exception ex)
+        {
+            FileLogger.Instance.Error("MeetingGQL", $"GetMeetingPrep failed: {ex.Message}");
+            return null;
+        }
+    }
 }

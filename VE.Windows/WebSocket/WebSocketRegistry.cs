@@ -22,6 +22,7 @@ public sealed class WebSocketRegistry : IDisposable
     private WebSocketTransport? _multiAgentTransport;
     private WebSocketTransport? _voiceToTextTransport;
     private WebSocketTransport? _meetingTransport;
+    private WebSocketTransport? _summaryTransport;
 
     // Pending transport pattern (matches macOS): new transport with fresh token,
     // swapped in after active operation completes
@@ -33,6 +34,7 @@ public sealed class WebSocketRegistry : IDisposable
     public VoiceToTextSocketClient? VoiceToTextClient { get; private set; }
     public MultiAgentSocketClient? MultiAgentClient { get; private set; }
     public MeetingSocketClient? MeetingClient { get; private set; }
+    public SummarySocketClient? SummaryClient { get; private set; }
 
     // Expose transport for direct access
     public WebSocketTransport? MultiAgentTransport => _multiAgentTransport;
@@ -358,6 +360,42 @@ public sealed class WebSocketRegistry : IDisposable
         MeetingClient = null;
     }
 
+    // --- Summary WebSocket (streaming summary generation) ---
+
+    /// <summary>
+    /// Connect to summary WebSocket for streaming summary generation.
+    /// URL: wss://meetings.us-east-1.ve.ai/genarateSummary/ws/{meetingId}?token=...
+    /// Note: "genarateSummary" typo matches the actual backend path.
+    /// </summary>
+    public async Task ConnectSummaryTransport(string meetingId)
+    {
+        var token = AuthManager.Instance.Storage.UserToken;
+        if (string.IsNullOrEmpty(token))
+        {
+            FileLogger.Instance.Warning("WebSocketRegistry", "Token not available for summary WebSocket");
+            return;
+        }
+
+        var encodedToken = Uri.EscapeDataString(token);
+        var url = $"wss://meetings.us-east-1.ve.ai/genarateSummary/ws/{meetingId}?token={encodedToken}";
+
+        FileLogger.Instance.Info("WebSocketRegistry", $"Connecting summary transport for meeting: {meetingId}");
+
+        _summaryTransport?.Dispose();
+        _summaryTransport = new WebSocketTransport(url, new RetryPolicy { MaxRetries = 3, InitialDelay = 1.0, MaxDelay = 10.0, BackoffMultiplier = 1.5 });
+        SummaryClient = new SummarySocketClient(_summaryTransport);
+
+        await _summaryTransport.ConnectAsync();
+        FileLogger.Instance.Info("WebSocketRegistry", "Summary transport connected");
+    }
+
+    public void DisconnectSummaryTransport()
+    {
+        _summaryTransport?.Dispose();
+        _summaryTransport = null;
+        SummaryClient = null;
+    }
+
     public void DisconnectAll()
     {
         FileLogger.Instance.Info("WebSocketRegistry", "Disconnecting all transports...");
@@ -366,6 +404,7 @@ public sealed class WebSocketRegistry : IDisposable
         _multiAgentTransport?.Dispose();
         _voiceToTextTransport?.Dispose();
         _meetingTransport?.Dispose();
+        _summaryTransport?.Dispose();
         _pendingUnifiedAudioTransport?.Dispose();
         _oldUnifiedAudioTransport?.Dispose();
 
@@ -374,6 +413,7 @@ public sealed class WebSocketRegistry : IDisposable
         _multiAgentTransport = null;
         _voiceToTextTransport = null;
         _meetingTransport = null;
+        _summaryTransport = null;
         _pendingUnifiedAudioTransport = null;
         _oldUnifiedAudioTransport = null;
 
@@ -381,6 +421,7 @@ public sealed class WebSocketRegistry : IDisposable
         VoiceToTextClient = null;
         MultiAgentClient = null;
         MeetingClient = null;
+        SummaryClient = null;
     }
 
     public async Task VerifyAllConnections()
