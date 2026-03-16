@@ -14,10 +14,8 @@ namespace VE.Windows.Views.FloatingWindow;
 /// </summary>
 public partial class NotesView : UserControl
 {
-    private readonly List<MeetingListItem> _allMeetings = new();
-    private int _currentPage = 1;
+    private List<MeetingListItem> _allMeetings = new();
     private bool _isLoading;
-    private bool _hasMorePages = true;
     private string? _selectedMeetingId;
     private string _currentDetailTab = "Summary";
 
@@ -39,69 +37,56 @@ public partial class NotesView : UserControl
         // Refresh list when a meeting ends
         MeetingService.Instance.MeetingListNeedsRefresh += (s, e) =>
         {
-            _ = RefreshMeetingsList();
+            _ = LoadAllMeetings();
         };
 
         // Load meetings on first show
         Loaded += async (s, e) =>
         {
             if (_allMeetings.Count == 0)
-                await LoadMeetings();
+                await LoadAllMeetings();
         };
     }
 
     // --- Meetings List ---
 
-    private async Task LoadMeetings()
+    private async Task LoadAllMeetings()
     {
         if (_isLoading) return;
         _isLoading = true;
 
         DispatcherHelper.RunOnUI(() =>
         {
-            LoadingText.Visibility = _allMeetings.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
-            LoadMoreText.Visibility = _allMeetings.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+            LoadingText.Visibility = Visibility.Visible;
             EmptyPanel.Visibility = Visibility.Collapsed;
         });
 
         try
         {
-            var meetings = await MeetingGraphQLService.Instance.ListMeetings(_currentPage);
+            var meetings = await MeetingGraphQLService.Instance.ListAllMeetings();
 
             DispatcherHelper.RunOnUI(() =>
             {
-                // Filter to only meetings with transcription (matches macOS behavior)
-                var transcribed = meetings.Where(m => m.IsTranscription).ToList();
-                _allMeetings.AddRange(transcribed);
-                _hasMorePages = meetings.Count >= 20;
+                // Show all meetings (macOS filters to IsTranscription but we show all)
+                _allMeetings = meetings;
 
                 UpdateMeetingsList();
                 LoadingText.Visibility = Visibility.Collapsed;
-                LoadMoreText.Visibility = Visibility.Collapsed;
                 EmptyPanel.Visibility = _allMeetings.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
             });
         }
         catch (Exception ex)
         {
-            FileLogger.Instance.Error("NotesView", $"LoadMeetings failed: {ex.Message}");
+            FileLogger.Instance.Error("NotesView", $"LoadAllMeetings failed: {ex.Message}");
             DispatcherHelper.RunOnUI(() =>
             {
                 LoadingText.Visibility = Visibility.Collapsed;
-                LoadMoreText.Visibility = Visibility.Collapsed;
             });
         }
         finally
         {
             _isLoading = false;
         }
-    }
-
-    private async Task RefreshMeetingsList()
-    {
-        _allMeetings.Clear();
-        _currentPage = 1;
-        _hasMorePages = true;
-        await LoadMeetings();
     }
 
     private void UpdateMeetingsList()
@@ -118,17 +103,6 @@ public partial class NotesView : UserControl
             .ToList();
 
         MeetingsList.ItemsSource = grouped;
-    }
-
-    private void MeetingsScroll_ScrollChanged(object sender, ScrollChangedEventArgs e)
-    {
-        // Infinite scroll — load more when near bottom
-        if (e.VerticalOffset >= e.ExtentHeight - e.ViewportHeight - 50
-            && _hasMorePages && !_isLoading)
-        {
-            _currentPage++;
-            _ = LoadMeetings();
-        }
     }
 
     // --- Navigation ---
@@ -230,11 +204,8 @@ public partial class NotesView : UserControl
         {
             _summaryData = await MeetingGraphQLService.Instance.GetMeetingSummary(meetingId);
 
-            // Also try to get analytics for summary section (action items, decisions, highlights)
-            if (_analyticsData == null)
-            {
-                _analyticsData = await MeetingGraphQLService.Instance.GetMeetingAnalytics(meetingId);
-            }
+            // Also load analytics for summary section (action items, decisions, highlights)
+            _analyticsData ??= await MeetingGraphQLService.Instance.GetMeetingAnalytics(meetingId);
 
             DispatcherHelper.RunOnUI(() =>
             {

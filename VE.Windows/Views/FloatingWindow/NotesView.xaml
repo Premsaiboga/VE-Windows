@@ -81,8 +81,7 @@
 
             <!-- Meetings List -->
             <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto"
-                          x:Name="MeetingsScroll"
-                          ScrollChanged="MeetingsScroll_ScrollChanged">
+                          x:Name="MeetingsScroll">
                 <StackPanel Margin="0,0,0,8">
                     <!-- Loading indicator -->
                     <TextBlock x:Name="LoadingText" Text="Loading meetings..."
@@ -150,11 +149,6 @@
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
 
-                    <!-- Load more indicator -->
-                    <TextBlock x:Name="LoadMoreText" Text="Loading more..."
-                               Foreground="#878E92" FontSize="11"
-                               HorizontalAlignment="Center" Margin="0,8,0,8"
-                               Visibility="Collapsed" />
                 </StackPanel>
             </ScrollViewer>
         </Grid>

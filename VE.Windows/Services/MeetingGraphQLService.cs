@@ -22,9 +22,35 @@ public sealed class MeetingGraphQLService
         return $"{baseUrl}/{workspaceId}/graphql";
     }
 
-    // --- List Meetings ---
+    // --- List All Meetings (auto-paginates) ---
 
-    public async Task<List<MeetingListItem>> ListMeetings(int page = 1, int limit = 20, string? pageType = null)
+    public async Task<List<MeetingListItem>> ListAllMeetings()
+    {
+        var allMeetings = new List<MeetingListItem>();
+        int page = 1;
+        const int limit = 50;
+
+        while (true)
+        {
+            var pageMeetings = await ListMeetings(page, limit);
+            if (pageMeetings.Count == 0) break;
+
+            allMeetings.AddRange(pageMeetings);
+
+            if (pageMeetings.Count < limit) break; // Last page
+            page++;
+
+            // Safety cap to prevent infinite loop
+            if (page > 20) break;
+        }
+
+        FileLogger.Instance.Info("MeetingGQL", $"Loaded {allMeetings.Count} total meetings across {page} pages");
+        return allMeetings;
+    }
+
+    // --- List Meetings (single page) ---
+
+    public async Task<List<MeetingListItem>> ListMeetings(int page = 1, int limit = 50, string? pageType = null)
     {
         try
         {
@@ -53,7 +79,11 @@ public sealed class MeetingGraphQLService
 
             var json = JObject.Parse(response);
             var data = json["data"]?["listMeetings"]?["data"] as JArray;
-            if (data == null) return new();
+            if (data == null)
+            {
+                FileLogger.Instance.Warning("MeetingGQL", $"ListMeetings: no data in response. Errors: {json["errors"]}");
+                return new();
+            }
 
             var meetings = new List<MeetingListItem>();
             foreach (var item in data)
@@ -100,7 +130,11 @@ public sealed class MeetingGraphQLService
 
             var json = JObject.Parse(response);
             var summaryRaw = json["data"]?["getMeetingSummary"];
-            if (summaryRaw == null) return null;
+            if (summaryRaw == null)
+            {
+                FileLogger.Instance.Warning("MeetingGQL", $"GetMeetingSummary: null response for {meetingId}. Errors: {json["errors"]}");
+                return null;
+            }
 
             // The response is a JSON string that needs to be parsed
             JObject summaryObj;
@@ -124,7 +158,7 @@ public sealed class MeetingGraphQLService
                 result.TranscriptionSummary = meetingData["transcriptionSummary"]?.Value<string>();
             }
 
-            FileLogger.Instance.Info("MeetingGQL", $"Got summary for {meetingId}");
+            FileLogger.Instance.Info("MeetingGQL", $"Got summary for {meetingId}, hasMeetingData={result.MeetingData != null}, hasSummary={result.TranscriptionSummary != null}");
             return result;
         }
         catch (Exception ex)
@@ -207,26 +241,66 @@ public sealed class MeetingGraphQLService
             };
 
             var response = await NetworkService.Instance.PostRawAsync(url, payload);
-            if (response == null) return null;
+            if (response == null)
+            {
+                FileLogger.Instance.Warning("MeetingGQL", $"GetMeetingAnalytics: null response for {meetingId}");
+                return null;
+            }
+
+            FileLogger.Instance.Debug("MeetingGQL", $"Analytics raw response for {meetingId}: {response.Substring(0, Math.Min(500, response.Length))}");
 
             var json = JObject.Parse(response);
-            var analyticsRaw = json["data"]?["getMeetingAnalytics"];
-            if (analyticsRaw == null) return null;
 
+            // Check for GraphQL errors
+            if (json["errors"] != null)
+            {
+                FileLogger.Instance.Warning("MeetingGQL", $"Analytics errors for {meetingId}: {json["errors"]}");
+                return new MeetingAnalyticsData { AnalyticsGenerated = false };
+            }
+
+            var analyticsRaw = json["data"]?["getMeetingAnalytics"];
+            if (analyticsRaw == null || analyticsRaw.Type == JTokenType.Null)
+            {
+                FileLogger.Instance.Info("MeetingGQL", $"Analytics not available for {meetingId}");
+                return new MeetingAnalyticsData { AnalyticsGenerated = false };
+            }
+
+            // Parse the analytics — could be a JSON string or direct object
             JObject analyticsObj;
             if (analyticsRaw.Type == JTokenType.String)
-                analyticsObj = JObject.Parse(analyticsRaw.Value<string>()!);
+            {
+                var rawStr = analyticsRaw.Value<string>()!;
+                FileLogger.Instance.Debug("MeetingGQL", $"Analytics is JSON string, length={rawStr.Length}");
+                analyticsObj = JObject.Parse(rawStr);
+            }
             else
+            {
                 analyticsObj = (JObject)analyticsRaw;
+            }
 
-            var result = MeetingAnalyticsData.ParseFromJson(analyticsObj);
-            FileLogger.Instance.Info("MeetingGQL", $"Got analytics for {meetingId}: generated={result.AnalyticsGenerated}");
-            return result;
+            // The analytics data may be wrapped in an "analytics" key
+            // (macOS checks for analyticsDict["analytics"] wrapper)
+            if (analyticsObj["analytics"] is JObject innerAnalytics &&
+                analyticsObj["status"] != null)
+            {
+                // Response format: { status, message, analytics_generated, analytics: { ... } }
+                var result = MeetingAnalyticsData.ParseFromJson(innerAnalytics);
+                result.AnalyticsGenerated = analyticsObj["analytics_generated"]?.Value<bool>() ?? true;
+                FileLogger.Instance.Info("MeetingGQL", $"Got wrapped analytics for {meetingId}: generated={result.AnalyticsGenerated}, chapters={result.Chapters.Count}, participants={result.Participants.Count}");
+                return result;
+            }
+            else
+            {
+                // Direct format: { meeting_metadata, chapters, highlights, ... }
+                var result = MeetingAnalyticsData.ParseFromJson(analyticsObj);
+                FileLogger.Instance.Info("MeetingGQL", $"Got direct analytics for {meetingId}: generated={result.AnalyticsGenerated}, chapters={result.Chapters.Count}, participants={result.Participants.Count}");
+                return result;
+            }
         }
         catch (Exception ex)
         {
             FileLogger.Instance.Error("MeetingGQL", $"GetMeetingAnalytics failed: {ex.Message}");
-            return null;
+            return new MeetingAnalyticsData { AnalyticsGenerated = false };
         }
     }
 
