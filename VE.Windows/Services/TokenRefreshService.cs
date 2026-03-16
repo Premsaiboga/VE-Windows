@@ -128,14 +128,34 @@ public sealed class TokenRefreshService : IDisposable
         try
         {
             var authUrl = BaseURLService.Instance.GetGlobalUrl("auth");
-            if (authUrl == null) return false;
+            if (authUrl == null)
+            {
+                FileLogger.Instance.Error("TokenRefresh", "No auth URL configured");
+                return false;
+            }
 
             var url = $"{authUrl}/refresh-token";
+            FileLogger.Instance.Info("TokenRefresh", $"Calling {url}...");
+
+            // Log cookie count for debugging
+            var cookieCount = NetworkService.Instance.GetCookieCount(new Uri(authUrl));
+            FileLogger.Instance.Debug("TokenRefresh", $"Cookies for {authUrl}: {cookieCount}");
+
             var response = await NetworkService.Instance.PostRawAsync(url);
-            if (response == null) return false;
+            if (response == null)
+            {
+                FileLogger.Instance.Error("TokenRefresh", "Refresh endpoint returned null (network error)");
+                return false;
+            }
+
+            FileLogger.Instance.Debug("TokenRefresh", $"Refresh response ({response.Length} chars): {response.Substring(0, Math.Min(200, response.Length))}");
 
             var result = JsonConvert.DeserializeObject<TokenRefreshResponse>(response);
-            if (result?.AccessToken == null) return false;
+            if (result?.AccessToken == null)
+            {
+                FileLogger.Instance.Error("TokenRefresh", $"No accessToken in refresh response");
+                return false;
+            }
 
             AuthManager.Instance.Storage.UserToken = result.AccessToken;
             if (result.CsrfToken != null)

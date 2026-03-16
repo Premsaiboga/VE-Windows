@@ -66,6 +66,15 @@ public sealed class NetworkService
         }
     }
 
+    /// <summary>
+    /// Get number of cookies stored for a given URI (for debugging refresh token issues).
+    /// </summary>
+    public int GetCookieCount(Uri uri)
+    {
+        try { return _cookieContainer.GetCookies(uri).Count; }
+        catch { return -1; }
+    }
+
     private void AttachAuthHeaders(HttpRequestMessage request)
     {
         // macOS uses x-access-token header for REST APIs (NOT Authorization: Bearer)
