@@ -58,14 +58,35 @@ public partial class NotesView : UserControl
 
         try
         {
-            var meetings = await MeetingGraphQLService.Instance.ListAllMeetings();
+            // Load upcoming calendar meetings and recent meetings in parallel
+            var upcomingTask = CalendarService.Instance.GetUpcomingMeetings();
+            var recentTask = MeetingGraphQLService.Instance.ListAllMeetings();
+            await Task.WhenAll(upcomingTask, recentTask);
+
+            var upcoming = upcomingTask.Result;
+            var meetings = recentTask.Result;
 
             DispatcherHelper.RunOnUI(() =>
             {
-                _allMeetings = meetings;
+                // Filter recent meetings: only show isTranscription == true (matches macOS)
+                _allMeetings = meetings.Where(m => m.IsTranscription).ToList();
+
+                // Update upcoming section
+                if (upcoming.Count > 0)
+                {
+                    UpcomingList.ItemsSource = upcoming.Take(5).ToList(); // Show top 5
+                    UpcomingSection.Visibility = Visibility.Visible;
+                }
+                else
+                {
+                    UpcomingSection.Visibility = Visibility.Collapsed;
+                }
+
                 UpdateMeetingsList();
                 LoadingText.Visibility = Visibility.Collapsed;
-                EmptyPanel.Visibility = _allMeetings.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+
+                bool hasAny = _allMeetings.Count > 0 || upcoming.Count > 0;
+                EmptyPanel.Visibility = hasAny ? Visibility.Collapsed : Visibility.Visible;
             });
         }
         catch (Exception ex)

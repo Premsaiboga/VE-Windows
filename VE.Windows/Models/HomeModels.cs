@@ -41,7 +41,22 @@ public class UpcomingMeetingItem
     public string? Platform { get; set; }
     public string? MeetingUrl { get; set; }
     public string? Organizer { get; set; }
+    public string Source { get; set; } = "google"; // "google" or "outlook"
     public List<string> Attendees { get; set; } = new();
+
+    public string FormattedTime => StartTime.ToString("h:mm tt");
+    public string FormattedDateHeader
+    {
+        get
+        {
+            if (StartTime.Date == DateTime.Today) return "Today";
+            if (StartTime.Date == DateTime.Today.AddDays(1)) return "Tomorrow";
+            return StartTime.ToString("MMMM d");
+        }
+    }
+
+    /// <summary>True if meeting starts within the next 5 minutes.</summary>
+    public bool IsStartingSoon => StartTime > DateTime.Now && StartTime <= DateTime.Now.AddMinutes(5);
 }
 
 public class UpcomingMeetingsResponse
