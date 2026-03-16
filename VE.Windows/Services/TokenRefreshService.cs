@@ -153,10 +153,10 @@ public sealed class TokenRefreshService : IDisposable
             // Server returns {"tokens":{"accessToken":"...","csrfToken":"..."}}
             // Parse with wrapper support
             var json = Newtonsoft.Json.Linq.JObject.Parse(response);
-            var accessToken = json["tokens"]?["accessToken"]?.Value<string>()
-                ?? json["accessToken"]?.Value<string>();
-            var csrfToken = json["tokens"]?["csrfToken"]?.Value<string>()
-                ?? json["csrfToken"]?.Value<string>();
+            var accessToken = json["tokens"]?["accessToken"]?.ToString()
+                ?? json["accessToken"]?.ToString();
+            var csrfToken = json["tokens"]?["csrfToken"]?.ToString()
+                ?? json["csrfToken"]?.ToString();
 
             if (string.IsNullOrEmpty(accessToken))
             {
