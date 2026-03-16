@@ -43,6 +43,9 @@ public sealed class WebSocketRegistry : IDisposable
     private const int DeactivationTimeoutSeconds = 60;
     private bool _isSystemSleeping;
 
+    // Auth error handling: prevent duplicate concurrent refresh+reconnect cycles
+    private readonly SemaphoreSlim _authRefreshLock = new(1, 1);
+
     private WebSocketRegistry()
     {
         // Subscribe to system sleep/wake events (matches macOS NSWorkspace willSleep/didWake)
@@ -167,6 +170,7 @@ public sealed class WebSocketRegistry : IDisposable
 
         _pendingUnifiedAudioTransport?.Dispose();
         _pendingUnifiedAudioTransport = new WebSocketTransport(url);
+        WireAuthErrorHandler(_pendingUnifiedAudioTransport);
         await _pendingUnifiedAudioTransport.ConnectAsync();
     }
 
@@ -198,6 +202,56 @@ public sealed class WebSocketRegistry : IDisposable
         _oldUnifiedAudioTransport = null;
     }
 
+    // --- Auth Error Handling ---
+
+    /// <summary>
+    /// When any transport gets a token-expired error, refresh the token and reconnect all affected transports.
+    /// Uses a lock so only one refresh cycle runs at a time even if multiple transports fail simultaneously.
+    /// </summary>
+    private async void OnTransportAuthError(object? sender, EventArgs e)
+    {
+        if (!await _authRefreshLock.WaitAsync(0))
+        {
+            FileLogger.Instance.Debug("WebSocketRegistry", "Auth refresh already in progress, skipping duplicate");
+            return;
+        }
+
+        try
+        {
+            FileLogger.Instance.Info("WebSocketRegistry", "Token expired on WebSocket — refreshing token...");
+            var refreshed = await TokenRefreshService.Instance.EnsureTokenRefreshed();
+
+            if (refreshed)
+            {
+                FileLogger.Instance.Info("WebSocketRegistry", "Token refreshed — reconnecting transports with fresh token");
+                // Reconnect all transports that had auth errors (they'll pick up the new token from AuthManager.Storage)
+                var tasks = new List<Task>();
+                if (_unifiedAudioTransport != null) tasks.Add(_unifiedAudioTransport.ReconnectAfterTokenRefresh());
+                if (_dictationTransport != null) tasks.Add(_dictationTransport.ReconnectAfterTokenRefresh());
+                if (_multiAgentTransport != null) tasks.Add(_multiAgentTransport.ReconnectAfterTokenRefresh());
+                if (_meetingTransport != null) tasks.Add(_meetingTransport.ReconnectAfterTokenRefresh());
+                await Task.WhenAll(tasks);
+            }
+            else
+            {
+                FileLogger.Instance.Error("WebSocketRegistry", "Token refresh failed — user may need to re-login");
+            }
+        }
+        catch (Exception ex)
+        {
+            FileLogger.Instance.Error("WebSocketRegistry", $"Auth error recovery failed: {ex.Message}");
+        }
+        finally
+        {
+            _authRefreshLock.Release();
+        }
+    }
+
+    private void WireAuthErrorHandler(WebSocketTransport transport)
+    {
+        transport.AuthErrorDetected += OnTransportAuthError;
+    }
+
     // --- Transport Connect Methods ---
 
     public async Task ConnectUnifiedAudioTransport()
@@ -219,6 +273,7 @@ public sealed class WebSocketRegistry : IDisposable
 
         _unifiedAudioTransport?.Dispose();
         _unifiedAudioTransport = new WebSocketTransport(url);
+        WireAuthErrorHandler(_unifiedAudioTransport);
         UnifiedAudioClient = new UnifiedAudioSocketClient(_unifiedAudioTransport);
 
         await _unifiedAudioTransport.ConnectAsync();
@@ -232,6 +287,7 @@ public sealed class WebSocketRegistry : IDisposable
 
         _dictationTransport?.Dispose();
         _dictationTransport = new WebSocketTransport(url);
+        WireAuthErrorHandler(_dictationTransport);
         VoiceToTextClient = new VoiceToTextSocketClient(_dictationTransport);
 
         await _dictationTransport.ConnectAsync();
@@ -265,6 +321,7 @@ public sealed class WebSocketRegistry : IDisposable
 
         _multiAgentTransport?.Dispose();
         _multiAgentTransport = new WebSocketTransport(url);
+        WireAuthErrorHandler(_multiAgentTransport);
         MultiAgentClient = new MultiAgentSocketClient(_multiAgentTransport);
 
         await _multiAgentTransport.ConnectAsync();
@@ -287,6 +344,7 @@ public sealed class WebSocketRegistry : IDisposable
 
         _meetingTransport?.Dispose();
         _meetingTransport = new WebSocketTransport(url);
+        WireAuthErrorHandler(_meetingTransport);
         MeetingClient = new MeetingSocketClient(_meetingTransport);
 
         await _meetingTransport.ConnectAsync();
@@ -340,6 +398,7 @@ public sealed class WebSocketRegistry : IDisposable
     public void Dispose()
     {
         _deactivationTimer?.Dispose();
+        _authRefreshLock.Dispose();
         SystemEvents.PowerModeChanged -= OnPowerModeChanged;
         DisconnectAll();
     }

@@ -3,6 +3,7 @@ using System.Net.WebSockets;
 using System.Text;
 using VE.Windows.Helpers;
 using VE.Windows.Managers;
+using VE.Windows.Services;
 
 namespace VE.Windows.WebSocket;
 
@@ -25,6 +26,14 @@ public class WebSocketTransport : IDisposable
     private readonly SemaphoreSlim _connectLock = new(1, 1);
     private Task? _activeConnectTask;
 
+    // Auth error handling: stop reconnect loop when token is expired
+    private bool _authErrorDetected;
+    private static readonly string[] AuthErrorPatterns = new[]
+    {
+        "Token has expired", "Unauthorized", "jwt expired", "token expired",
+        "Invalid token", "Authentication failed"
+    };
+
     // Keep-alive ping timer (matches macOS 120-second interval)
     private Timer? _pingTimer;
     private DateTime _lastMessageTime = DateTime.UtcNow;
@@ -38,6 +47,8 @@ public class WebSocketTransport : IDisposable
     public event EventHandler? Connected;
     public event EventHandler<string>? Disconnected;
     public event EventHandler<string>? Error;
+    /// <summary>Fired when server returns an auth/token error. Registry should refresh token and reconnect.</summary>
+    public event EventHandler? AuthErrorDetected;
 
     public WebSocketTransport(string url, RetryPolicy? retryPolicy = null)
     {
@@ -99,6 +110,7 @@ public class WebSocketTransport : IDisposable
     private async Task ConnectInternalAsync()
     {
         _intentionalDisconnect = false;
+        _authErrorDetected = false;
 
         try
         {
@@ -221,6 +233,16 @@ public class WebSocketTransport : IDisposable
                 if (result.MessageType == WebSocketMessageType.Text)
                 {
                     var message = Encoding.UTF8.GetString(ms.ToArray());
+
+                    // Check for auth/token errors — stop reconnect loop and signal for token refresh
+                    if (IsAuthError(message))
+                    {
+                        FileLogger.Instance.Warning("WebSocket", $"Auth error detected on {Url} — stopping reconnect, requesting token refresh");
+                        _authErrorDetected = true;
+                        AuthErrorDetected?.Invoke(this, EventArgs.Empty);
+                        break; // Exit receive loop — don't reconnect with stale token
+                    }
+
                     MessageReceived?.Invoke(this, message);
                 }
                 else if (result.MessageType == WebSocketMessageType.Binary)
@@ -249,6 +271,8 @@ public class WebSocketTransport : IDisposable
     private async Task ScheduleReconnect()
     {
         if (_intentionalDisconnect || _isDisposed) return;
+        // Don't blindly reconnect with expired token — let AuthErrorDetected handler do the refresh + reconnect
+        if (_authErrorDetected) return;
         if (!_retryPolicy.ShouldRetry(_retryAttempt)) return;
 
         var delay = _retryPolicy.CalculateDelay(_retryAttempt);
@@ -261,6 +285,27 @@ public class WebSocketTransport : IDisposable
         {
             await ConnectAsync();
         }
+    }
+
+    /// <summary>
+    /// Called after token has been refreshed. Clears the auth error flag and reconnects with fresh token.
+    /// </summary>
+    public async Task ReconnectAfterTokenRefresh()
+    {
+        _authErrorDetected = false;
+        _retryAttempt = 0;
+        FileLogger.Instance.Info("WebSocket", $"Reconnecting after token refresh: {Url}");
+        await ConnectAsync();
+    }
+
+    private static bool IsAuthError(string message)
+    {
+        foreach (var pattern in AuthErrorPatterns)
+        {
+            if (message.Contains(pattern, StringComparison.OrdinalIgnoreCase))
+                return true;
+        }
+        return false;
     }
 
     // --- Keep-alive ping (matches macOS 120-second interval) ---
