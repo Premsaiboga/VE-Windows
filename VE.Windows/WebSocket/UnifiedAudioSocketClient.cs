@@ -138,13 +138,6 @@ public class UnifiedAudioSocketClient
                 },
             };
 
-            // Server requires image_data even for dictation (unified endpoint)
-            var screenshot = ScreenCaptureManager.Instance.CaptureActiveWindow();
-            if (screenshot != null)
-            {
-                payload["image_data"] = new[] { Convert.ToBase64String(screenshot) };
-            }
-
             var json = JsonConvert.SerializeObject(payload);
             FileLogger.Instance.Info("UnifiedAudioClient", $"Sending dictation end payload ({json.Length} chars)");
             await _transport.SendAsync(json);
