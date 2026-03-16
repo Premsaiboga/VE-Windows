@@ -184,7 +184,8 @@ public partial class NotesView : UserControl
             case "Transcript" when _transcriptions == null:
                 _ = LoadTranscriptions(_selectedMeetingId);
                 break;
-            case "Analytics" when _analyticsData == null:
+            case "Analytics":
+                // Always call LoadAnalytics to populate UI — it uses cached _analyticsData if available
                 _ = LoadAnalytics(_selectedMeetingId);
                 break;
         }
