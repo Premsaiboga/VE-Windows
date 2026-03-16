@@ -121,16 +121,13 @@ public sealed class MeetingGraphQLService
             {
                 query = @"query Query($meetingId: ID!) {
                     getMeeting(meetingId: $meetingId) {
-                        success
-                        message
-                        data {
-                            meetingId
-                            title
-                            status
-                            createdAt
-                            transcriptionSummary
-                            transcriptionSource
-                        }
+                        _id
+                        meetingId
+                        title
+                        status
+                        createdAt
+                        transcriptionSummary
+                        transcriptionSource
                     }
                 }",
                 variables = new { meetingId }
@@ -148,8 +145,9 @@ public sealed class MeetingGraphQLService
                 return null;
             }
 
-            var meetingData = json["data"]?["getMeeting"]?["data"];
-            if (meetingData == null)
+            // getMeeting returns ListMeetingType directly (no success/message/data wrapper)
+            var meetingData = json["data"]?["getMeeting"];
+            if (meetingData == null || meetingData.Type == JTokenType.Null)
             {
                 FileLogger.Instance.Warning("MeetingGQL", $"GetMeeting: no data for {meetingId}");
                 return null;
@@ -158,7 +156,7 @@ public sealed class MeetingGraphQLService
             var result = new MeetingSummaryData();
             result.MeetingData = new MeetingData
             {
-                Id = meetingData["meetingId"]?.ToString(),
+                Id = meetingData["meetingId"]?.ToString() ?? meetingData["_id"]?.ToString(),
                 Title = meetingData["title"]?.ToString(),
                 CreatedAt = meetingData["createdAt"]?.Value<double>(),
                 Status = meetingData["status"]?.ToString(),
