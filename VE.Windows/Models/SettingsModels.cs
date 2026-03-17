@@ -229,6 +229,4 @@ public class Instruction
     public DateTime UpdatedAt { get; set; }
 }
 
-// VoiceLog/PredictionLog legacy types
-public class VoiceLog { }
-public class PredictionLog { }
+// VoiceLog and PredictionLog are defined in VoiceLogModels.cs
