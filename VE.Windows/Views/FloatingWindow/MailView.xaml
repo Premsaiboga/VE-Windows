@@ -1,0 +1,131 @@
+<UserControl x:Class="VE.Windows.Views.FloatingWindow.MailView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <Grid>
+        <ScrollViewer VerticalScrollBarVisibility="Auto">
+            <StackPanel Margin="16,8">
+                <!-- Loading -->
+                <TextBlock x:Name="LoadingText" Text="Loading email settings..."
+                           Foreground="#878E92" FontSize="13"
+                           HorizontalAlignment="Center" Margin="0,40,0,0" />
+
+                <!-- No Account -->
+                <StackPanel x:Name="NoAccountPanel" Visibility="Collapsed"
+                            HorizontalAlignment="Center" Margin="0,60,0,0">
+                    <TextBlock Text="No email connected" Foreground="#878E92" FontSize="16"
+                               HorizontalAlignment="Center" Margin="0,0,0,8" />
+                    <TextBlock Text="Connect Gmail or Outlook to enable&#x0a;Intent Email features"
+                               Foreground="#555" FontSize="13" TextAlignment="Center"
+                               HorizontalAlignment="Center" Margin="0,0,0,20" />
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                        <Button Content="Connect Gmail" Style="{StaticResource VEButton}"
+                                Padding="16,8" Margin="0,0,8,0"
+                                Click="ConnectGmail_Click" />
+                        <Button Content="Connect Outlook" Style="{StaticResource VEGhostButton}"
+                                Padding="16,8" Click="ConnectOutlook_Click" />
+                    </StackPanel>
+                </StackPanel>
+
+                <!-- Settings Content -->
+                <StackPanel x:Name="SettingsPanel" Visibility="Collapsed">
+                    <!-- Account Selector -->
+                    <ComboBox x:Name="AccountSelector" Margin="0,8,0,12"
+                              Background="#25292D" Foreground="White" FontSize="13"
+                              SelectionChanged="Account_Changed" />
+
+                    <!-- Toggle Cards -->
+                    <Grid Margin="0,0,0,12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="8" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+
+                        <Border Grid.Column="0" Background="#0D007CEC" CornerRadius="8" Padding="12,10">
+                            <StackPanel>
+                                <TextBlock Text="Intent Email" Foreground="#F4F5F5" FontSize="12"
+                                           FontWeight="Medium" />
+                                <CheckBox x:Name="IntentEmailToggle" Content="Enabled"
+                                          Foreground="#878E92" FontSize="11" Margin="0,4,0,0"
+                                          Checked="Toggle_Changed" Unchecked="Toggle_Changed" />
+                            </StackPanel>
+                        </Border>
+                        <Border Grid.Column="2" Background="#0DFF9800" CornerRadius="8" Padding="12,10">
+                            <StackPanel>
+                                <TextBlock Text="Proactive Emails" Foreground="#F4F5F5" FontSize="12"
+                                           FontWeight="Medium" />
+                                <CheckBox x:Name="ProactiveToggle" Content="Enabled"
+                                          Foreground="#878E92" FontSize="11" Margin="0,4,0,0"
+                                          Checked="Toggle_Changed" Unchecked="Toggle_Changed" />
+                            </StackPanel>
+                        </Border>
+                    </Grid>
+
+                    <!-- Auto Categories -->
+                    <Border Background="#0DFFFFFF" CornerRadius="8" Padding="12,10"
+                            Margin="0,0,0,12">
+                        <StackPanel>
+                            <TextBlock Text="Auto Categories" Foreground="#F4F5F5" FontSize="13"
+                                       FontWeight="SemiBold" Margin="0,0,0,6" />
+                            <ItemsControl x:Name="CategoriesList">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <CheckBox Content="{Binding Name}" Foreground="#DDD" FontSize="12"
+                                                  IsChecked="{Binding IsEnabled, Mode=TwoWay}"
+                                                  Margin="0,3" Checked="Category_Changed"
+                                                  Unchecked="Category_Changed" />
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Draft Settings -->
+                    <Border Background="#0DFFFFFF" CornerRadius="8" Padding="12,10"
+                            Margin="0,0,0,12">
+                        <StackPanel>
+                            <TextBlock Text="Draft Settings" Foreground="#F4F5F5" FontSize="13"
+                                       FontWeight="SemiBold" Margin="0,0,0,8" />
+
+                            <CheckBox x:Name="DraftRepliesToggle" Content="Auto Draft Replies"
+                                      Foreground="#DDD" FontSize="12" Margin="0,0,0,8"
+                                      Checked="Toggle_Changed" Unchecked="Toggle_Changed" />
+
+                            <TextBlock Text="Reply Frequency" Foreground="#878E92" FontSize="11"
+                                       Margin="0,4,0,2" />
+                            <ComboBox x:Name="ReplyFrequencyCombo" FontSize="11"
+                                      Background="#25292D" Foreground="White"
+                                      SelectionChanged="Setting_Changed">
+                                <ComboBoxItem Content="Reply to almost everything" />
+                                <ComboBoxItem Content="Reply when there's something new" />
+                                <ComboBoxItem Content="Reply if it feels expected" />
+                                <ComboBoxItem Content="Only reply to direct questions" />
+                            </ComboBox>
+
+                            <TextBlock Text="Marketing Filter" Foreground="#878E92" FontSize="11"
+                                       Margin="0,8,0,2" />
+                            <ComboBox x:Name="MarketingFilterCombo" FontSize="11"
+                                      Background="#25292D" Foreground="White"
+                                      SelectionChanged="Setting_Changed">
+                                <ComboBoxItem Content="Just obvious sales outreach" />
+                                <ComboBoxItem Content="Cold emails and unknown senders" />
+                                <ComboBoxItem Content="Cold emails, unknown senders, newsletters" />
+                                <ComboBoxItem Content="Anything not directly useful" />
+                            </ComboBox>
+
+                            <TextBlock Text="Draft Instructions" Foreground="#878E92" FontSize="11"
+                                       Margin="0,12,0,4" />
+                            <TextBox x:Name="DraftPromptBox" Height="100"
+                                     Background="#1A1A1A" Foreground="#F4F5F5" FontSize="12"
+                                     TextWrapping="Wrap" AcceptsReturn="True"
+                                     BorderBrush="#33FFFFFF" BorderThickness="1"
+                                     Padding="8" VerticalScrollBarVisibility="Auto"
+                                     TextChanged="Prompt_Changed" />
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </StackPanel>
+        </ScrollViewer>
+    </Grid>
+</UserControl>

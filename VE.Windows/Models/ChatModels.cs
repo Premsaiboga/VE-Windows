@@ -194,4 +194,18 @@ public class RecentChatItem
     public string LastMessage { get; set; } = "";
     public DateTime Timestamp { get; set; }
     public int MessageCount { get; set; }
+
+    public string FormattedTime
+    {
+        get
+        {
+            var now = DateTime.UtcNow;
+            var diff = now - Timestamp;
+            if (diff.TotalMinutes < 1) return "Just now";
+            if (diff.TotalHours < 1) return $"{(int)diff.TotalMinutes}m ago";
+            if (diff.TotalDays < 1) return $"{(int)diff.TotalHours}h ago";
+            if (diff.TotalDays < 7) return $"{(int)diff.TotalDays}d ago";
+            return Timestamp.ToLocalTime().ToString("MMM d, yyyy");
+        }
+    }
 }

@@ -12,11 +12,6 @@ public partial class FloatingPanelWindow : Window
     public FloatingPanelWindow()
     {
         InitializeComponent();
-
-        // Set placeholder content with helpful descriptions
-        ConnectorsContent.SetContent("Connectors", "Connect your apps and services\nSlack, Notion, Gmail, Jira & more\n\nAvailable in Settings");
-        KnowledgeContent.SetContent("Knowledge Base", "Train your AI with custom knowledge\nUpload files and documents\n\nAvailable in Settings");
-        VoiceContent.SetContent("Voice Settings", "Voice settings and enrollment\nCustomize voice commands\n\nAvailable in Settings");
     }
 
     private void Window_Loaded(object sender, RoutedEventArgs e)
@@ -55,7 +50,6 @@ public partial class FloatingPanelWindow : Window
         if (sender is System.Windows.Controls.Button btn && btn.Tag is string tab)
         {
             _currentTab = tab;
-            TitleText.Text = tab;
             SwitchTab(tab);
             UpdateTabSelection();
         }
@@ -68,7 +62,10 @@ public partial class FloatingPanelWindow : Window
         NotesContent.Visibility = Visibility.Collapsed;
         ConnectorsContent.Visibility = Visibility.Collapsed;
         KnowledgeContent.Visibility = Visibility.Collapsed;
-        VoiceContent.Visibility = Visibility.Collapsed;
+        ChatsContent.Visibility = Visibility.Collapsed;
+        MailContent.Visibility = Visibility.Collapsed;
+        PredictionContent.Visibility = Visibility.Collapsed;
+        IntentModelContent.Visibility = Visibility.Collapsed;
 
         // Show selected tab content and update title
         switch (tab)
@@ -81,6 +78,10 @@ public partial class FloatingPanelWindow : Window
                 NotesContent.Visibility = Visibility.Visible;
                 TitleText.Text = "Meeting Notes";
                 break;
+            case "Chats":
+                ChatsContent.Visibility = Visibility.Visible;
+                TitleText.Text = "Recent Chats";
+                break;
             case "Connectors":
                 ConnectorsContent.Visibility = Visibility.Visible;
                 TitleText.Text = "Connectors";
@@ -89,17 +90,24 @@ public partial class FloatingPanelWindow : Window
                 KnowledgeContent.Visibility = Visibility.Visible;
                 TitleText.Text = "Knowledge Base";
                 break;
-            case "Voice":
-                VoiceContent.Visibility = Visibility.Visible;
-                TitleText.Text = "Voice Settings";
+            case "Mail":
+                MailContent.Visibility = Visibility.Visible;
+                TitleText.Text = "Intent Email";
+                break;
+            case "Prediction":
+                PredictionContent.Visibility = Visibility.Visible;
+                TitleText.Text = "Predictions";
+                break;
+            case "IntentModel":
+                IntentModelContent.Visibility = Visibility.Visible;
+                TitleText.Text = "Intent Model";
                 break;
         }
     }
 
     private void UpdateTabSelection()
     {
-        // Visual feedback for selected tab
-        var buttons = new[] { TabChat, TabNotes, TabConnectors, TabKnowledge, TabVoice };
+        var buttons = new[] { TabChat, TabNotes, TabChats, TabConnectors, TabKnowledge, TabMail, TabPrediction, TabIntentModel };
         foreach (var btn in buttons)
         {
             btn.Opacity = (btn.Tag as string) == _currentTab ? 1.0 : 0.5;

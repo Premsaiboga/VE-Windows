@@ -173,6 +173,48 @@ public sealed class NetworkService
         }
     }
 
+    public async Task<string?> PutRawAsync(string url, object? body = null)
+    {
+        try
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Put, url);
+            AttachAuthHeaders(request);
+            if (body != null)
+            {
+                request.Content = new StringContent(
+                    JsonConvert.SerializeObject(body), Encoding.UTF8, "application/json");
+            }
+            var response = await _httpClient.SendAsync(request);
+            return await response.Content.ReadAsStringAsync();
+        }
+        catch (Exception ex)
+        {
+            FileLogger.Instance.Error("Network", $"PUT raw failed: {url} - {ex.Message}");
+            return null;
+        }
+    }
+
+    public async Task<string?> DeleteRawAsync(string url, object? body = null)
+    {
+        try
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Delete, url);
+            AttachAuthHeaders(request);
+            if (body != null)
+            {
+                request.Content = new StringContent(
+                    JsonConvert.SerializeObject(body), Encoding.UTF8, "application/json");
+            }
+            var response = await _httpClient.SendAsync(request);
+            return await response.Content.ReadAsStringAsync();
+        }
+        catch (Exception ex)
+        {
+            FileLogger.Instance.Error("Network", $"DELETE raw failed: {url} - {ex.Message}");
+            return null;
+        }
+    }
+
     /// <summary>
     /// Core request execution with 401/406 auto-retry.
     /// Matches macOS: on 401 "jwt expired" or 406 "Not Approved", refresh token and retry once.

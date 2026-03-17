@@ -46,25 +46,34 @@
             <Grid Grid.Row="1">
                 <local:ChatView x:Name="ChatContent" Visibility="Visible" />
                 <local:NotesView x:Name="NotesContent" Visibility="Collapsed" />
-                <local:PlaceholderView x:Name="ConnectorsContent" Visibility="Collapsed" />
-                <local:PlaceholderView x:Name="KnowledgeContent" Visibility="Collapsed" />
-                <local:PlaceholderView x:Name="VoiceContent" Visibility="Collapsed" />
+                <local:ConnectorsView x:Name="ConnectorsContent" Visibility="Collapsed" />
+                <local:FilesView x:Name="KnowledgeContent" Visibility="Collapsed" />
+                <local:RecentChatsView x:Name="ChatsContent" Visibility="Collapsed" />
+                <local:MailView x:Name="MailContent" Visibility="Collapsed" />
+                <local:PredictionView2 x:Name="PredictionContent" Visibility="Collapsed" />
+                <local:IntentModelView x:Name="IntentModelContent" Visibility="Collapsed" />
             </Grid>
 
             <!-- Bottom Navigation Tabs -->
             <Border Grid.Row="2" Background="#222222" CornerRadius="0,0,12,12"
-                    Padding="8,6">
+                    Padding="4,6">
                 <Grid>
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
                         <Button x:Name="TabChat" Content="Chat" Click="Tab_Click" Tag="Chat"
                                 Style="{StaticResource FloatingTabButton}" />
                         <Button x:Name="TabNotes" Content="Notes" Click="Tab_Click" Tag="Notes"
                                 Style="{StaticResource FloatingTabButton}" />
+                        <Button x:Name="TabChats" Content="History" Click="Tab_Click" Tag="Chats"
+                                Style="{StaticResource FloatingTabButton}" />
                         <Button x:Name="TabConnectors" Content="Connect" Click="Tab_Click" Tag="Connectors"
                                 Style="{StaticResource FloatingTabButton}" />
-                        <Button x:Name="TabKnowledge" Content="Knowledge" Click="Tab_Click" Tag="Knowledge"
+                        <Button x:Name="TabKnowledge" Content="Files" Click="Tab_Click" Tag="Knowledge"
                                 Style="{StaticResource FloatingTabButton}" />
-                        <Button x:Name="TabVoice" Content="Voice" Click="Tab_Click" Tag="Voice"
+                        <Button x:Name="TabMail" Content="Mail" Click="Tab_Click" Tag="Mail"
+                                Style="{StaticResource FloatingTabButton}" />
+                        <Button x:Name="TabPrediction" Content="Predict" Click="Tab_Click" Tag="Prediction"
+                                Style="{StaticResource FloatingTabButton}" />
+                        <Button x:Name="TabIntentModel" Content="Model" Click="Tab_Click" Tag="IntentModel"
                                 Style="{StaticResource FloatingTabButton}" />
                     </StackPanel>
                     <Button Content="&#x2699;" Foreground="#878E92" FontSize="16"
