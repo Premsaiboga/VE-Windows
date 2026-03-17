@@ -1,6 +1,7 @@
 using System.Windows;
 using System.Windows.Controls;
 using VE.Windows.Helpers;
+using VE.Windows.Models;
 using VE.Windows.Services;
 
 namespace VE.Windows.Views.FloatingWindow;

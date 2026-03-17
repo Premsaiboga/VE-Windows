@@ -176,14 +176,18 @@ public sealed class IntentMailService
                 $"{baseUrl}/email-tags/workspace/{workspaceId}/connected-integration/{connectedIntegrationId}/email-tags");
             if (response == null) return new();
 
-            var json = JObject.Parse(response);
-            var data = json["data"] as JArray ?? json as JArray;
-            if (data == null)
+            JArray? data;
+            var trimmed = response.TrimStart();
+            if (trimmed.StartsWith("["))
             {
-                // Try extracting from root object's array-like structure
-                var rootArray = JArray.Parse(response);
-                data = rootArray;
+                data = JArray.Parse(response);
             }
+            else
+            {
+                var json = JObject.Parse(response);
+                data = json["data"] as JArray;
+            }
+            if (data == null) return new();
 
             var result = new List<EmailCategory>();
             foreach (var item in data)
