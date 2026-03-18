@@ -1,6 +1,8 @@
+using System.IO;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
+using System.Security.Cryptography;
 using System.Text;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
@@ -14,6 +16,10 @@ namespace VE.Windows.Services;
 /// and automatic 401/406 retry logic.
 /// Matches macOS NetworkService exactly: x-access-token header, x-csrf-token for
 /// state-changing methods, cookie-based refresh token flow, single retry on token expiry.
+///
+/// Cookie persistence: On macOS, HTTPCookieStorage.shared auto-persists cookies to disk.
+/// On Windows, CookieContainer is in-memory only, so we manually persist cookies to disk
+/// (DPAPI-encrypted in Release, plain JSON in Debug) to survive app restarts.
 /// </summary>
 public sealed class NetworkService
 {
@@ -21,16 +27,27 @@ public sealed class NetworkService
 
     private readonly HttpClient _httpClient;
     private readonly CookieContainer _cookieContainer;
+    private readonly string _cookiePersistPath;
+    private readonly object _cookieLock = new();
 
     private NetworkService()
     {
+        var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+        var veDir = Path.Combine(appData, "VE");
+        Directory.CreateDirectory(veDir);
+#if DEBUG
+        _cookiePersistPath = Path.Combine(veDir, "cookies_debug.json");
+#else
+        _cookiePersistPath = Path.Combine(veDir, "cookies.dat");
+#endif
+
         _cookieContainer = new CookieContainer();
+        RestoreCookiesFromDisk();
+
         var handler = new HttpClientHandler
         {
             CookieContainer = _cookieContainer,
             UseCookies = true,
-            // Accept HTTPOnly cookies from the server (refresh token flow)
-            // CookieContainer automatically handles HTTPOnly cookies sent by the server
             AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate,
         };
 
@@ -73,6 +90,124 @@ public sealed class NetworkService
     {
         try { return _cookieContainer.GetCookies(uri).Count; }
         catch { return -1; }
+    }
+
+    /// <summary>
+    /// Persist cookies for the given domain to disk after a response that may contain Set-Cookie headers.
+    /// Matches macOS HTTPCookieStorage.shared which auto-persists.
+    /// </summary>
+    public void PersistCookies(Uri uri)
+    {
+        try
+        {
+            var cookies = _cookieContainer.GetCookies(uri);
+            if (cookies.Count == 0) return;
+
+            var list = new List<SerializedCookie>();
+            foreach (Cookie c in cookies)
+            {
+                // Only persist non-expired cookies
+                if (c.Expired) continue;
+                list.Add(new SerializedCookie
+                {
+                    Name = c.Name,
+                    Value = c.Value,
+                    Domain = c.Domain,
+                    Path = c.Path,
+                    Expires = c.Expires,
+                    Secure = c.Secure,
+                    HttpOnly = c.HttpOnly
+                });
+            }
+
+            var json = JsonConvert.SerializeObject(list);
+            lock (_cookieLock)
+            {
+#if DEBUG
+                File.WriteAllText(_cookiePersistPath, json);
+#else
+                var bytes = Encoding.UTF8.GetBytes(json);
+                var encrypted = ProtectedData.Protect(bytes, null, DataProtectionScope.CurrentUser);
+                File.WriteAllBytes(_cookiePersistPath, encrypted);
+#endif
+            }
+            FileLogger.Instance.Debug("Network", $"Persisted {list.Count} cookies for {uri.Host}");
+        }
+        catch (Exception ex)
+        {
+            FileLogger.Instance.Warning("Network", $"Cookie persist failed: {ex.Message}");
+        }
+    }
+
+    private void RestoreCookiesFromDisk()
+    {
+        try
+        {
+            if (!File.Exists(_cookiePersistPath)) return;
+
+            string json;
+            lock (_cookieLock)
+            {
+#if DEBUG
+                json = File.ReadAllText(_cookiePersistPath);
+#else
+                var encrypted = File.ReadAllBytes(_cookiePersistPath);
+                var decrypted = ProtectedData.Unprotect(encrypted, null, DataProtectionScope.CurrentUser);
+                json = Encoding.UTF8.GetString(decrypted);
+#endif
+            }
+
+            var list = JsonConvert.DeserializeObject<List<SerializedCookie>>(json);
+            if (list == null) return;
+
+            var restored = 0;
+            foreach (var sc in list)
+            {
+                // Skip expired cookies
+                if (sc.Expires != DateTime.MinValue && sc.Expires < DateTime.Now) continue;
+                var cookie = new Cookie(sc.Name, sc.Value, sc.Path, sc.Domain)
+                {
+                    Secure = sc.Secure,
+                    HttpOnly = sc.HttpOnly,
+                    Expires = sc.Expires
+                };
+                _cookieContainer.Add(cookie);
+                restored++;
+            }
+
+            FileLogger.Instance.Info("Network", $"Restored {restored} cookies from disk");
+        }
+        catch (Exception ex)
+        {
+            FileLogger.Instance.Warning("Network", $"Cookie restore failed: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Clear persisted cookies (called on logout).
+    /// </summary>
+    public void ClearPersistedCookies()
+    {
+        try
+        {
+            lock (_cookieLock)
+            {
+                if (File.Exists(_cookiePersistPath))
+                    File.Delete(_cookiePersistPath);
+            }
+        }
+        catch { }
+    }
+
+    private class SerializedCookie
+    {
+        public string Name { get; set; } = "";
+        public string Value { get; set; } = "";
+        public string Domain { get; set; } = "";
+        public string Path { get; set; } = "/";
+        public DateTime Expires { get; set; }
+        public bool Secure { get; set; }
+        public bool HttpOnly { get; set; }
     }
 
     private void AttachAuthHeaders(HttpRequestMessage request)

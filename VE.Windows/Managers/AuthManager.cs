@@ -168,6 +168,10 @@ public sealed class AuthManager : INotifyPropertyChanged
                 Storage.Region = result.Region ?? "us-east-1";
             }
 
+            // Persist refresh token cookie to disk (matches macOS HTTPCookieStorage.shared auto-persist)
+            var authUri = new Uri(baseUrl);
+            NetworkService.Instance.PersistCookies(authUri);
+
             // Schedule token refresh
             TokenRefreshService.Instance.ScheduleRefresh(result.AccessToken);
 
@@ -194,6 +198,7 @@ public sealed class AuthManager : INotifyPropertyChanged
     {
         FileLogger.Instance.Info("AuthManager", "Logging out...");
         Storage.ClearAll();
+        NetworkService.Instance.ClearPersistedCookies();
         AuthState = AuthState.Unauthorized;
         _isPostAuthAPIsCalled = false;
         WorkspaceMode = null;

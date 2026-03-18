@@ -170,6 +170,14 @@ public sealed class TokenRefreshService : IDisposable
                 AuthManager.Instance.Storage.CSRFToken = csrfToken;
             }
 
+            // Persist updated refresh token cookie (server sends new one on each refresh)
+            try
+            {
+                var authUri = new Uri(authUrl);
+                NetworkService.Instance.PersistCookies(authUri);
+            }
+            catch { }
+
             ScheduleRefresh(accessToken);
             FileLogger.Instance.Info("TokenRefresh", "Token refreshed successfully");
             return true;
