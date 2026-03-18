@@ -18,6 +18,8 @@ public sealed class TokenRefreshService : IDisposable
     private Timer? _checkTimer;
     private const int RefreshBufferSeconds = 60;
     private const int CheckIntervalSeconds = 30;
+    private const int MaxConsecutiveFailures = 3;
+    private int _consecutiveFailures;
 
     // Guard: prevents duplicate concurrent token refreshes (matches macOS RefreshTokenGuard actor)
     private static readonly SemaphoreSlim _refreshLock = new(1, 1);
@@ -36,6 +38,12 @@ public sealed class TokenRefreshService : IDisposable
         var token = AuthManager.Instance.Storage.UserToken;
         if (string.IsNullOrEmpty(token)) return;
 
+        // Stop retrying after consecutive failures — user must re-login
+        if (_consecutiveFailures >= MaxConsecutiveFailures)
+        {
+            return;
+        }
+
         try
         {
             var handler = new JwtSecurityTokenHandler();
@@ -47,7 +55,20 @@ public sealed class TokenRefreshService : IDisposable
             if (timeToExpiry.TotalSeconds <= RefreshBufferSeconds)
             {
                 FileLogger.Instance.Info("TokenRefresh", $"Token expires in {timeToExpiry.TotalSeconds:F0}s, refreshing...");
-                await EnsureTokenRefreshed();
+                var success = await EnsureTokenRefreshed();
+                if (!success)
+                {
+                    _consecutiveFailures++;
+                    FileLogger.Instance.Warning("TokenRefresh",
+                        $"Refresh failed ({_consecutiveFailures}/{MaxConsecutiveFailures})");
+
+                    if (_consecutiveFailures >= MaxConsecutiveFailures)
+                    {
+                        FileLogger.Instance.Error("TokenRefresh",
+                            "Max refresh failures reached — user must re-login");
+                        DispatcherHelper.RunOnUI(() => AuthManager.Instance.Logout());
+                    }
+                }
             }
         }
         catch (Exception ex)
@@ -178,6 +199,7 @@ public sealed class TokenRefreshService : IDisposable
             }
             catch { }
 
+            _consecutiveFailures = 0; // Reset on success
             ScheduleRefresh(accessToken);
             FileLogger.Instance.Info("TokenRefresh", "Token refreshed successfully");
             return true;
