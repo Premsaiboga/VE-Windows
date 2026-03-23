@@ -1,0 +1,108 @@
+<UserControl x:Class="VE.Windows.Views.FloatingWindow.SearchView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!-- Search Input -->
+        <Border Grid.Row="0" Padding="16,14,16,10">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <TextBox x:Name="SearchBox" Grid.Column="0"
+                         Background="#25292D" Foreground="#F4F5F5"
+                         FontSize="13" BorderBrush="#33FFFFFF" BorderThickness="1"
+                         Padding="10,8" VerticalContentAlignment="Center"
+                         KeyDown="SearchBox_KeyDown">
+                    <!-- Placeholder text via adorner -->
+                </TextBox>
+
+                <Button Grid.Column="1" Content="Search"
+                        Style="{StaticResource VEButton}"
+                        Padding="16,8" Margin="8,0,0,0"
+                        FontSize="13" Click="Search_Click" />
+            </Grid>
+        </Border>
+
+        <!-- Status Bar -->
+        <Border Grid.Row="1" Padding="16,0,16,8">
+            <Grid>
+                <TextBlock x:Name="StatusText" Text="Type a file name and press Search"
+                           Foreground="#878E92" FontSize="11" />
+                <TextBlock x:Name="ResultCountText" Foreground="#878E92" FontSize="11"
+                           HorizontalAlignment="Right" Visibility="Collapsed" />
+            </Grid>
+        </Border>
+
+        <!-- Results Area -->
+        <Grid Grid.Row="2">
+            <!-- Searching indicator -->
+            <StackPanel x:Name="SearchingPanel" Visibility="Collapsed"
+                        HorizontalAlignment="Center" Margin="0,40,0,0">
+                <TextBlock x:Name="SearchingText" Text="Searching..."
+                           Foreground="#007CEC" FontSize="13"
+                           HorizontalAlignment="Center" />
+                <TextBlock x:Name="SearchingDetail" Text="Checking Windows Search Index..."
+                           Foreground="#555" FontSize="11"
+                           HorizontalAlignment="Center" Margin="0,4,0,0" />
+            </StackPanel>
+
+            <!-- No results -->
+            <StackPanel x:Name="NoResultsPanel" Visibility="Collapsed"
+                        HorizontalAlignment="Center" Margin="0,60,0,0">
+                <TextBlock Text="File not found" Foreground="#FF4444" FontSize="16"
+                           FontWeight="SemiBold" HorizontalAlignment="Center" />
+                <TextBlock Text="No files matching your search were found&#x0a;on this computer"
+                           Foreground="#878E92" FontSize="12" TextAlignment="Center"
+                           HorizontalAlignment="Center" Margin="0,8,0,0" />
+            </StackPanel>
+
+            <!-- Results List -->
+            <ScrollViewer x:Name="ResultsScroll" VerticalScrollBarVisibility="Auto">
+                <ItemsControl x:Name="ResultsList" Margin="8,0,8,8">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Border Background="#0DFFFFFF" CornerRadius="8"
+                                    Padding="12,10" Margin="0,3">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+
+                                    <!-- File Info -->
+                                    <StackPanel Grid.Column="0" Margin="0,0,8,0">
+                                        <TextBlock Text="{Binding FileName}" Foreground="#F4F5F5"
+                                                   FontSize="13" FontWeight="Medium"
+                                                   TextTrimming="CharacterEllipsis" />
+                                        <TextBlock Text="{Binding FolderPath}" Foreground="#878E92"
+                                                   FontSize="10" TextTrimming="CharacterEllipsis"
+                                                   Margin="0,3,0,0"
+                                                   ToolTip="{Binding FullPath}" />
+                                        <TextBlock Text="{Binding FormattedSize}" Foreground="#555"
+                                                   FontSize="10" Margin="0,2,0,0" />
+                                    </StackPanel>
+
+                                    <!-- Open Button -->
+                                    <Button Grid.Column="1" Content="Open"
+                                            Style="{StaticResource VEButton}"
+                                            Padding="14,6" FontSize="11"
+                                            VerticalAlignment="Center"
+                                            Click="Open_Click" />
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </ScrollViewer>
+        </Grid>
+    </Grid>
+</UserControl>

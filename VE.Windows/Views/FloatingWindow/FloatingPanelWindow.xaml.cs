@@ -59,6 +59,7 @@ public partial class FloatingPanelWindow : Window
     {
         // Hide all content
         ChatContent.Visibility = Visibility.Collapsed;
+        SearchContent.Visibility = Visibility.Collapsed;
         NotesContent.Visibility = Visibility.Collapsed;
         ConnectorsContent.Visibility = Visibility.Collapsed;
         KnowledgeContent.Visibility = Visibility.Collapsed;
@@ -73,6 +74,10 @@ public partial class FloatingPanelWindow : Window
             case "Chat":
                 ChatContent.Visibility = Visibility.Visible;
                 TitleText.Text = "Chat";
+                break;
+            case "Search":
+                SearchContent.Visibility = Visibility.Visible;
+                TitleText.Text = "Search Files";
                 break;
             case "Notes":
                 NotesContent.Visibility = Visibility.Visible;
@@ -107,7 +112,7 @@ public partial class FloatingPanelWindow : Window
 
     private void UpdateTabSelection()
     {
-        var buttons = new[] { TabChat, TabNotes, TabChats, TabConnectors, TabKnowledge, TabMail, TabPrediction, TabIntentModel };
+        var buttons = new[] { TabChat, TabSearch, TabNotes, TabChats, TabConnectors, TabKnowledge, TabMail, TabPrediction, TabIntentModel };
         foreach (var btn in buttons)
         {
             btn.Opacity = (btn.Tag as string) == _currentTab ? 1.0 : 0.5;

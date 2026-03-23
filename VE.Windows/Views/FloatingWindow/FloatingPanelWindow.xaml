@@ -45,6 +45,7 @@
             <!-- Content Area - each tab has its own view -->
             <Grid Grid.Row="1">
                 <local:ChatView x:Name="ChatContent" Visibility="Visible" />
+                <local:SearchView x:Name="SearchContent" Visibility="Collapsed" />
                 <local:NotesView x:Name="NotesContent" Visibility="Collapsed" />
                 <local:ConnectorsView x:Name="ConnectorsContent" Visibility="Collapsed" />
                 <local:FilesView x:Name="KnowledgeContent" Visibility="Collapsed" />
@@ -60,6 +61,8 @@
                 <Grid>
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
                         <Button x:Name="TabChat" Content="Chat" Click="Tab_Click" Tag="Chat"
+                                Style="{StaticResource FloatingTabButton}" />
+                        <Button x:Name="TabSearch" Content="Search" Click="Tab_Click" Tag="Search"
                                 Style="{StaticResource FloatingTabButton}" />
                         <Button x:Name="TabNotes" Content="Notes" Click="Tab_Click" Tag="Notes"
                                 Style="{StaticResource FloatingTabButton}" />
