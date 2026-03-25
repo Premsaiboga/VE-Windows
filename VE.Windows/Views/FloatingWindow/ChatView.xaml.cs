@@ -63,9 +63,12 @@ public partial class ChatView : UserControl
     {
         var storage = AuthManager.Instance.Storage;
         var name = storage.UserName ?? storage.UserEmail ?? "User";
+        var workspace = storage.TenantName ?? "";
+
+        // Bottom profile: workspace name on top, user name below (matches macOS)
+        UserWorkspaceText.Text = workspace;
         UserNameText.Text = name;
-        UserWorkspaceText.Text = storage.TenantName ?? "";
-        UserInitials.Text = GetInitials(name);
+        UserInitials.Text = GetInitials(workspace.Length > 0 ? workspace : name);
         GreetingName.Text = $"Hey {name.Split(' ')[0]},";
 
         // Update messages visibility
@@ -125,17 +128,25 @@ public partial class ChatView : UserControl
 
     // ═══ CHAT / WORK TOGGLE ═══
 
+    private static System.Windows.Media.SolidColorBrush BlueBrush =>
+        new((System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#007CEC"));
+    private static System.Windows.Media.SolidColorBrush GrayBrush =>
+        new((System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#878E92"));
+
     private void ToggleChat_Click(object sender, RoutedEventArgs e)
     {
         if (_isChatMode) return;
         _isChatMode = true;
-        ToggleChat.Background = new System.Windows.Media.SolidColorBrush(
-            (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#007CEC"));
+        ToggleChat.Background = BlueBrush;
         ToggleChat.Foreground = System.Windows.Media.Brushes.White;
         ToggleWork.Background = System.Windows.Media.Brushes.Transparent;
-        ToggleWork.Foreground = new System.Windows.Media.SolidColorBrush(
-            (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#878E92"));
+        ToggleWork.Foreground = GrayBrush;
 
+        // Swap sidebars
+        ChatSidebar.Visibility = Visibility.Visible;
+        WorkSidebar.Visibility = Visibility.Collapsed;
+
+        // Show chat content
         WelcomePanel.Visibility = _vm.HasMessages ? Visibility.Collapsed : Visibility.Visible;
         MessagesScroll.Visibility = _vm.HasMessages ? Visibility.Visible : Visibility.Collapsed;
         WorkPanel.Visibility = Visibility.Collapsed;
@@ -145,16 +156,56 @@ public partial class ChatView : UserControl
     {
         if (!_isChatMode) return;
         _isChatMode = false;
-        ToggleWork.Background = new System.Windows.Media.SolidColorBrush(
-            (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#007CEC"));
+        ToggleWork.Background = BlueBrush;
         ToggleWork.Foreground = System.Windows.Media.Brushes.White;
         ToggleChat.Background = System.Windows.Media.Brushes.Transparent;
-        ToggleChat.Foreground = new System.Windows.Media.SolidColorBrush(
-            (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#878E92"));
+        ToggleChat.Foreground = GrayBrush;
 
+        // Swap sidebars
+        ChatSidebar.Visibility = Visibility.Collapsed;
+        WorkSidebar.Visibility = Visibility.Visible;
+
+        // Show work content — default to Notes
         WelcomePanel.Visibility = Visibility.Collapsed;
         MessagesScroll.Visibility = Visibility.Collapsed;
         WorkPanel.Visibility = Visibility.Visible;
+
+        // Navigate to Notes by default
+        NavigateToTab?.Invoke("Notes");
+        UpdateWorkNavSelection("Notes");
+    }
+
+    // ═══ WORK SIDEBAR NAVIGATION ═══
+
+    private string _selectedWorkNav = "Notes";
+
+    private void WorkNav_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button btn && btn.Tag is string tab)
+        {
+            _selectedWorkNav = tab;
+            UpdateWorkNavSelection(tab);
+            NavigateToTab?.Invoke(tab);
+        }
+    }
+
+    private void UpdateWorkNavSelection(string selected)
+    {
+        var navButtons = new[]
+        {
+            WorkNavNotes, WorkNavMails, WorkNavPrediction, WorkNavRoutines,
+            WorkNavIntentModel, WorkNavFiles, WorkNavShared, WorkNavConnectors, WorkNavShortcuts
+        };
+
+        foreach (var btn in navButtons)
+        {
+            var tag = btn.Tag as string;
+            var isActive = tag == selected;
+            btn.Foreground = isActive
+                ? System.Windows.Media.Brushes.White
+                : GrayBrush;
+            btn.FontWeight = isActive ? FontWeights.SemiBold : FontWeights.Normal;
+        }
     }
 
     // ═══ SUGGESTION ═══
