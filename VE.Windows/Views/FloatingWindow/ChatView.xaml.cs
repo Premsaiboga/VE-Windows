@@ -200,6 +200,7 @@ public partial class ChatView : UserControl
             {
                 "Mail" => new MailView(),
                 "Prediction" => new PredictionView2(),
+                "Routines" => new RoutinesView(),
                 "IntentModel" => new IntentModelView(),
                 "Knowledge" => new FilesView(),
                 "Connectors" => new ConnectorsView(),
