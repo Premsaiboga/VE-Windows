@@ -21,16 +21,11 @@
             </Border.Effect>
         </Border>
 
-        <!-- Interactive content layer (no Effect) -->
+        <!-- Interactive content layer (no Effect applied here) -->
         <Border x:Name="WindowBorder" CornerRadius="12" Background="#1A1A1A"
                 BorderBrush="#33FFFFFF" BorderThickness="1"
                 ClipToBounds="True">
             <Grid>
-                <!-- Drag bar (only this area is draggable) -->
-                <Border Height="32" VerticalAlignment="Top" Background="Transparent"
-                        Panel.ZIndex="5"
-                        MouseLeftButtonDown="TitleBar_MouseLeftButtonDown" />
-
                 <!-- Close button (top-right corner) -->
                 <Border HorizontalAlignment="Right" VerticalAlignment="Top"
                         Background="#FF4B59" CornerRadius="0,12,0,8"

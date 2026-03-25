@@ -333,6 +333,7 @@ public partial class ChatView : UserControl
 
     private async void Suggestion_Click(object sender, MouseButtonEventArgs e)
     {
+        e.Handled = true;
         if (sender is FrameworkElement el && el.Tag is string text)
         {
             _vm.CurrentInput = text;
@@ -345,6 +346,7 @@ public partial class ChatView : UserControl
 
     private async void SendButton_Click(object sender, MouseButtonEventArgs e)
     {
+        e.Handled = true;
         await SendMessage();
     }
 
@@ -371,6 +373,7 @@ public partial class ChatView : UserControl
 
     private void UserProfile_Click(object sender, MouseButtonEventArgs e)
     {
+        e.Handled = true;
         if (AccountOverlay.Visibility == Visibility.Visible)
         {
             AccountOverlay.Visibility = Visibility.Collapsed;
@@ -491,6 +494,7 @@ public partial class ChatView : UserControl
 
     private void CloseAccountPopup_Click(object sender, MouseButtonEventArgs e)
     {
+        e.Handled = true;
         AccountOverlay.Visibility = Visibility.Collapsed;
     }
 
