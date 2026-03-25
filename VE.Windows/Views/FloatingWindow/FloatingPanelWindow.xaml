@@ -7,85 +7,32 @@
         WindowStyle="None"
         AllowsTransparency="True"
         Background="Transparent"
-        ShowInTaskbar="False"
-        Topmost="True"
+        ShowInTaskbar="True"
+        Topmost="False"
         ResizeMode="NoResize"
         Loaded="Window_Loaded"
         Deactivated="Window_Deactivated">
 
     <Border CornerRadius="12" Background="#1A1A1A" BorderBrush="#33FFFFFF" BorderThickness="1"
-            Margin="8">
+            Margin="8" MouseLeftButtonDown="TitleBar_MouseLeftButtonDown">
         <Border.Effect>
             <DropShadowEffect Color="Black" BlurRadius="16" Opacity="0.5" ShadowDepth="4" />
         </Border.Effect>
 
         <Grid>
-            <Grid.RowDefinitions>
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="*" />
-                <RowDefinition Height="Auto" />
-            </Grid.RowDefinitions>
-
-            <!-- Title Bar (draggable) -->
-            <Border Grid.Row="0" Background="#222222" CornerRadius="12,12,0,0"
-                    Padding="16,10" MouseLeftButtonDown="TitleBar_MouseLeftButtonDown">
-                <Grid>
-                    <TextBlock x:Name="TitleText" Text="Chat"
-                               Foreground="White" FontSize="15"
-                               FontWeight="SemiBold"
-                               VerticalAlignment="Center" />
-                    <Button Content="&#x2715;" Foreground="#878E92" FontSize="14"
-                            Background="Transparent" BorderThickness="0"
-                            HorizontalAlignment="Right" VerticalAlignment="Center"
-                            Cursor="Hand" Click="CloseButton_Click"
-                            Padding="4,0" />
-                </Grid>
+            <!-- Close button (top-right corner) -->
+            <Border HorizontalAlignment="Right" VerticalAlignment="Top"
+                    Background="#FF4B59" CornerRadius="0,12,0,8"
+                    Padding="10,6" Cursor="Hand" Panel.ZIndex="10"
+                    MouseLeftButtonDown="CloseButton_MouseDown">
+                <TextBlock Text="&#x2715;" Foreground="White" FontSize="12"
+                           FontWeight="Bold"
+                           HorizontalAlignment="Center"
+                           VerticalAlignment="Center" />
             </Border>
 
-            <!-- Content Area - each tab has its own view -->
-            <Grid Grid.Row="1">
-                <local:ChatView x:Name="ChatContent" Visibility="Visible" />
-                <local:SearchView x:Name="SearchContent" Visibility="Collapsed" />
-                <local:NotesView x:Name="NotesContent" Visibility="Collapsed" />
-                <local:ConnectorsView x:Name="ConnectorsContent" Visibility="Collapsed" />
-                <local:FilesView x:Name="KnowledgeContent" Visibility="Collapsed" />
-                <local:RecentChatsView x:Name="ChatsContent" Visibility="Collapsed" />
-                <local:MailView x:Name="MailContent" Visibility="Collapsed" />
-                <local:PredictionView2 x:Name="PredictionContent" Visibility="Collapsed" />
-                <local:IntentModelView x:Name="IntentModelContent" Visibility="Collapsed" />
-            </Grid>
-
-            <!-- Bottom Navigation Tabs -->
-            <Border Grid.Row="2" Background="#222222" CornerRadius="0,0,12,12"
-                    Padding="4,6">
-                <Grid>
-                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                        <Button x:Name="TabChat" Content="Chat" Click="Tab_Click" Tag="Chat"
-                                Style="{StaticResource FloatingTabButton}" />
-                        <Button x:Name="TabSearch" Content="Search" Click="Tab_Click" Tag="Search"
-                                Style="{StaticResource FloatingTabButton}" />
-                        <Button x:Name="TabNotes" Content="Notes" Click="Tab_Click" Tag="Notes"
-                                Style="{StaticResource FloatingTabButton}" />
-                        <Button x:Name="TabChats" Content="History" Click="Tab_Click" Tag="Chats"
-                                Style="{StaticResource FloatingTabButton}" />
-                        <Button x:Name="TabConnectors" Content="Connect" Click="Tab_Click" Tag="Connectors"
-                                Style="{StaticResource FloatingTabButton}" />
-                        <Button x:Name="TabKnowledge" Content="Files" Click="Tab_Click" Tag="Knowledge"
-                                Style="{StaticResource FloatingTabButton}" />
-                        <Button x:Name="TabMail" Content="Mail" Click="Tab_Click" Tag="Mail"
-                                Style="{StaticResource FloatingTabButton}" />
-                        <Button x:Name="TabPrediction" Content="Predict" Click="Tab_Click" Tag="Prediction"
-                                Style="{StaticResource FloatingTabButton}" />
-                        <Button x:Name="TabIntentModel" Content="Model" Click="Tab_Click" Tag="IntentModel"
-                                Style="{StaticResource FloatingTabButton}" />
-                    </StackPanel>
-                    <Button Content="&#x2699;" Foreground="#878E92" FontSize="16"
-                            Background="Transparent" BorderThickness="0"
-                            HorizontalAlignment="Right" VerticalAlignment="Center"
-                            Cursor="Hand" Click="SettingsButton_Click"
-                            Padding="8,0" ToolTip="Settings" />
-                </Grid>
-            </Border>
+            <!-- Content Area -->
+            <local:ChatView x:Name="ChatContent" />
         </Grid>
     </Border>
 </Window>

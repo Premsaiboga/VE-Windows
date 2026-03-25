@@ -436,7 +436,13 @@ public partial class ChatView : UserControl
         ThemeDark.Background = theme == "dark" ? blue : transparent;
         ThemeDark.Foreground = theme == "dark" ? white : gray;
 
-        FileLogger.Instance.Info("ChatView", $"Theme set to: {theme}");
+        // Apply theme via ThemeManager
+        VE.Windows.Theme.ThemeManager.Instance.CurrentTheme = theme switch
+        {
+            "light" => Models.ThemePreference.Light,
+            "dark" => Models.ThemePreference.Dark,
+            _ => Models.ThemePreference.System
+        };
     }
 
     // ═══ WORKSPACE SWITCH ═══
