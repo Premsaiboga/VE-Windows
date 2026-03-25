@@ -376,18 +376,12 @@
                     </StackPanel>
                 </StackPanel>
 
-                <!-- Work Mode Placeholder -->
-                <StackPanel x:Name="WorkPanel" Grid.Row="1"
-                            VerticalAlignment="Center" HorizontalAlignment="Center"
-                            Visibility="Collapsed">
-                    <TextBlock Text="Work Mode" Foreground="White" FontSize="20"
-                               FontWeight="SemiBold" HorizontalAlignment="Center" />
-                    <TextBlock Text="Coming soon" Foreground="#878E92" FontSize="14"
-                               HorizontalAlignment="Center" Margin="0,6,0,0" />
-                </StackPanel>
+                <!-- Work Mode Content (embedded views) -->
+                <ContentControl x:Name="WorkContent" Grid.Row="1"
+                                Visibility="Collapsed" />
 
-                <!-- Input Bar -->
-                <Border Grid.Row="2" Padding="14,8,14,14">
+                <!-- Input Bar (hidden in Work mode) -->
+                <Border x:Name="InputBar" Grid.Row="2" Padding="14,8,14,14">
                     <Border Background="#25292D" CornerRadius="12"
                             BorderBrush="#33FFFFFF" BorderThickness="1"
                             Padding="4">

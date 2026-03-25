@@ -10,24 +10,94 @@
                            Foreground="#878E92" FontSize="13"
                            HorizontalAlignment="Center" Margin="0,40,0,0" />
 
-                <!-- No Account -->
+                <!-- ═══ NO ACCOUNT STATE ═══ -->
                 <StackPanel x:Name="NoAccountPanel" Visibility="Collapsed"
-                            HorizontalAlignment="Center" Margin="0,60,0,0">
-                    <TextBlock Text="No email connected" Foreground="#878E92" FontSize="16"
-                               HorizontalAlignment="Center" Margin="0,0,0,8" />
-                    <TextBlock Text="Connect Gmail or Outlook to enable&#x0a;Intent Email features"
-                               Foreground="#555" FontSize="13" TextAlignment="Center"
-                               HorizontalAlignment="Center" Margin="0,0,0,20" />
-                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                        <Button Content="Connect Gmail" Style="{StaticResource VEButton}"
-                                Padding="16,8" Margin="0,0,8,0"
-                                Click="ConnectGmail_Click" />
-                        <Button Content="Connect Outlook" Style="{StaticResource VEGhostButton}"
-                                Padding="16,8" Click="ConnectOutlook_Click" />
-                    </StackPanel>
+                            Margin="0,40,0,0">
+                    <!-- Title -->
+                    <TextBlock Text="No Email connected" Foreground="White"
+                               FontSize="22" FontWeight="Bold"
+                               HorizontalAlignment="Center" Margin="0,0,0,10" />
+
+                    <!-- Subtitle -->
+                    <TextBlock TextAlignment="Center" HorizontalAlignment="Center"
+                               Foreground="#878E92" FontSize="13"
+                               Margin="0,0,0,30">
+                        <Run Text="Connect Gmail or Outlook  to enable Intent email," />
+                        <LineBreak />
+                        <Run Text="and Auto draft replies, Auto categories" />
+                    </TextBlock>
+
+                    <!-- Gmail + Outlook Cards -->
+                    <Grid HorizontalAlignment="Center">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" MaxWidth="340" />
+                            <ColumnDefinition Width="16" />
+                            <ColumnDefinition Width="*" MaxWidth="340" />
+                        </Grid.ColumnDefinitions>
+
+                        <!-- Gmail Card -->
+                        <Border Grid.Column="0" Background="#25292D" CornerRadius="12"
+                                BorderBrush="#33FFFFFF" BorderThickness="1"
+                                Padding="20,20,20,18">
+                            <StackPanel>
+                                <!-- Gmail Icon -->
+                                <Border Width="44" Height="44" CornerRadius="8"
+                                        Background="#1AFFFFFF" HorizontalAlignment="Left"
+                                        Margin="0,0,0,14">
+                                    <TextBlock Text="M" FontSize="22" FontWeight="Bold"
+                                               HorizontalAlignment="Center"
+                                               VerticalAlignment="Center">
+                                        <TextBlock.Foreground>
+                                            <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                                                <GradientStop Color="#EA4335" Offset="0" />
+                                                <GradientStop Color="#FBBC05" Offset="0.5" />
+                                                <GradientStop Color="#34A853" Offset="0.75" />
+                                                <GradientStop Color="#4285F4" Offset="1" />
+                                            </LinearGradientBrush>
+                                        </TextBlock.Foreground>
+                                    </TextBlock>
+                                </Border>
+
+                                <TextBlock Text="Gmail" Foreground="White" FontSize="16"
+                                           FontWeight="SemiBold" Margin="0,0,0,8" />
+                                <TextBlock Text="Easily connect with Gmail to sync your emails and streamline communication."
+                                           Foreground="#878E92" FontSize="12"
+                                           TextWrapping="Wrap" Margin="0,0,0,18" />
+                                <Button Content="Connect" Style="{StaticResource VEButton}"
+                                        Padding="18,8" HorizontalAlignment="Left"
+                                        Click="ConnectGmail_Click" />
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Outlook Card -->
+                        <Border Grid.Column="2" Background="#25292D" CornerRadius="12"
+                                BorderBrush="#33FFFFFF" BorderThickness="1"
+                                Padding="20,20,20,18">
+                            <StackPanel>
+                                <!-- Outlook Icon -->
+                                <Border Width="44" Height="44" CornerRadius="8"
+                                        Background="#1A0078D4" HorizontalAlignment="Left"
+                                        Margin="0,0,0,14">
+                                    <TextBlock Text="O" FontSize="22" FontWeight="Bold"
+                                               Foreground="#0078D4"
+                                               HorizontalAlignment="Center"
+                                               VerticalAlignment="Center" />
+                                </Border>
+
+                                <TextBlock Text="Outlook" Foreground="White" FontSize="16"
+                                           FontWeight="SemiBold" Margin="0,0,0,8" />
+                                <TextBlock Text="Easily connect with Outlook to sync your emails and streamline communication."
+                                           Foreground="#878E92" FontSize="12"
+                                           TextWrapping="Wrap" Margin="0,0,0,18" />
+                                <Button Content="Connect" Style="{StaticResource VEButton}"
+                                        Padding="18,8" HorizontalAlignment="Left"
+                                        Click="ConnectOutlook_Click" />
+                            </StackPanel>
+                        </Border>
+                    </Grid>
                 </StackPanel>
 
-                <!-- Settings Content -->
+                <!-- ═══ SETTINGS (when account connected) ═══ -->
                 <StackPanel x:Name="SettingsPanel" Visibility="Collapsed">
                     <!-- Account Selector -->
                     <ComboBox x:Name="AccountSelector" Margin="0,8,0,12"

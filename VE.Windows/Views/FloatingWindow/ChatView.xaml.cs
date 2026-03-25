@@ -149,7 +149,8 @@ public partial class ChatView : UserControl
         // Show chat content
         WelcomePanel.Visibility = _vm.HasMessages ? Visibility.Collapsed : Visibility.Visible;
         MessagesScroll.Visibility = _vm.HasMessages ? Visibility.Visible : Visibility.Collapsed;
-        WorkPanel.Visibility = Visibility.Collapsed;
+        WorkContent.Visibility = Visibility.Collapsed;
+        InputBar.Visibility = Visibility.Visible;
     }
 
     private void ToggleWork_Click(object sender, RoutedEventArgs e)
@@ -165,19 +166,21 @@ public partial class ChatView : UserControl
         ChatSidebar.Visibility = Visibility.Collapsed;
         WorkSidebar.Visibility = Visibility.Visible;
 
-        // Show work content — default to Notes
+        // Hide chat content, show work content, hide input bar
         WelcomePanel.Visibility = Visibility.Collapsed;
         MessagesScroll.Visibility = Visibility.Collapsed;
-        WorkPanel.Visibility = Visibility.Visible;
+        InputBar.Visibility = Visibility.Collapsed;
+        WorkContent.Visibility = Visibility.Visible;
 
-        // Navigate to Notes by default
-        NavigateToTab?.Invoke("Notes");
+        // Default to Notes
+        ShowWorkView("Notes");
         UpdateWorkNavSelection("Notes");
     }
 
     // ═══ WORK SIDEBAR NAVIGATION ═══
 
     private string _selectedWorkNav = "Notes";
+    private readonly Dictionary<string, UserControl> _workViews = new();
 
     private void WorkNav_Click(object sender, RoutedEventArgs e)
     {
@@ -185,7 +188,44 @@ public partial class ChatView : UserControl
         {
             _selectedWorkNav = tab;
             UpdateWorkNavSelection(tab);
-            NavigateToTab?.Invoke(tab);
+            ShowWorkView(tab);
+        }
+    }
+
+    private void ShowWorkView(string tab)
+    {
+        if (!_workViews.TryGetValue(tab, out var view))
+        {
+            view = tab switch
+            {
+                "Mail" => new MailView(),
+                "Prediction" => new PredictionView2(),
+                "IntentModel" => new IntentModelView(),
+                "Knowledge" => new FilesView(),
+                "Connectors" => new ConnectorsView(),
+                _ => null
+            };
+            if (view != null) _workViews[tab] = view;
+        }
+
+        if (view != null)
+        {
+            WorkContent.Content = view;
+        }
+        else
+        {
+            // Placeholder for unimplemented views (Notes, Routines, Shared, Shortcuts)
+            WorkContent.Content = new TextBlock
+            {
+                Text = $"{tab}\nComing soon",
+                Foreground = new System.Windows.Media.SolidColorBrush(
+                    (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#878E92")),
+                FontSize = 16,
+                TextAlignment = TextAlignment.Center,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(0, 80, 0, 0)
+            };
         }
     }
 
