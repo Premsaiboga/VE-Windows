@@ -79,7 +79,7 @@
                 VerticalAlignment="Top"
                 ClipToBounds="True">
             <Border.Background>
-                <SolidColorBrush x:Name="NotchBg" Color="Black" />
+                <SolidColorBrush x:Name="NotchBg" Color="#99808080" />
             </Border.Background>
 
             <!-- Glass border overlay -->

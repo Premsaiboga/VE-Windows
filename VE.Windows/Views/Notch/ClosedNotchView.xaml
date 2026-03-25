@@ -21,35 +21,16 @@
                     VerticalAlignment="Center"
                     Margin="12,0,0,0">
             <Ellipse x:Name="StatusDot"
-                     Width="6" Height="6"
-                     Fill="#00CA48"
+                     Width="8" Height="8"
+                     Fill="#007CEC"
                      VerticalAlignment="Center"
-                     Margin="0,0,6,0" />
+                     Margin="0,0,8,0" />
             <TextBlock Text="VE"
-                       Foreground="White"
+                       Foreground="#007CEC"
                        FontSize="14"
                        FontWeight="SemiBold"
                        VerticalAlignment="Center" />
         </StackPanel>
-
-        <!-- Persistent right: settings gear (no hover background) -->
-        <Button x:Name="SettingsButton"
-                Content="&#x2699;"
-                Foreground="#878E92"
-                FontSize="14"
-                BorderThickness="0"
-                HorizontalAlignment="Right"
-                VerticalAlignment="Center"
-                Cursor="Hand"
-                Click="SettingsButton_Click"
-                Padding="8,0"
-                Margin="0,0,8,0">
-            <Button.Template>
-                <ControlTemplate TargetType="Button">
-                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
-                </ControlTemplate>
-            </Button.Template>
-        </Button>
 
         <!-- Idle State (shown in center area, nothing extra needed) -->
         <Grid x:Name="IdleContent" Visibility="Visible" />

@@ -80,8 +80,10 @@
 
             <!-- Settings Sidebar -->
             <Border Grid.Column="0" Background="#111315"
-                    BorderBrush="#1AFFFFFF" BorderThickness="0,0,1,0">
-                <ScrollViewer VerticalScrollBarVisibility="Auto" Margin="8,12,8,8">
+                    BorderBrush="#1AFFFFFF" BorderThickness="0,0,1,0"
+                    CornerRadius="0,0,0,12">
+                <ScrollViewer VerticalScrollBarVisibility="Auto" Margin="8,0,8,0"
+                              VerticalAlignment="Center">
                     <StackPanel>
                         <Button x:Name="NavProfile" Style="{StaticResource SettingsNavButton}"
                                 Click="SettingsNav_Click" Tag="profile"

@@ -13,8 +13,9 @@
         Loaded="Window_Loaded"
         Deactivated="Window_Deactivated">
 
-    <Border CornerRadius="12" Background="#1A1A1A" BorderBrush="#33FFFFFF" BorderThickness="1"
-            Margin="8" MouseLeftButtonDown="TitleBar_MouseLeftButtonDown">
+    <Border x:Name="WindowBorder" CornerRadius="12" Background="#1A1A1A" BorderBrush="#33FFFFFF" BorderThickness="1"
+            Margin="8" MouseLeftButtonDown="TitleBar_MouseLeftButtonDown"
+            ClipToBounds="True">
         <Border.Effect>
             <DropShadowEffect Color="Black" BlurRadius="16" Opacity="0.5" ShadowDepth="4" />
         </Border.Effect>

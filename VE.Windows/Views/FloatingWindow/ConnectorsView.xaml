@@ -4,37 +4,63 @@
 
     <Grid>
         <ScrollViewer VerticalScrollBarVisibility="Auto">
-            <StackPanel Margin="16,8">
+            <StackPanel Margin="24,16,24,16">
+
+                <!-- Private Integrations Header -->
+                <Grid Margin="0,0,0,16">
+                    <TextBlock Text="Private Integrations" Foreground="White"
+                               FontSize="18" FontWeight="Bold"
+                               VerticalAlignment="Center" />
+                    <Border HorizontalAlignment="Right" Background="#25292D"
+                            CornerRadius="8" BorderBrush="#33FFFFFF"
+                            BorderThickness="1" Padding="14,6">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="Private" Foreground="White"
+                                       FontSize="12" VerticalAlignment="Center" />
+                            <TextBlock Text=" &#x25BE;" Foreground="#878E92"
+                                       FontSize="12" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Border>
+                </Grid>
+
                 <!-- Loading -->
                 <TextBlock x:Name="LoadingText" Text="Loading connectors..."
                            Foreground="#878E92" FontSize="13"
                            HorizontalAlignment="Center" Margin="0,40,0,0" />
 
-                <!-- Connected Integrations -->
+                <!-- Connected Section -->
                 <StackPanel x:Name="ConnectedSection" Visibility="Collapsed">
-                    <TextBlock Text="Connected" Foreground="#878E92" FontSize="11"
-                               FontWeight="SemiBold" Margin="0,8,0,6" />
                     <ItemsControl x:Name="ConnectedList">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
-                                <Border Background="#0DFFFFFF" CornerRadius="8"
-                                        Padding="12,10" Margin="0,3">
+                                <Border Background="#0DFFFFFF" CornerRadius="10"
+                                        Padding="14,12" Margin="0,4">
                                     <Grid>
                                         <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" />
                                             <ColumnDefinition Width="*" />
                                             <ColumnDefinition Width="Auto" />
                                             <ColumnDefinition Width="Auto" />
                                         </Grid.ColumnDefinitions>
-                                        <StackPanel Grid.Column="0">
-                                            <TextBlock Text="{Binding DisplayName}" Foreground="#F4F5F5"
-                                                       FontSize="13" FontWeight="Medium" />
+                                        <Border Grid.Column="0" Width="36" Height="36"
+                                                CornerRadius="8" Margin="0,0,12,0"
+                                                Background="{Binding IconBackground}">
+                                            <TextBlock Text="{Binding IconLetter}"
+                                                       Foreground="White" FontSize="16"
+                                                       FontWeight="Bold"
+                                                       HorizontalAlignment="Center"
+                                                       VerticalAlignment="Center" />
+                                        </Border>
+                                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                            <TextBlock Text="{Binding DisplayName}" Foreground="White"
+                                                       FontSize="14" FontWeight="Medium" />
                                             <TextBlock Text="{Binding Email}" Foreground="#878E92"
                                                        FontSize="11" Margin="0,2,0,0" />
                                         </StackPanel>
-                                        <TextBlock Grid.Column="1" Text="{Binding StatusText}"
+                                        <TextBlock Grid.Column="2" Text="{Binding StatusText}"
                                                    Foreground="#4CAF50" FontSize="11"
-                                                   VerticalAlignment="Center" Margin="0,0,8,0" />
-                                        <Button Grid.Column="2" Content="Disconnect"
+                                                   VerticalAlignment="Center" Margin="0,0,10,0" />
+                                        <Button Grid.Column="3" Content="Disconnect"
                                                 FontSize="10" Foreground="#FF4444"
                                                 Background="Transparent" BorderThickness="0"
                                                 Cursor="Hand" Padding="4,2"
@@ -46,41 +72,112 @@
                     </ItemsControl>
                 </StackPanel>
 
-                <!-- Separator -->
-                <Border x:Name="Separator" Height="1" Background="#1AFFFFFF"
-                        Margin="0,12" Visibility="Collapsed" />
+                <!-- No connected integrations (empty state) -->
+                <StackPanel x:Name="EmptyConnectedState" Visibility="Collapsed"
+                            HorizontalAlignment="Center" Margin="0,30,0,30">
+                    <TextBlock Text="&#x1F517;" FontSize="36" Foreground="#555"
+                               HorizontalAlignment="Center" Margin="0,0,0,10" />
+                    <TextBlock Text="No connected integrations" Foreground="#878E92"
+                               FontSize="13" HorizontalAlignment="Center" />
+                </StackPanel>
 
                 <!-- Available Integrations -->
                 <StackPanel x:Name="AvailableSection" Visibility="Collapsed">
-                    <TextBlock Text="Available Integrations" Foreground="#878E92" FontSize="11"
-                               FontWeight="SemiBold" Margin="0,0,0,6" />
+                    <TextBlock Text="Available Integrations" Foreground="White"
+                               FontSize="16" FontWeight="Bold" Margin="0,8,0,12" />
+
+                    <!-- Search Bar -->
+                    <Border Background="#25292D" CornerRadius="8"
+                            BorderBrush="#33FFFFFF" BorderThickness="1"
+                            Padding="4,0" Margin="0,0,0,16">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="&#x1F50D;" FontSize="13"
+                                       Foreground="#878E92" VerticalAlignment="Center"
+                                       Margin="10,0,8,0" />
+                            <TextBox x:Name="SearchBox" Grid.Column="1"
+                                     Background="Transparent" Foreground="#F4F5F5"
+                                     FontSize="13" BorderThickness="0"
+                                     Padding="4,10" CaretBrush="White"
+                                     TextChanged="SearchBox_TextChanged">
+                                <TextBox.Style>
+                                    <Style TargetType="TextBox">
+                                        <Setter Property="Template">
+                                            <Setter.Value>
+                                                <ControlTemplate TargetType="TextBox">
+                                                    <Grid>
+                                                        <TextBlock x:Name="ph" Text="Search"
+                                                                   Foreground="#555" FontSize="13"
+                                                                   VerticalAlignment="Center"
+                                                                   Margin="6,0,0,0"
+                                                                   Visibility="Collapsed" />
+                                                        <ScrollViewer x:Name="PART_ContentHost"
+                                                                      VerticalAlignment="Center" />
+                                                    </Grid>
+                                                    <ControlTemplate.Triggers>
+                                                        <Trigger Property="Text" Value="">
+                                                            <Setter TargetName="ph"
+                                                                    Property="Visibility"
+                                                                    Value="Visible" />
+                                                        </Trigger>
+                                                    </ControlTemplate.Triggers>
+                                                </ControlTemplate>
+                                            </Setter.Value>
+                                        </Setter>
+                                    </Style>
+                                </TextBox.Style>
+                            </TextBox>
+                        </Grid>
+                    </Border>
+
+                    <!-- Integration Items -->
                     <ItemsControl x:Name="AvailableList">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
-                                <Border Background="#0D007CEC" CornerRadius="8"
-                                        Padding="12,10" Margin="0,3"
-                                        Cursor="Hand" MouseLeftButtonUp="ConnectIntegration_Click">
+                                <Border Background="#0DFFFFFF" CornerRadius="10"
+                                        Padding="14,12" Margin="0,4">
                                     <Grid>
                                         <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" />
                                             <ColumnDefinition Width="*" />
                                             <ColumnDefinition Width="Auto" />
                                         </Grid.ColumnDefinitions>
-                                        <StackPanel Grid.Column="0">
-                                            <TextBlock Text="{Binding Name}" Foreground="#F4F5F5"
-                                                       FontSize="13" FontWeight="Medium" />
-                                            <TextBlock Text="{Binding Description}" Foreground="#878E92"
-                                                       FontSize="11" Margin="0,2,0,0"
-                                                       TextTrimming="CharacterEllipsis" />
-                                        </StackPanel>
-                                        <TextBlock Grid.Column="1" Text="Connect &#x203A;"
-                                                   Foreground="#007CEC" FontSize="12"
+
+                                        <!-- App Icon -->
+                                        <Border Grid.Column="0" Width="36" Height="36"
+                                                CornerRadius="8" Margin="0,0,12,0"
+                                                Background="{Binding IconBackground}">
+                                            <TextBlock Text="{Binding IconLetter}"
+                                                       Foreground="White" FontSize="16"
+                                                       FontWeight="Bold"
+                                                       HorizontalAlignment="Center"
+                                                       VerticalAlignment="Center" />
+                                        </Border>
+
+                                        <!-- Name -->
+                                        <TextBlock Grid.Column="1" Text="{Binding Name}"
+                                                   Foreground="White" FontSize="14"
+                                                   FontWeight="Medium"
                                                    VerticalAlignment="Center" />
+
+                                        <!-- Connect Button -->
+                                        <Border Grid.Column="2" Background="#007CEC"
+                                                CornerRadius="16" Padding="20,7"
+                                                Cursor="Hand"
+                                                MouseLeftButtonUp="ConnectIntegration_Click">
+                                            <TextBlock Text="Connect" Foreground="White"
+                                                       FontSize="12" FontWeight="SemiBold" />
+                                        </Border>
                                     </Grid>
                                 </Border>
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
                 </StackPanel>
+
             </StackPanel>
         </ScrollViewer>
     </Grid>

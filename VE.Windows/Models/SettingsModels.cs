@@ -99,6 +99,9 @@ public class AvailableIntegration
     public string Description { get; set; } = "";
     public string Category { get; set; } = "";
     public string IconName { get; set; } = "";
+
+    public string IconLetter => IntegrationIcons.GetLetter(Name, Type);
+    public System.Windows.Media.Brush IconBackground => IntegrationIcons.GetBrush(Name, Type);
 }
 
 public class ConnectedIntegration
@@ -110,6 +113,9 @@ public class ConnectedIntegration
     public string Access { get; set; } = "private";
     public int SyncedCount { get; set; }
     public string? AddedBy { get; set; }
+
+    public string IconLetter => IntegrationIcons.GetLetter(DisplayName, App);
+    public System.Windows.Media.Brush IconBackground => IntegrationIcons.GetBrush(DisplayName, App);
 
     public string StatusText => IsActive ? "Connected" : "Disconnected";
     public string DisplayName => App switch
@@ -253,6 +259,47 @@ public class Instruction
     public bool IsActive { get; set; } = true;
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
+}
+
+// --- Integration Icons ---
+
+public static class IntegrationIcons
+{
+    private static System.Windows.Media.SolidColorBrush Brush(string hex) =>
+        new((System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString(hex));
+
+    public static string GetLetter(string name, string type)
+    {
+        var key = (name + type).ToLowerInvariant();
+        if (key.Contains("google") || key.Contains("gmail")) return "M";
+        if (key.Contains("outlook")) return "O";
+        if (key.Contains("granola")) return "G";
+        if (key.Contains("notion")) return "N";
+        if (key.Contains("slack")) return "S";
+        if (key.Contains("hubspot")) return "H";
+        if (name.Length > 0) return name[..1].ToUpper();
+        return "?";
+    }
+
+    public static System.Windows.Media.Brush GetBrush(string name, string type)
+    {
+        var key = (name + type).ToLowerInvariant();
+        if (key.Contains("google") || key.Contains("gmail"))
+            return new System.Windows.Media.LinearGradientBrush(
+                (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#EA4335"),
+                (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#4285F4"), 45);
+        if (key.Contains("outlook"))
+            return Brush("#0078D4");
+        if (key.Contains("granola"))
+            return Brush("#4A6741");
+        if (key.Contains("notion"))
+            return Brush("#333333");
+        if (key.Contains("slack"))
+            return Brush("#4A154B");
+        if (key.Contains("hubspot"))
+            return Brush("#FF7A59");
+        return Brush("#555");
+    }
 }
 
 // VoiceLog and PredictionLog are defined in VoiceLogModels.cs

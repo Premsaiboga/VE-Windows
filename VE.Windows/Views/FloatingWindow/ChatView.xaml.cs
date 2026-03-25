@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Media;
 using VE.Windows.Helpers;
 using VE.Windows.Managers;
 using VE.Windows.Models;
@@ -49,12 +50,71 @@ public partial class ChatView : UserControl
             if (IsVisible && !_recentChatsLoaded)
                 _ = LoadRecentChats();
         };
+
+        // Subscribe to theme changes
+        Theme.ThemeManager.Instance.ThemeChanged += (s, e) =>
+            Dispatcher.BeginInvoke(ApplyTheme);
     }
+
+    private void ApplyTheme()
+    {
+        var tm = Theme.ThemeManager.Instance;
+        var isDark = tm.IsDarkMode;
+
+        var bg = isDark ? BrushFrom("#1A1A1A") : BrushFrom("#F4F5F5");
+        var sidebar = isDark ? BrushFrom("#111315") : BrushFrom("#E8E9EA");
+        var card = isDark ? BrushFrom("#25292D") : BrushFrom("#FFFFFF");
+        var textPrimary = isDark ? BrushFrom("#F4F5F5") : BrushFrom("#272B30");
+        var border = isDark ? BrushFrom("#1AFFFFFF") : BrushFrom("#1A000000");
+
+        // Main backgrounds
+        RootGrid.Background = bg;
+        SidebarBorder.Background = sidebar;
+        SidebarBorder.BorderBrush = border;
+
+        // Toggle pill
+        TogglePill.Background = card;
+
+        // Input bar
+        InputBarInner.Background = card;
+        InputBarInner.BorderBrush = border;
+        ChatInput.Foreground = textPrimary;
+
+        // Welcome text
+        GreetingName.Foreground = textPrimary;
+
+        // User profile section
+        UserWorkspaceText.Foreground = textPrimary;
+
+        // Account popup
+        AccountPopup.Background = isDark ? BrushFrom("#1E2024") : BrushFrom("#FFFFFF");
+        AccountPopup.BorderBrush = border;
+
+        // Update parent window border
+        if (Window.GetWindow(this) is FloatingPanelWindow fpw)
+        {
+            fpw.WindowBorder.Background = bg;
+            fpw.WindowBorder.BorderBrush = border;
+        }
+
+        // Sync theme button selection
+        var currentTheme = tm.CurrentTheme;
+        SetThemeButton(currentTheme switch
+        {
+            ThemePreference.Light => "light",
+            ThemePreference.Dark => "dark",
+            _ => "system"
+        });
+    }
+
+    private static SolidColorBrush BrushFrom(string hex) =>
+        new((Color)ColorConverter.ConvertFromString(hex));
 
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
         UpdateUserInfo();
         _ = LoadRecentChats();
+        ApplyTheme();
     }
 
     // ═══ USER INFO ═══
@@ -90,7 +150,7 @@ public partial class ChatView : UserControl
     {
         try
         {
-            var (items, _) = await ChatService.Instance.ListRecentSessions(1, 20);
+            var (items, _) = await ChatService.Instance.ListRecentSessions(1, 5);
             _recentChats.Clear();
             foreach (var item in items)
                 _recentChats.Add(item);
@@ -114,7 +174,26 @@ public partial class ChatView : UserControl
 
     private void Integrations_Click(object sender, RoutedEventArgs e)
     {
-        NavigateToTab?.Invoke("Connectors");
+        // Switch to Work mode and show Connectors
+        if (_isChatMode)
+        {
+            _isChatMode = false;
+            ToggleWork.Background = BlueBrush;
+            ToggleWork.Foreground = System.Windows.Media.Brushes.White;
+            ToggleChat.Background = System.Windows.Media.Brushes.Transparent;
+            ToggleChat.Foreground = GrayBrush;
+
+            ChatSidebar.Visibility = Visibility.Collapsed;
+            WorkSidebar.Visibility = Visibility.Visible;
+
+            WelcomePanel.Visibility = Visibility.Collapsed;
+            MessagesScroll.Visibility = Visibility.Collapsed;
+            InputBar.Visibility = Visibility.Collapsed;
+            WorkContent.Visibility = Visibility.Visible;
+        }
+
+        ShowWorkView("Connectors");
+        UpdateWorkNavSelection("Connectors");
     }
 
     private void RecentChat_Click(object sender, RoutedEventArgs e)

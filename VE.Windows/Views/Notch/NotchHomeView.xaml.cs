@@ -3,7 +3,6 @@ using System.Windows.Controls;
 using VE.Windows.Managers;
 using VE.Windows.Models;
 using VE.Windows.Services;
-using VE.Windows.Views.Settings;
 
 namespace VE.Windows.Views.Notch;
 
@@ -67,18 +66,4 @@ public partial class NotchHomeView : UserControl
         }
     }
 
-    private static SettingsWindow? _settingsWindow;
-
-    private void SettingsButton_Click(object sender, RoutedEventArgs e)
-    {
-        if (!AuthManager.Instance.IsAuthenticated) return;
-
-        // Open settings window directly
-        if (_settingsWindow == null || !_settingsWindow.IsLoaded)
-        {
-            _settingsWindow = new SettingsWindow();
-        }
-        _settingsWindow.Show();
-        _settingsWindow.Activate();
-    }
 }

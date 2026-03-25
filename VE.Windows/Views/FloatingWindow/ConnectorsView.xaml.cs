@@ -10,6 +10,7 @@ namespace VE.Windows.Views.FloatingWindow;
 public partial class ConnectorsView : UserControl
 {
     private List<ConnectedIntegration> _connected = new();
+    private List<AvailableIntegration> _available = new();
 
     public ConnectorsView()
     {
@@ -22,17 +23,17 @@ public partial class ConnectorsView : UserControl
         LoadingText.Visibility = Visibility.Visible;
         ConnectedSection.Visibility = Visibility.Collapsed;
         AvailableSection.Visibility = Visibility.Collapsed;
+        EmptyConnectedState.Visibility = Visibility.Collapsed;
 
         var connectedTask = ConnectorsService.Instance.GetConnectedIntegrations();
         var availableTask = ConnectorsService.Instance.GetAvailableIntegrations();
         await Task.WhenAll(connectedTask, availableTask);
 
         _connected = connectedTask.Result;
-        var available = availableTask.Result;
+        _available = availableTask.Result;
 
-        // Filter out already-connected types from available
         var connectedTypes = _connected.Where(c => c.IsActive).Select(c => c.App).ToHashSet();
-        var filteredAvailable = available.Where(a => !connectedTypes.Contains(a.Type)).ToList();
+        var filtered = _available.Where(a => !connectedTypes.Contains(a.Type)).ToList();
 
         DispatcherHelper.RunOnUI(() =>
         {
@@ -43,16 +44,34 @@ public partial class ConnectorsView : UserControl
                 ConnectedList.ItemsSource = _connected;
                 ConnectedSection.Visibility = Visibility.Visible;
             }
-
-            if (filteredAvailable.Count > 0)
+            else
             {
-                AvailableList.ItemsSource = filteredAvailable;
-                AvailableSection.Visibility = Visibility.Visible;
+                EmptyConnectedState.Visibility = Visibility.Visible;
             }
 
-            Separator.Visibility = _connected.Count > 0 && filteredAvailable.Count > 0
-                ? Visibility.Visible : Visibility.Collapsed;
+            if (filtered.Count > 0)
+            {
+                AvailableList.ItemsSource = filtered;
+                AvailableSection.Visibility = Visibility.Visible;
+            }
         });
+    }
+
+    private void SearchBox_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        var query = SearchBox.Text?.Trim().ToLowerInvariant() ?? "";
+        var connectedTypes = _connected.Where(c => c.IsActive).Select(c => c.App).ToHashSet();
+        var filtered = _available.Where(a => !connectedTypes.Contains(a.Type)).ToList();
+
+        if (!string.IsNullOrEmpty(query))
+        {
+            filtered = filtered.Where(a =>
+                a.Name.Contains(query, StringComparison.OrdinalIgnoreCase) ||
+                a.Type.Contains(query, StringComparison.OrdinalIgnoreCase)
+            ).ToList();
+        }
+
+        AvailableList.ItemsSource = filtered;
     }
 
     private async void ConnectIntegration_Click(object sender, MouseButtonEventArgs e)
