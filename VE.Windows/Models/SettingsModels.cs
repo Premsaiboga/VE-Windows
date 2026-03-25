@@ -21,6 +21,11 @@ public class TenantInfo
     public string? Plan { get; set; }
     public string? Region { get; set; }
     public string? WorkspaceMode { get; set; }
+    public string? Email { get; set; }
+    public string? Website { get; set; }
+    public string? CompanyType { get; set; }
+    public string? Phone { get; set; }
+    public string? Address { get; set; }
 }
 
 public class WorkspaceInfo
@@ -61,6 +66,27 @@ public class TeamMember
     public string Role { get; set; } = "member";
     public string? Avatar { get; set; }
     public DateTime JoinedAt { get; set; }
+
+    public string Initials
+    {
+        get
+        {
+            var parts = Name.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            if (parts.Length == 0) return Email.Length > 0 ? Email[..1].ToUpper() : "?";
+            if (parts.Length == 1) return parts[0][..1].ToUpper();
+            return $"{parts[0][0]}{parts[^1][0]}".ToUpper();
+        }
+    }
+
+    public string RoleDisplay => Role?.ToLowerInvariant() == "owner"
+        ? "Owner"
+        : $"Admin \u25BE";
+
+    public System.Windows.Media.Brush RoleBrush => Role?.ToLowerInvariant() == "owner"
+        ? new System.Windows.Media.SolidColorBrush(
+            (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#007CEC"))
+        : new System.Windows.Media.SolidColorBrush(
+            (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#A0A4A8"));
 }
 
 // --- Connectors ---

@@ -302,7 +302,29 @@ public partial class ChatView : UserControl
 
     private void SettingsGear_Click(object sender, RoutedEventArgs e)
     {
-        _ = ShowAccountPopup();
+        ShowSettings();
+    }
+
+    // ═══ SETTINGS VIEW ═══
+
+    private SettingsView? _settingsView;
+
+    private void ShowSettings()
+    {
+        AccountOverlay.Visibility = Visibility.Collapsed;
+
+        if (_settingsView == null)
+        {
+            _settingsView = new SettingsView();
+            _settingsView.BackToHome += () =>
+            {
+                SettingsOverlay.Visibility = Visibility.Collapsed;
+                SettingsOverlay.Content = null;
+            };
+        }
+
+        SettingsOverlay.Content = _settingsView;
+        SettingsOverlay.Visibility = Visibility.Visible;
     }
 
     private async Task ShowAccountPopup()

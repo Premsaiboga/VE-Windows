@@ -239,6 +239,11 @@ public sealed class AuthManager : INotifyPropertyChanged
                 Storage.TenantId = tenant.Id;
                 Storage.TenantName = tenant.Name;
                 Storage.TenantPlan = tenant.Plan;
+                Storage.TenantEmail = tenant.Email;
+                Storage.TenantWebsite = tenant.Website;
+                Storage.TenantCompanyType = tenant.CompanyType;
+                Storage.TenantPhone = tenant.Phone;
+                Storage.TenantAddress = tenant.Address;
                 WorkspaceMode = tenant.WorkspaceMode;
                 Storage.WorkspaceMode = tenant.WorkspaceMode;
             }
@@ -317,6 +322,11 @@ public sealed class AuthStorage
         set => Set("tenantMemberCount", value.ToString());
     }
     public string? WorkspaceMode { get => Get("workspaceMode"); set => Set("workspaceMode", value); }
+    public string? TenantEmail { get => Get("tenantEmail"); set => Set("tenantEmail", value); }
+    public string? TenantWebsite { get => Get("tenantWebsite"); set => Set("tenantWebsite", value); }
+    public string? TenantCompanyType { get => Get("tenantCompanyType"); set => Set("tenantCompanyType", value); }
+    public string? TenantPhone { get => Get("tenantPhone"); set => Set("tenantPhone", value); }
+    public string? TenantAddress { get => Get("tenantAddress"); set => Set("tenantAddress", value); }
     public bool IsOnboard
     {
         get => Get("isOnboard") == "true";
