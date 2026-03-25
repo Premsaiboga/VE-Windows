@@ -13,27 +13,38 @@
         Loaded="Window_Loaded"
         Deactivated="Window_Deactivated">
 
-    <Border x:Name="WindowBorder" CornerRadius="12" Background="#1A1A1A" BorderBrush="#33FFFFFF" BorderThickness="1"
-            Margin="8" MouseLeftButtonDown="TitleBar_MouseLeftButtonDown"
-            ClipToBounds="True">
-        <Border.Effect>
-            <DropShadowEffect Color="Black" BlurRadius="16" Opacity="0.5" ShadowDepth="4" />
-        </Border.Effect>
+    <Grid Margin="8">
+        <!-- Shadow layer (separate so Effect doesn't break child hit-testing) -->
+        <Border CornerRadius="12" Background="#1A1A1A">
+            <Border.Effect>
+                <DropShadowEffect Color="Black" BlurRadius="16" Opacity="0.5" ShadowDepth="4" />
+            </Border.Effect>
+        </Border>
 
-        <Grid>
-            <!-- Close button (top-right corner) -->
-            <Border HorizontalAlignment="Right" VerticalAlignment="Top"
-                    Background="#FF4B59" CornerRadius="0,12,0,8"
-                    Padding="10,6" Cursor="Hand" Panel.ZIndex="10"
-                    MouseLeftButtonDown="CloseButton_MouseDown">
-                <TextBlock Text="&#x2715;" Foreground="White" FontSize="12"
-                           FontWeight="Bold"
-                           HorizontalAlignment="Center"
-                           VerticalAlignment="Center" />
-            </Border>
+        <!-- Interactive content layer (no Effect) -->
+        <Border x:Name="WindowBorder" CornerRadius="12" Background="#1A1A1A"
+                BorderBrush="#33FFFFFF" BorderThickness="1"
+                ClipToBounds="True">
+            <Grid>
+                <!-- Drag bar (only this area is draggable) -->
+                <Border Height="32" VerticalAlignment="Top" Background="Transparent"
+                        Panel.ZIndex="5"
+                        MouseLeftButtonDown="TitleBar_MouseLeftButtonDown" />
 
-            <!-- Content Area -->
-            <local:ChatView x:Name="ChatContent" />
-        </Grid>
-    </Border>
+                <!-- Close button (top-right corner) -->
+                <Border HorizontalAlignment="Right" VerticalAlignment="Top"
+                        Background="#FF4B59" CornerRadius="0,12,0,8"
+                        Padding="10,6" Cursor="Hand" Panel.ZIndex="10"
+                        MouseLeftButtonDown="CloseButton_MouseDown">
+                    <TextBlock Text="&#x2715;" Foreground="White" FontSize="12"
+                               FontWeight="Bold"
+                               HorizontalAlignment="Center"
+                               VerticalAlignment="Center" />
+                </Border>
+
+                <!-- Content Area -->
+                <local:ChatView x:Name="ChatContent" />
+            </Grid>
+        </Border>
+    </Grid>
 </Window>

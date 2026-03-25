@@ -39,6 +39,15 @@ public partial class FloatingPanelWindow : Window
         // Don't auto-hide — let user close explicitly
     }
 
+    public void UpdateShadowBackground(System.Windows.Media.Brush bg)
+    {
+        // The shadow border is the first child of the root Grid
+        if (WindowBorder.Parent is Grid g && g.Children.Count > 0 && g.Children[0] is Border shadowBorder)
+        {
+            shadowBorder.Background = bg;
+        }
+    }
+
     public void ShowAndActivate()
     {
         Show();

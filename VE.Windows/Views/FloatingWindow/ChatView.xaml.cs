@@ -95,6 +95,7 @@ public partial class ChatView : UserControl
         {
             fpw.WindowBorder.Background = bg;
             fpw.WindowBorder.BorderBrush = border;
+            fpw.UpdateShadowBackground(bg);
         }
 
         // Sync theme button selection
