@@ -280,10 +280,10 @@ public partial class ChatView : UserControl
             if (response == null) return;
 
             var json = Newtonsoft.Json.Linq.JObject.Parse(response);
-            var score = json["intentScore"]?.Value<int>()
-                        ?? json["score"]?.Value<int>()
-                        ?? json["data"]?["intentScore"]?.Value<int>()
-                        ?? json["data"]?["score"]?.Value<int>();
+            var score = (int?)(json["intentScore"]?.ToObject<int>())
+                        ?? (int?)(json["score"]?.ToObject<int>())
+                        ?? (int?)(json["data"]?["intentScore"]?.ToObject<int>())
+                        ?? (int?)(json["data"]?["score"]?.ToObject<int>());
             if (score.HasValue)
             {
                 IntentScoreText.Text = $"{score.Value}%";
