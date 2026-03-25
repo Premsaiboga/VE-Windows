@@ -215,6 +215,7 @@ public sealed class AuthManager : INotifyPropertyChanged
             if (profile != null)
             {
                 Storage.UserEmail = profile.Email;
+                Storage.UserName = profile.Name;
                 Storage.TenantId = profile.Id;
                 Storage.IsOnboard = profile.IsOnboard;
                 if (profile.Region != null) Storage.Region = profile.Region;
@@ -236,6 +237,8 @@ public sealed class AuthManager : INotifyPropertyChanged
             if (tenant != null)
             {
                 Storage.TenantId = tenant.Id;
+                Storage.TenantName = tenant.Name;
+                Storage.TenantPlan = tenant.Plan;
                 WorkspaceMode = tenant.WorkspaceMode;
                 Storage.WorkspaceMode = tenant.WorkspaceMode;
             }
@@ -305,6 +308,14 @@ public sealed class AuthStorage
     public string? TenantId { get => Get("tenantId"); set => Set("tenantId", value); }
     public string? Region { get => Get("region"); set => Set("region", value); }
     public string? UserEmail { get => Get("userEmail"); set => Set("userEmail", value); }
+    public string? UserName { get => Get("userName"); set => Set("userName", value); }
+    public string? TenantName { get => Get("tenantName"); set => Set("tenantName", value); }
+    public string? TenantPlan { get => Get("tenantPlan"); set => Set("tenantPlan", value); }
+    public int TenantMemberCount
+    {
+        get => int.TryParse(Get("tenantMemberCount"), out var v) ? v : 0;
+        set => Set("tenantMemberCount", value.ToString());
+    }
     public string? WorkspaceMode { get => Get("workspaceMode"); set => Set("workspaceMode", value); }
     public bool IsOnboard
     {

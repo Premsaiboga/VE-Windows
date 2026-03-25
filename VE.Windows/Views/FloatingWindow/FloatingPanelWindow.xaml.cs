@@ -12,6 +12,14 @@ public partial class FloatingPanelWindow : Window
     public FloatingPanelWindow()
     {
         InitializeComponent();
+
+        // Wire ChatView sidebar navigation (e.g. Integrations -> Connectors tab)
+        ChatContent.NavigateToTab += tab =>
+        {
+            _currentTab = tab;
+            SwitchTab(tab);
+            UpdateTabSelection();
+        };
     }
 
     private void Window_Loaded(object sender, RoutedEventArgs e)

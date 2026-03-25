@@ -1,7 +1,11 @@
+using System.Collections.ObjectModel;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using VE.Windows.Helpers;
 using VE.Windows.Managers;
+using VE.Windows.Models;
+using VE.Windows.Services;
 using VE.Windows.ViewModels;
 
 namespace VE.Windows.Views.FloatingWindow;
@@ -9,31 +13,165 @@ namespace VE.Windows.Views.FloatingWindow;
 public partial class ChatView : UserControl
 {
     private readonly ChatViewModel _vm = new();
+    private readonly ObservableCollection<RecentChatItem> _recentChats = new();
+    private readonly ObservableCollection<WorkspaceDisplayItem> _workspaces = new();
+    private bool _isChatMode = true;
+    private bool _recentChatsLoaded;
+
+    /// <summary>
+    /// Raised when user clicks Integrations or other sidebar actions that need tab switching.
+    /// </summary>
+    public event Action<string>? NavigateToTab;
 
     public ChatView()
     {
         InitializeComponent();
         DataContext = _vm;
-
-        // Set ItemsSource ONCE - ObservableCollection handles updates automatically
         MessagesList.ItemsSource = _vm.Messages;
+        RecentChatsList.ItemsSource = _recentChats;
+        WorkspacesList.ItemsSource = _workspaces;
 
         _vm.Messages.CollectionChanged += (s, e) =>
         {
             Dispatcher.BeginInvoke(() =>
             {
                 WelcomePanel.Visibility = _vm.HasMessages ? Visibility.Collapsed : Visibility.Visible;
+                MessagesScroll.Visibility = _vm.HasMessages ? Visibility.Visible : Visibility.Collapsed;
 
-                // Auto-scroll to bottom
                 if (MessagesScroll.ScrollableHeight > 0)
-                {
                     MessagesScroll.ScrollToEnd();
-                }
             });
+        };
+
+        Loaded += OnLoaded;
+        IsVisibleChanged += (s, e) =>
+        {
+            if (IsVisible && !_recentChatsLoaded)
+                _ = LoadRecentChats();
         };
     }
 
-    private async void SendButton_Click(object sender, RoutedEventArgs e)
+    private void OnLoaded(object sender, RoutedEventArgs e)
+    {
+        UpdateUserInfo();
+        _ = LoadRecentChats();
+    }
+
+    // ═══ USER INFO ═══
+
+    private void UpdateUserInfo()
+    {
+        var storage = AuthManager.Instance.Storage;
+        var name = storage.UserName ?? storage.UserEmail ?? "User";
+        UserNameText.Text = name;
+        UserWorkspaceText.Text = storage.TenantName ?? "";
+        UserInitials.Text = GetInitials(name);
+        GreetingName.Text = $"Hey {name.Split(' ')[0]},";
+
+        // Update messages visibility
+        WelcomePanel.Visibility = _vm.HasMessages ? Visibility.Collapsed : Visibility.Visible;
+        MessagesScroll.Visibility = _vm.HasMessages ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private static string GetInitials(string name)
+    {
+        var parts = name.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length == 0) return "?";
+        if (parts.Length == 1) return parts[0][..1].ToUpper();
+        return $"{parts[0][0]}{parts[^1][0]}".ToUpper();
+    }
+
+    // ═══ RECENT CHATS ═══
+
+    private async Task LoadRecentChats()
+    {
+        try
+        {
+            var (items, _) = await ChatService.Instance.ListRecentSessions(1, 20);
+            _recentChats.Clear();
+            foreach (var item in items)
+                _recentChats.Add(item);
+            _recentChatsLoaded = true;
+        }
+        catch (Exception ex)
+        {
+            FileLogger.Instance.Error("ChatView", $"Load recent chats failed: {ex.Message}");
+        }
+    }
+
+    // ═══ SIDEBAR ACTIONS ═══
+
+    private void NewChat_Click(object sender, RoutedEventArgs e)
+    {
+        _vm.ClearHistory();
+        WelcomePanel.Visibility = Visibility.Visible;
+        MessagesScroll.Visibility = Visibility.Collapsed;
+        ChatInput.Focus();
+    }
+
+    private void Integrations_Click(object sender, RoutedEventArgs e)
+    {
+        NavigateToTab?.Invoke("Connectors");
+    }
+
+    private void RecentChat_Click(object sender, RoutedEventArgs e)
+    {
+        // Future: load selected conversation messages
+        if (sender is Button btn && btn.Tag is string chatId)
+        {
+            FileLogger.Instance.Debug("ChatView", $"Selected recent chat: {chatId}");
+        }
+    }
+
+    // ═══ CHAT / WORK TOGGLE ═══
+
+    private void ToggleChat_Click(object sender, RoutedEventArgs e)
+    {
+        if (_isChatMode) return;
+        _isChatMode = true;
+        ToggleChat.Background = new System.Windows.Media.SolidColorBrush(
+            (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#007CEC"));
+        ToggleChat.Foreground = System.Windows.Media.Brushes.White;
+        ToggleWork.Background = System.Windows.Media.Brushes.Transparent;
+        ToggleWork.Foreground = new System.Windows.Media.SolidColorBrush(
+            (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#878E92"));
+
+        WelcomePanel.Visibility = _vm.HasMessages ? Visibility.Collapsed : Visibility.Visible;
+        MessagesScroll.Visibility = _vm.HasMessages ? Visibility.Visible : Visibility.Collapsed;
+        WorkPanel.Visibility = Visibility.Collapsed;
+    }
+
+    private void ToggleWork_Click(object sender, RoutedEventArgs e)
+    {
+        if (!_isChatMode) return;
+        _isChatMode = false;
+        ToggleWork.Background = new System.Windows.Media.SolidColorBrush(
+            (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#007CEC"));
+        ToggleWork.Foreground = System.Windows.Media.Brushes.White;
+        ToggleChat.Background = System.Windows.Media.Brushes.Transparent;
+        ToggleChat.Foreground = new System.Windows.Media.SolidColorBrush(
+            (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#878E92"));
+
+        WelcomePanel.Visibility = Visibility.Collapsed;
+        MessagesScroll.Visibility = Visibility.Collapsed;
+        WorkPanel.Visibility = Visibility.Visible;
+    }
+
+    // ═══ SUGGESTION ═══
+
+    private async void Suggestion_Click(object sender, MouseButtonEventArgs e)
+    {
+        if (sender is FrameworkElement el && el.Tag is string text)
+        {
+            _vm.CurrentInput = text;
+            ChatInput.Text = "";
+            await _vm.SendMessage();
+        }
+    }
+
+    // ═══ SEND MESSAGE ═══
+
+    private async void SendButton_Click(object sender, MouseButtonEventArgs e)
     {
         await SendMessage();
     }
@@ -57,9 +195,178 @@ public partial class ChatView : UserControl
         await _vm.SendMessage();
     }
 
-    private void ClearChat_Click(object sender, RoutedEventArgs e)
+    // ═══ ACCOUNT POPUP ═══
+
+    private void UserProfile_Click(object sender, MouseButtonEventArgs e)
     {
-        _vm.ClearHistory();
-        WelcomePanel.Visibility = Visibility.Visible;
+        if (AccountOverlay.Visibility == Visibility.Visible)
+        {
+            AccountOverlay.Visibility = Visibility.Collapsed;
+            return;
+        }
+
+        _ = ShowAccountPopup();
     }
+
+    private void SettingsGear_Click(object sender, RoutedEventArgs e)
+    {
+        _ = ShowAccountPopup();
+    }
+
+    private async Task ShowAccountPopup()
+    {
+        var storage = AuthManager.Instance.Storage;
+
+        // Set known info immediately
+        PopupWorkspaceName.Text = storage.TenantName ?? "Workspace";
+        WorkspaceInitial.Text = (storage.TenantName ?? "W")[..1].ToUpper();
+        PopupWorkspaceDetail.Text = storage.TenantPlan != null
+            ? $"{storage.TenantPlan} Plan"
+            : "";
+
+        AccountOverlay.Visibility = Visibility.Visible;
+
+        // Load workspaces and intent score in background
+        _ = LoadWorkspaces();
+        _ = LoadIntentScore();
+    }
+
+    private async Task LoadWorkspaces()
+    {
+        try
+        {
+            var workspaces = await WorkspaceService.Instance.GetWorkspaces();
+            if (workspaces == null) return;
+
+            var currentId = AuthManager.Instance.Storage.WorkspaceId;
+            _workspaces.Clear();
+            foreach (var ws in workspaces)
+            {
+                _workspaces.Add(new WorkspaceDisplayItem
+                {
+                    Id = ws.Id,
+                    Name = ws.Name,
+                    Initial = ws.Name.Length > 0 ? ws.Name[..1].ToUpper() : "?",
+                    IsSelected = ws.Id == currentId,
+                    MemberCount = ws.MemberCount
+                });
+            }
+
+            // Update member count in popup header
+            var current = _workspaces.FirstOrDefault(w => w.IsSelected);
+            if (current != null && current.MemberCount > 0)
+            {
+                var plan = AuthManager.Instance.Storage.TenantPlan ?? "Free";
+                PopupWorkspaceDetail.Text = $"{current.MemberCount} members \u2022 {plan} Plan";
+            }
+        }
+        catch (Exception ex)
+        {
+            FileLogger.Instance.Error("ChatView", $"Load workspaces failed: {ex.Message}");
+        }
+    }
+
+    private async Task LoadIntentScore()
+    {
+        try
+        {
+            // Fetch raw intent score from API
+            var baseUrl = BaseURLService.Instance.GetBaseUrl("whatsapp");
+            var workspaceId = AuthManager.Instance.Storage.WorkspaceId;
+            if (baseUrl == null || string.IsNullOrEmpty(workspaceId)) return;
+
+            var response = await NetworkService.Instance.GetRawAsync(
+                $"{baseUrl}/email-tags/workspace/{workspaceId}/get-intent-score");
+            if (response == null) return;
+
+            var json = Newtonsoft.Json.Linq.JObject.Parse(response);
+            var score = json["intentScore"]?.Value<int>()
+                        ?? json["score"]?.Value<int>()
+                        ?? json["data"]?["intentScore"]?.Value<int>()
+                        ?? json["data"]?["score"]?.Value<int>();
+            if (score.HasValue)
+            {
+                IntentScoreText.Text = $"{score.Value}%";
+            }
+        }
+        catch (Exception ex)
+        {
+            FileLogger.Instance.Debug("ChatView", $"Load intent score: {ex.Message}");
+        }
+    }
+
+    private void CloseAccountPopup_Click(object sender, MouseButtonEventArgs e)
+    {
+        AccountOverlay.Visibility = Visibility.Collapsed;
+    }
+
+    // ═══ THEME TOGGLE ═══
+
+    private void ThemeSystem_Click(object sender, RoutedEventArgs e) => SetThemeButton("system");
+    private void ThemeLight_Click(object sender, RoutedEventArgs e) => SetThemeButton("light");
+    private void ThemeDark_Click(object sender, RoutedEventArgs e) => SetThemeButton("dark");
+
+    private void SetThemeButton(string theme)
+    {
+        var blue = new System.Windows.Media.SolidColorBrush(
+            (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#007CEC"));
+        var transparent = System.Windows.Media.Brushes.Transparent;
+        var white = System.Windows.Media.Brushes.White;
+        var gray = new System.Windows.Media.SolidColorBrush(
+            (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#878E92"));
+
+        ThemeSystem.Background = theme == "system" ? blue : transparent;
+        ThemeSystem.Foreground = theme == "system" ? white : gray;
+        ThemeLight.Background = theme == "light" ? blue : transparent;
+        ThemeLight.Foreground = theme == "light" ? white : gray;
+        ThemeDark.Background = theme == "dark" ? blue : transparent;
+        ThemeDark.Foreground = theme == "dark" ? white : gray;
+
+        FileLogger.Instance.Info("ChatView", $"Theme set to: {theme}");
+    }
+
+    // ═══ WORKSPACE SWITCH ═══
+
+    private async void SwitchWorkspace_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button btn && btn.Tag is string workspaceId)
+        {
+            var current = AuthManager.Instance.Storage.WorkspaceId;
+            if (workspaceId == current) return;
+
+            var success = await WorkspaceService.Instance.SwitchWorkspace(workspaceId);
+            if (success)
+            {
+                AuthManager.Instance.Storage.WorkspaceId = workspaceId;
+                AccountOverlay.Visibility = Visibility.Collapsed;
+
+                // Refresh UI
+                UpdateUserInfo();
+                _recentChatsLoaded = false;
+                _ = LoadRecentChats();
+
+                FileLogger.Instance.Info("ChatView", $"Switched to workspace: {workspaceId}");
+            }
+        }
+    }
+
+    // ═══ LOGOUT ═══
+
+    private void Logout_Click(object sender, RoutedEventArgs e)
+    {
+        AccountOverlay.Visibility = Visibility.Collapsed;
+        AuthManager.Instance.Logout();
+    }
+}
+
+/// <summary>
+/// Display model for workspace list in account popup.
+/// </summary>
+public class WorkspaceDisplayItem
+{
+    public string Id { get; set; } = "";
+    public string Name { get; set; } = "";
+    public string Initial { get; set; } = "";
+    public bool IsSelected { get; set; }
+    public int MemberCount { get; set; }
 }

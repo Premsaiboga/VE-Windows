@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//Users/Ve.ai/Desktop/ve-macos-desktop-app/VE/helpers/**)",
+      "Read(//Users/Ve.ai/Desktop/ve-macos-desktop-app/VE/managers/**)",
+      "Read(//Users/Ve.ai/Desktop/ve-macos-desktop-app/VE/components/Settings/apps/**)",
+      "Read(//Users/Ve.ai/Desktop/ve-macos-desktop-app/VE/services/**)",
+      "Read(//Users/Ve.ai/Desktop/ve-macos-desktop-app/VE/components/Settings/settings/**)",
+      "Bash(grep -E \"\\\\.swift$\")",
+      "Read(//Users/Ve.ai/Desktop/ve-macos-desktop-app/VE/**)",
+      "Read(//Users/Ve.ai/Desktop/ve-macos-desktop-app/VE/components/Settings/**)",
+      "Read(//Users/Ve.ai/Desktop/ve-macos-desktop-app/**)"
+    ]
+  }
+}

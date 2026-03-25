@@ -5,99 +5,489 @@
 
     <UserControl.Resources>
         <converters:BoolToVisibilityConverter x:Key="BoolToVis" />
+
+        <!-- Sidebar button style -->
+        <Style x:Key="SidebarButton" TargetType="Button">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Foreground" Value="#A0A4A8" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="Padding" Value="12,8" />
+            <Setter Property="HorizontalContentAlignment" Value="Left" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="bg" Background="{TemplateBinding Background}"
+                                CornerRadius="6" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                              VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bg" Property="Background" Value="#1AFFFFFF" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Recent chat item style -->
+        <Style x:Key="RecentChatButton" TargetType="Button" BasedOn="{StaticResource SidebarButton}">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Foreground" Value="#888D91" />
+            <Setter Property="Padding" Value="12,6" />
+        </Style>
+
+        <!-- Toggle button style -->
+        <Style x:Key="ToggleTabButton" TargetType="Button">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Foreground" Value="#878E92" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Padding" Value="20,6" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="bg" Background="{TemplateBinding Background}"
+                                CornerRadius="14" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bg" Property="Opacity" Value="0.85" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Theme icon button -->
+        <Style x:Key="ThemeIconButton" TargetType="Button">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Foreground" Value="#878E92" />
+            <Setter Property="Width" Value="40" />
+            <Setter Property="Height" Value="32" />
+            <Setter Property="FontSize" Value="15" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="bg" Background="{TemplateBinding Background}"
+                                CornerRadius="8" Padding="0">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bg" Property="Background" Value="#33FFFFFF" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Workspace list item button -->
+        <Style x:Key="WorkspaceItemButton" TargetType="Button" BasedOn="{StaticResource SidebarButton}">
+            <Setter Property="Padding" Value="10,8" />
+        </Style>
     </UserControl.Resources>
 
     <Grid>
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="*" />
-            <RowDefinition Height="Auto" />
-        </Grid.RowDefinitions>
+        <!-- Layer 0: Main Layout (Sidebar + Content) -->
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition x:Name="SidebarColumn" Width="210" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
 
-        <!-- Header -->
-        <Border Grid.Row="0" Padding="16,12" BorderThickness="0,0,0,1"
-                BorderBrush="#1AFFFFFF">
-            <Grid>
-                <TextBlock Text="Chat with VE"
-                           Foreground="White" FontSize="16"
-                           FontWeight="SemiBold"
-                           VerticalAlignment="Center" />
-                <Button Content="Clear"
-                        HorizontalAlignment="Right"
-                        Style="{StaticResource VEGhostButton}"
-                        Click="ClearChat_Click" />
-            </Grid>
-        </Border>
+            <!-- ═══ LEFT SIDEBAR ═══ -->
+            <Border Grid.Column="0" Background="#111315"
+                    BorderBrush="#1AFFFFFF" BorderThickness="0,0,1,0">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
 
-        <!-- Messages -->
-        <ScrollViewer Grid.Row="1" x:Name="MessagesScroll"
-                      VerticalScrollBarVisibility="Auto"
-                      Padding="16,8">
-            <ItemsControl x:Name="MessagesList">
-                <ItemsControl.ItemTemplate>
-                    <DataTemplate>
-                        <Grid Margin="0,4,0,4">
-                            <!-- User message -->
-                            <Border HorizontalAlignment="Right" MaxWidth="300"
-                                    Background="#007CEC" CornerRadius="12,12,4,12"
-                                    Padding="12,8"
-                                    Visibility="{Binding IsUser, Converter={StaticResource BoolToVis}}">
-                                <TextBlock Text="{Binding Content}"
-                                           Foreground="White" FontSize="13"
-                                           TextWrapping="Wrap" />
+                    <!-- Top: New Chat + Integrations -->
+                    <StackPanel Grid.Row="0" Margin="8,10,8,0">
+                        <Button Style="{StaticResource SidebarButton}" Click="NewChat_Click">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="+" FontSize="15" Foreground="#A0A4A8"
+                                           VerticalAlignment="Center" Margin="0,0,8,0" />
+                                <TextBlock Text="New Chat" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Button>
+                        <Button Style="{StaticResource SidebarButton}" Click="Integrations_Click">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="&#x2630;" FontSize="13" Foreground="#A0A4A8"
+                                           VerticalAlignment="Center" Margin="0,0,8,0" />
+                                <TextBlock Text="Integrations" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
+
+                    <!-- Middle: Recent Chats -->
+                    <Grid Grid.Row="1" Margin="8,12,8,0">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+
+                        <TextBlock Grid.Row="0" Text="Recent" Foreground="#555"
+                                   FontSize="11" FontWeight="SemiBold" Margin="12,0,0,6" />
+
+                        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                            <ItemsControl x:Name="RecentChatsList">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Button Style="{StaticResource RecentChatButton}"
+                                                Click="RecentChat_Click" Tag="{Binding Id}">
+                                            <TextBlock Text="{Binding Title}"
+                                                       TextTrimming="CharacterEllipsis"
+                                                       MaxWidth="170" />
+                                        </Button>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </ScrollViewer>
+                    </Grid>
+
+                    <!-- Bottom: User Profile -->
+                    <Border Grid.Row="2" Padding="10,8" Margin="0,4,0,0"
+                            BorderBrush="#1AFFFFFF" BorderThickness="0,1,0,0"
+                            Cursor="Hand" MouseLeftButtonDown="UserProfile_Click">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+
+                            <!-- Avatar Circle -->
+                            <Border Grid.Column="0" Width="32" Height="32"
+                                    CornerRadius="16" Background="#007CEC"
+                                    Margin="0,0,8,0">
+                                <TextBlock x:Name="UserInitials" Text="PB"
+                                           Foreground="White" FontSize="12"
+                                           FontWeight="SemiBold"
+                                           HorizontalAlignment="Center"
+                                           VerticalAlignment="Center" />
                             </Border>
-                            <!-- Assistant message -->
-                            <Border HorizontalAlignment="Left" MaxWidth="340"
-                                    Background="#25292D" CornerRadius="12,12,12,4"
-                                    Padding="12,8"
-                                    Visibility="{Binding IsAssistant, Converter={StaticResource BoolToVis}}">
-                                <TextBlock Text="{Binding Content}"
-                                           Foreground="#F4F5F5" FontSize="13"
-                                           TextWrapping="Wrap" />
-                            </Border>
+
+                            <!-- Name + Workspace -->
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock x:Name="UserNameText" Text="User"
+                                           Foreground="#F4F5F5" FontSize="12"
+                                           FontWeight="Medium"
+                                           TextTrimming="CharacterEllipsis" />
+                                <TextBlock x:Name="UserWorkspaceText" Text=""
+                                           Foreground="#666" FontSize="10"
+                                           TextTrimming="CharacterEllipsis" />
+                            </StackPanel>
+
+                            <!-- Chevron + Gear -->
+                            <StackPanel Grid.Column="2" Orientation="Horizontal"
+                                        VerticalAlignment="Center">
+                                <TextBlock Text="&#x25C7;" Foreground="#555" FontSize="9"
+                                           VerticalAlignment="Center" Margin="4,0" />
+                                <Button Content="&#x2699;" Foreground="#878E92" FontSize="14"
+                                        Background="Transparent" BorderThickness="0"
+                                        Cursor="Hand" Padding="4,0"
+                                        Click="SettingsGear_Click" />
+                            </StackPanel>
                         </Grid>
-                    </DataTemplate>
-                </ItemsControl.ItemTemplate>
-            </ItemsControl>
-        </ScrollViewer>
+                    </Border>
+                </Grid>
+            </Border>
 
-        <!-- Welcome (when no messages) -->
-        <StackPanel x:Name="WelcomePanel" Grid.Row="1"
-                    VerticalAlignment="Center" HorizontalAlignment="Center"
-                    Visibility="Visible">
-            <TextBlock Text="Ask VE anything"
-                       Foreground="#878E92" FontSize="18"
-                       HorizontalAlignment="Center" Margin="0,0,0,8" />
-            <TextBlock Text="AI assistant for your work"
-                       Foreground="#555" FontSize="13"
-                       HorizontalAlignment="Center" />
-        </StackPanel>
+            <!-- ═══ MAIN CONTENT ═══ -->
+            <Grid Grid.Column="1">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
 
-        <!-- Input Bar -->
-        <Border Grid.Row="2" Padding="12" BorderThickness="0,1,0,0"
-                BorderBrush="#1AFFFFFF">
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                </Grid.ColumnDefinitions>
+                <!-- Chat / Work Toggle -->
+                <Border Grid.Row="0" Padding="0,12,0,8">
+                    <Border HorizontalAlignment="Center" Background="#25292D"
+                            CornerRadius="16" Padding="3">
+                        <StackPanel Orientation="Horizontal">
+                            <Button x:Name="ToggleChat" Content="Chat"
+                                    Style="{StaticResource ToggleTabButton}"
+                                    Background="#007CEC" Foreground="White"
+                                    Click="ToggleChat_Click" />
+                            <Button x:Name="ToggleWork" Content="Work"
+                                    Style="{StaticResource ToggleTabButton}"
+                                    Click="ToggleWork_Click" />
+                        </StackPanel>
+                    </Border>
+                </Border>
 
-                <TextBox x:Name="ChatInput"
-                         Grid.Column="0"
-                         Style="{StaticResource VETextBox}"
-                         Foreground="White"
-                         BorderBrush="#33FFFFFF"
-                         KeyDown="ChatInput_KeyDown"
-                         VerticalAlignment="Center" />
+                <!-- Messages ScrollViewer -->
+                <ScrollViewer Grid.Row="1" x:Name="MessagesScroll"
+                              VerticalScrollBarVisibility="Auto"
+                              Padding="16,4">
+                    <ItemsControl x:Name="MessagesList">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Grid Margin="0,4,0,4">
+                                    <!-- User message -->
+                                    <Border HorizontalAlignment="Right" MaxWidth="340"
+                                            Background="#007CEC" CornerRadius="14,14,4,14"
+                                            Padding="14,9"
+                                            Visibility="{Binding IsUser, Converter={StaticResource BoolToVis}}">
+                                        <TextBlock Text="{Binding Content}"
+                                                   Foreground="White" FontSize="13"
+                                                   TextWrapping="Wrap" />
+                                    </Border>
+                                    <!-- Assistant message -->
+                                    <Border HorizontalAlignment="Left" MaxWidth="380"
+                                            Background="#25292D" CornerRadius="14,14,14,4"
+                                            Padding="14,9"
+                                            Visibility="{Binding IsAssistant, Converter={StaticResource BoolToVis}}">
+                                        <TextBlock Text="{Binding Content}"
+                                                   Foreground="#F4F5F5" FontSize="13"
+                                                   TextWrapping="Wrap" />
+                                    </Border>
+                                </Grid>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
 
-                <Button Grid.Column="1" Content="&#x27A4;"
-                        FontSize="16"
-                        Style="{StaticResource VEButton}"
-                        Width="36" Height="36"
-                        Padding="0"
-                        Margin="8,0,0,0"
-                        Click="SendButton_Click" />
+                <!-- Welcome Panel (when no messages) -->
+                <StackPanel x:Name="WelcomePanel" Grid.Row="1"
+                            VerticalAlignment="Center" HorizontalAlignment="Center"
+                            Margin="24,0">
+                    <TextBlock x:Name="GreetingName" Text="Hey there,"
+                               Foreground="White" FontSize="24"
+                               FontWeight="Bold"
+                               HorizontalAlignment="Center" />
+                    <TextBlock Text="how are you feeling today?"
+                               Foreground="#878E92" FontSize="18"
+                               HorizontalAlignment="Center" Margin="0,4,0,0" />
+
+                    <!-- Suggestion Chips (below greeting) -->
+                    <StackPanel Margin="0,28,0,0" HorizontalAlignment="Center">
+                        <Border Background="#007CEC" CornerRadius="14"
+                                Padding="16,12" Margin="0,0,0,8"
+                                Cursor="Hand" MouseLeftButtonDown="Suggestion_Click"
+                                Tag="I have a few questions. Would you mind answering them?">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="&#x1F4A1;" FontSize="14"
+                                           VerticalAlignment="Top" Margin="0,0,8,0" />
+                                <TextBlock TextWrapping="Wrap" MaxWidth="260">
+                                    <Run Text="I have a few questions." FontWeight="SemiBold"
+                                         Foreground="White" />
+                                    <LineBreak />
+                                    <Run Text="Would you mind answering them?"
+                                         Foreground="#CCFFFFFF" />
+                                </TextBlock>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </StackPanel>
+
+                <!-- Work Mode Placeholder -->
+                <StackPanel x:Name="WorkPanel" Grid.Row="1"
+                            VerticalAlignment="Center" HorizontalAlignment="Center"
+                            Visibility="Collapsed">
+                    <TextBlock Text="Work Mode" Foreground="White" FontSize="20"
+                               FontWeight="SemiBold" HorizontalAlignment="Center" />
+                    <TextBlock Text="Coming soon" Foreground="#878E92" FontSize="14"
+                               HorizontalAlignment="Center" Margin="0,6,0,0" />
+                </StackPanel>
+
+                <!-- Input Bar -->
+                <Border Grid.Row="2" Padding="14,8,14,14">
+                    <Border Background="#25292D" CornerRadius="12"
+                            BorderBrush="#33FFFFFF" BorderThickness="1"
+                            Padding="4">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="*" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+
+                            <!-- Text Input -->
+                            <TextBox x:Name="ChatInput" Grid.Row="0"
+                                     Background="Transparent" Foreground="#F4F5F5"
+                                     FontSize="13" BorderThickness="0"
+                                     Padding="10,8"
+                                     VerticalContentAlignment="Center"
+                                     AcceptsReturn="False"
+                                     KeyDown="ChatInput_KeyDown" />
+
+                            <!-- Bottom Row: Attach + Send -->
+                            <Grid Grid.Row="1" Margin="4,2,4,4">
+                                <Button Content="+" FontSize="18" Foreground="#878E92"
+                                        Background="Transparent" BorderThickness="0"
+                                        HorizontalAlignment="Left" Cursor="Hand"
+                                        Padding="8,2" />
+                                <Border HorizontalAlignment="Right"
+                                        Background="#007CEC" CornerRadius="12"
+                                        Cursor="Hand" Padding="8,4"
+                                        MouseLeftButtonDown="SendButton_Click">
+                                    <TextBlock Text="&#x2191;" Foreground="White"
+                                               FontSize="14" FontWeight="Bold"
+                                               HorizontalAlignment="Center"
+                                               VerticalAlignment="Center" />
+                                </Border>
+                            </Grid>
+                        </Grid>
+                    </Border>
+                </Border>
             </Grid>
-        </Border>
+        </Grid>
+
+        <!-- ═══ ACCOUNT POPUP OVERLAY ═══ -->
+        <Grid x:Name="AccountOverlay" Visibility="Collapsed">
+            <!-- Semi-transparent backdrop -->
+            <Border Background="#80000000" MouseLeftButtonDown="CloseAccountPopup_Click" />
+
+            <!-- Popup Card -->
+            <Border x:Name="AccountPopup"
+                    VerticalAlignment="Bottom" HorizontalAlignment="Left"
+                    Width="270" Margin="10,0,0,56"
+                    Background="#1E2024" CornerRadius="14"
+                    BorderBrush="#33FFFFFF" BorderThickness="1">
+                <Border.Effect>
+                    <DropShadowEffect Color="Black" BlurRadius="20" Opacity="0.6" ShadowDepth="6" />
+                </Border.Effect>
+
+                <StackPanel>
+                    <!-- Theme Toggle -->
+                    <Border Padding="16,14,16,10">
+                        <Border HorizontalAlignment="Center" Background="#25292D"
+                                CornerRadius="12" Padding="4,3">
+                            <StackPanel Orientation="Horizontal">
+                                <Button x:Name="ThemeSystem" Content="&#x1F5B5;"
+                                        Style="{StaticResource ThemeIconButton}"
+                                        Background="#007CEC" Foreground="White"
+                                        Click="ThemeSystem_Click" />
+                                <Button x:Name="ThemeLight" Content="&#x2600;"
+                                        Style="{StaticResource ThemeIconButton}"
+                                        Click="ThemeLight_Click" />
+                                <Button x:Name="ThemeDark" Content="&#x1F319;"
+                                        Style="{StaticResource ThemeIconButton}"
+                                        Click="ThemeDark_Click" />
+                            </StackPanel>
+                        </Border>
+                    </Border>
+
+                    <!-- Workspace Card -->
+                    <Border Margin="12,0,12,0" Background="#25292D" CornerRadius="10"
+                            Padding="14,12">
+                        <StackPanel>
+                            <StackPanel Orientation="Horizontal">
+                                <Border Width="34" Height="34" CornerRadius="17"
+                                        Background="#007CEC" Margin="0,0,10,0">
+                                    <TextBlock x:Name="WorkspaceInitial" Text="V"
+                                               Foreground="White" FontSize="14"
+                                               FontWeight="SemiBold"
+                                               HorizontalAlignment="Center"
+                                               VerticalAlignment="Center" />
+                                </Border>
+                                <StackPanel VerticalAlignment="Center">
+                                    <TextBlock x:Name="PopupWorkspaceName" Text=""
+                                               Foreground="White" FontSize="14"
+                                               FontWeight="SemiBold" />
+                                    <TextBlock x:Name="PopupWorkspaceDetail" Text=""
+                                               Foreground="#878E92" FontSize="11"
+                                               Margin="0,2,0,0" />
+                                </StackPanel>
+                            </StackPanel>
+
+                            <!-- Intent Score Bar -->
+                            <Border Margin="0,10,0,0" Background="#1A1A1A" CornerRadius="12"
+                                    Padding="12,7">
+                                <Grid>
+                                    <TextBlock Text="Your Intent score" Foreground="#00CA48"
+                                               FontSize="11" FontWeight="Medium"
+                                               VerticalAlignment="Center" />
+                                    <TextBlock x:Name="IntentScoreText" Text="--"
+                                               Foreground="#00CA48" FontSize="12"
+                                               FontWeight="Bold"
+                                               HorizontalAlignment="Right"
+                                               VerticalAlignment="Center" />
+                                </Grid>
+                            </Border>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Invite Teammates -->
+                    <Border Margin="12,8,12,0" BorderBrush="#33FFFFFF" BorderThickness="1"
+                            CornerRadius="10" Padding="0">
+                        <Button Style="{StaticResource SidebarButton}"
+                                HorizontalContentAlignment="Center" Padding="12,10">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="&#x1F465;" FontSize="13"
+                                           VerticalAlignment="Center" Margin="0,0,8,0" />
+                                <TextBlock Text="Invite teammates" Foreground="#F4F5F5"
+                                           FontSize="13" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Button>
+                    </Border>
+
+                    <!-- Divider -->
+                    <Border Height="1" Background="#1AFFFFFF" Margin="12,10" />
+
+                    <!-- All Workspaces -->
+                    <TextBlock Text="All workspaces" Foreground="#007CEC" FontSize="12"
+                               FontWeight="SemiBold" Margin="16,0,0,6" />
+
+                    <ItemsControl x:Name="WorkspacesList" Margin="8,0,8,0">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Button Style="{StaticResource WorkspaceItemButton}"
+                                        Click="SwitchWorkspace_Click" Tag="{Binding Id}">
+                                    <Grid Width="230">
+                                        <StackPanel Orientation="Horizontal">
+                                            <Border Width="28" Height="28" CornerRadius="14"
+                                                    Background="#333" Margin="0,0,8,0">
+                                                <TextBlock Text="{Binding Initial}"
+                                                           Foreground="White" FontSize="11"
+                                                           FontWeight="SemiBold"
+                                                           HorizontalAlignment="Center"
+                                                           VerticalAlignment="Center" />
+                                            </Border>
+                                            <TextBlock Text="{Binding Name}" Foreground="#F4F5F5"
+                                                       FontSize="13" VerticalAlignment="Center" />
+                                        </StackPanel>
+                                        <TextBlock Text="&#x2713;" Foreground="#007CEC"
+                                                   FontSize="14" FontWeight="Bold"
+                                                   HorizontalAlignment="Right"
+                                                   VerticalAlignment="Center"
+                                                   Visibility="{Binding IsSelected, Converter={StaticResource BoolToVis}}" />
+                                    </Grid>
+                                </Button>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+
+                    <!-- Divider -->
+                    <Border Height="1" Background="#1AFFFFFF" Margin="12,6" />
+
+                    <!-- Logout -->
+                    <Button Style="{StaticResource SidebarButton}" Click="Logout_Click"
+                            Margin="8,0,8,8">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="&#x2192;" Foreground="#FF4B59" FontSize="13"
+                                       VerticalAlignment="Center" Margin="0,0,8,0" />
+                            <TextBlock Text="Logout" Foreground="#FF4B59" FontSize="13" />
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+            </Border>
+        </Grid>
     </Grid>
 </UserControl>
