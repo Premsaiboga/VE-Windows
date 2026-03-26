@@ -68,6 +68,7 @@ public sealed class MeetingGraphQLService
                             _id
                             status
                             isTranscription
+                            transcriptionSummary
                         }
                     }
                 }",
@@ -94,7 +95,8 @@ public sealed class MeetingGraphQLService
                     Title = item["title"]?.Value<string>() ?? "Untitled Meeting",
                     CreatedAt = item["createdAt"]?.Value<double>() ?? 0,
                     Status = item["status"]?.Value<string>() ?? "",
-                    IsTranscription = item["isTranscription"]?.Value<bool>() ?? false
+                    IsTranscription = item["isTranscription"]?.Value<bool>() ?? false,
+                    TranscriptionSummary = item["transcriptionSummary"]?.Value<string>()
                 });
             }
 

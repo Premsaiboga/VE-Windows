@@ -24,7 +24,7 @@ public sealed class KnowledgeAgentService
         return $"{baseUrl}/{workspaceId}";
     }
 
-    // --- Knowledge Base Files ---
+    // --- Knowledge Base Files (legacy endpoint) ---
 
     public async Task<List<KnowledgeBaseFile>> ListKnowledgeBaseFiles(int page = 1, int limit = 20)
     {
@@ -61,6 +61,48 @@ public sealed class KnowledgeAgentService
         catch (Exception ex)
         {
             FileLogger.Instance.Error("KnowledgeAgent", $"ListKnowledgeBaseFiles failed: {ex.Message}");
+            return new();
+        }
+    }
+
+    // --- List Chat File Uploads (new endpoint matching macOS) ---
+
+    public async Task<List<KnowledgeBaseFile>> ListChatFileUploads(int page = 1, int limit = 20, string? fileName = null)
+    {
+        try
+        {
+            var url = GetBaseUrl();
+            if (url == null) return new();
+
+            var queryFileName = fileName ?? "";
+            var response = await NetworkService.Instance.GetRawAsync(
+                $"{url}/ai-chat/list-ai-chat-file-uploads?limit={limit}&page={page}&originalFileName={Uri.EscapeDataString(queryFileName)}");
+            if (response == null) return new();
+
+            var json = JObject.Parse(response);
+            var data = json["data"] as JArray;
+            if (data == null) return new();
+
+            var result = new List<KnowledgeBaseFile>();
+            foreach (var item in data)
+            {
+                result.Add(new KnowledgeBaseFile
+                {
+                    Id = item["_id"]?.ToString() ?? "",
+                    OriginalFileName = item["originalFileName"]?.ToString() ?? "Untitled",
+                    SourceType = item["sourceType"]?.ToString() ?? item["type"]?.ToString() ?? "",
+                    Url = item["url"]?.ToString(),
+                    Status = item["status"]?.ToString() ?? "",
+                    CreatedAt = item["createdAt"]?.Value<long>() ?? 0
+                });
+            }
+
+            FileLogger.Instance.Info("KnowledgeAgent", $"Listed {result.Count} chat file uploads (page {page})");
+            return result;
+        }
+        catch (Exception ex)
+        {
+            FileLogger.Instance.Error("KnowledgeAgent", $"ListChatFileUploads failed: {ex.Message}");
             return new();
         }
     }
@@ -139,7 +181,7 @@ public sealed class KnowledgeAgentService
         }
     }
 
-    // --- Delete Knowledge Base File ---
+    // --- Delete Knowledge Base File (legacy) ---
 
     public async Task<bool> DeleteFile(string fileId)
     {
@@ -153,6 +195,24 @@ public sealed class KnowledgeAgentService
         catch (Exception ex)
         {
             FileLogger.Instance.Error("KnowledgeAgent", $"DeleteFile failed: {ex.Message}");
+            return false;
+        }
+    }
+
+    // --- Delete Chat File Upload (new endpoint) ---
+
+    public async Task<bool> DeleteChatFile(string fileId)
+    {
+        try
+        {
+            var baseUrlStr = GetBaseUrl();
+            if (baseUrlStr == null) return false;
+
+            return await NetworkService.Instance.DeleteAsync($"{baseUrlStr}/ai-chat/delete-file/{fileId}");
+        }
+        catch (Exception ex)
+        {
+            FileLogger.Instance.Error("KnowledgeAgent", $"DeleteChatFile failed: {ex.Message}");
             return false;
         }
     }

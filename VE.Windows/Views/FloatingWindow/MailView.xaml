@@ -28,11 +28,11 @@
                     </TextBlock>
 
                     <!-- Gmail + Outlook Cards -->
-                    <Grid HorizontalAlignment="Center">
+                    <Grid HorizontalAlignment="Stretch">
                         <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" MaxWidth="340" />
-                            <ColumnDefinition Width="16" />
-                            <ColumnDefinition Width="*" MaxWidth="340" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="12" />
+                            <ColumnDefinition Width="*" />
                         </Grid.ColumnDefinitions>
 
                         <!-- Gmail Card -->

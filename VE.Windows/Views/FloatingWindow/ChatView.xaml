@@ -98,7 +98,7 @@
         </Style>
     </UserControl.Resources>
 
-    <Grid>
+    <Grid ClipToBounds="True">
         <!-- Layer 0: Main Layout (Sidebar + Content) -->
         <Grid>
             <Grid.ColumnDefinitions>
@@ -378,6 +378,7 @@
 
                 <!-- Work Mode Content (embedded views) -->
                 <ContentControl x:Name="WorkContent" Grid.Row="1"
+                                ClipToBounds="True"
                                 Visibility="Collapsed" />
 
                 <!-- Input Bar (hidden in Work mode) -->

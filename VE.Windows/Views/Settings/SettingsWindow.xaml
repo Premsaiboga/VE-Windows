@@ -88,8 +88,10 @@
         <Rectangle Grid.Column="1" Fill="{DynamicResource ThemeBorder}" />
 
         <!-- Content Area -->
-        <Grid Grid.Column="2" Margin="24,16">
-            <ContentControl x:Name="ContentArea" />
+        <Grid Grid.Column="2" ClipToBounds="True">
+            <ScrollViewer VerticalScrollBarVisibility="Auto" Margin="24,16">
+                <ContentControl x:Name="ContentArea" />
+            </ScrollViewer>
         </Grid>
     </Grid>
 </Window>

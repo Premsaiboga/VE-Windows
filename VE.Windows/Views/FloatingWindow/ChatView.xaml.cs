@@ -361,6 +361,7 @@ public partial class ChatView : UserControl
                 "Routines" => new RoutinesView(),
                 "IntentModel" => new IntentModelView(),
                 "Knowledge" => new FilesView(),
+                "Shared" => new SharedWithMeView(),
                 "Connectors" => new ConnectorsView(),
                 _ => null
             };

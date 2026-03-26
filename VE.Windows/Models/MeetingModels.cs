@@ -11,6 +11,9 @@ public class MeetingListItem
     public double CreatedAt { get; set; }
     public string Status { get; set; } = "";
     public bool IsTranscription { get; set; }
+    public string? TranscriptionSummary { get; set; }
+
+    public bool IsSelected { get; set; }
 
     public DateTime CreatedDate => DateTimeOffset.FromUnixTimeSeconds((long)CreatedAt).LocalDateTime;
 
