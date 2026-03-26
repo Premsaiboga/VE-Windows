@@ -53,7 +53,8 @@
         </Style>
     </UserControl.Resources>
 
-    <Grid Background="#1A1A1A">
+    <Border Background="#1A1A1A" CornerRadius="12" ClipToBounds="True">
+    <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
@@ -563,4 +564,5 @@
             </ScrollViewer>
         </Grid>
     </Grid>
+    </Border>
 </UserControl>
