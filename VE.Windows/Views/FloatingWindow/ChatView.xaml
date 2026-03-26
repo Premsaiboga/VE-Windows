@@ -98,7 +98,7 @@
         </Style>
     </UserControl.Resources>
 
-    <Grid x:Name="RootGrid" Background="#1A1A1A">
+    <Grid>
         <!-- Layer 0: Main Layout (Sidebar + Content) -->
         <Grid>
             <Grid.ColumnDefinitions>
@@ -107,7 +107,7 @@
             </Grid.ColumnDefinitions>
 
             <!-- ═══ LEFT SIDEBAR ═══ -->
-            <Border x:Name="SidebarBorder" Grid.Column="0" Background="#111315"
+            <Border Grid.Column="0" Background="#111315"
                     BorderBrush="#1AFFFFFF" BorderThickness="0,0,1,0"
                     CornerRadius="12,0,0,12">
                 <Grid>
@@ -157,8 +157,7 @@
                     </Grid>
 
                     <!-- ─── WORK SIDEBAR (visible in Work mode) ─── -->
-                    <StackPanel x:Name="WorkSidebar" Grid.Row="0" Margin="8,0,8,0"
-                                VerticalAlignment="Center"
+                    <StackPanel x:Name="WorkSidebar" Grid.Row="0" Margin="8,10,8,0"
                                 Visibility="Collapsed">
                         <Button x:Name="WorkNavNotes" Style="{StaticResource SidebarButton}"
                                 Click="WorkNav_Click" Tag="Notes" Foreground="White" FontWeight="SemiBold">
@@ -289,7 +288,7 @@
 
                 <!-- Chat / Work Toggle -->
                 <Border Grid.Row="0" Padding="0,12,0,8">
-                    <Border x:Name="TogglePill" HorizontalAlignment="Center" Background="#25292D"
+                    <Border HorizontalAlignment="Center" Background="#25292D"
                             CornerRadius="16" Padding="3">
                         <StackPanel Orientation="Horizontal">
                             <Button x:Name="ToggleChat" Content="Chat"
@@ -374,7 +373,7 @@
 
                 <!-- Input Bar (hidden in Work mode) -->
                 <Border x:Name="InputBar" Grid.Row="2" Padding="14,8,14,14">
-                    <Border x:Name="InputBarInner" Background="#25292D" CornerRadius="12"
+                    <Border Background="#25292D" CornerRadius="12"
                             BorderBrush="#33FFFFFF" BorderThickness="1"
                             Padding="4">
                         <Grid>
