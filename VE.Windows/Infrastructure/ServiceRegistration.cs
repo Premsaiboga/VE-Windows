@@ -9,33 +9,34 @@ namespace VE.Windows.Infrastructure;
 /// Composition root: registers all services in the DI container.
 /// Existing code continues to work via static Instance properties;
 /// new code should resolve via IServiceProvider or constructor injection.
+/// Uses factory lambdas since singletons don't yet declare interface implementations.
 /// </summary>
 public static class ServiceRegistration
 {
     public static IServiceCollection AddVEServices(this IServiceCollection services)
     {
         // Infrastructure
-        services.AddSingleton<IAppConfiguration>(AppConfiguration.Instance);
-        services.AddSingleton<IFileLogger>(FileLogger.Instance);
+        services.AddSingleton<IAppConfiguration>(_ => AppConfiguration.Instance);
+        services.AddSingleton<IFileLogger>(_ => FileLogger.Instance);
 
         // Core services (register existing singletons)
-        services.AddSingleton<IErrorService>(ErrorService.Instance);
-        services.AddSingleton<INetworkService>(NetworkService.Instance);
-        services.AddSingleton<IAuthManager>(AuthManager.Instance);
-        services.AddSingleton<IBaseURLService>(BaseURLService.Instance);
-        services.AddSingleton<IWebSocketRegistry>(WebSocket.WebSocketRegistry.Instance);
-        services.AddSingleton<ITokenRefreshService>(TokenRefreshService.Instance);
+        services.AddSingleton<IErrorService>(_ => ErrorService.Instance);
+        services.AddSingleton<INetworkService>(_ => NetworkService.Instance);
+        services.AddSingleton<IAuthManager>(_ => AuthManager.Instance);
+        services.AddSingleton<IBaseURLService>(_ => BaseURLService.Instance);
+        services.AddSingleton<IWebSocketRegistry>(_ => WebSocket.WebSocketRegistry.Instance);
+        services.AddSingleton<ITokenRefreshService>(_ => TokenRefreshService.Instance);
 
         // Managers
-        services.AddSingleton<IAudioService>(AudioService.Instance);
-        services.AddSingleton<IScreenCaptureManager>(ScreenCaptureManager.Instance);
-        services.AddSingleton<IClipboardManager>(ClipboardManager.Instance);
-        services.AddSingleton<IViewCoordinator>(ViewCoordinator.Instance);
-        services.AddSingleton<ISettingsManager>(Models.SettingsManager.Instance);
+        services.AddSingleton<IAudioService>(_ => AudioService.Instance);
+        services.AddSingleton<IScreenCaptureManager>(_ => ScreenCaptureManager.Instance);
+        services.AddSingleton<IClipboardManager>(_ => ClipboardManager.Instance);
+        services.AddSingleton<IViewCoordinator>(_ => ViewCoordinator.Instance);
+        services.AddSingleton<ISettingsManager>(_ => Models.SettingsManager.Instance);
 
         // Feature services
-        services.AddSingleton<IDictationService>(DictationService.Instance);
-        services.AddSingleton<IMeetingService>(MeetingService.Instance);
+        services.AddSingleton<IDictationService>(_ => DictationService.Instance);
+        services.AddSingleton<IMeetingService>(_ => MeetingService.Instance);
 
         return services;
     }
