@@ -6,14 +6,14 @@
         <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="300">
             <!-- VE Logo -->
             <TextBlock Text="VE"
-                       Foreground="White"
+                       Foreground="{DynamicResource ThemeTextPrimary}"
                        FontSize="36"
                        FontWeight="Bold"
                        HorizontalAlignment="Center"
                        Margin="0,0,0,8" />
 
             <TextBlock Text="AI-Powered Assistant"
-                       Foreground="#B0B0B0"
+                       Foreground="{DynamicResource ThemeTextSecondary}"
                        FontSize="14"
                        HorizontalAlignment="Center"
                        Margin="0,0,0,32" />
@@ -87,22 +87,22 @@
             <StackPanel x:Name="LoadingSpinner" Visibility="Collapsed"
                         HorizontalAlignment="Center" Margin="0,0,0,16">
                 <TextBlock Text="Signing in..."
-                           Foreground="#878E92" FontSize="13"
+                           Foreground="{DynamicResource ThemeTextSecondary}" FontSize="13"
                            HorizontalAlignment="Center" />
             </StackPanel>
 
             <!-- Terms & Privacy -->
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                <TextBlock Foreground="#878E92" FontSize="10">
+                <TextBlock Foreground="{DynamicResource ThemeTextSecondary}" FontSize="10">
                     <Hyperlink x:Name="TermsLink" Click="TermsLink_Click"
-                               Foreground="#878E92" TextDecorations="Underline">
+                               Foreground="{DynamicResource ThemeTextSecondary}" TextDecorations="Underline">
                         Terms of Service
                     </Hyperlink>
                 </TextBlock>
-                <TextBlock Text=" · " Foreground="#878E92" FontSize="10" />
-                <TextBlock Foreground="#878E92" FontSize="10">
+                <TextBlock Text=" · " Foreground="{DynamicResource ThemeTextSecondary}" FontSize="10" />
+                <TextBlock Foreground="{DynamicResource ThemeTextSecondary}" FontSize="10">
                     <Hyperlink x:Name="PrivacyLink" Click="PrivacyLink_Click"
-                               Foreground="#878E92" TextDecorations="Underline">
+                               Foreground="{DynamicResource ThemeTextSecondary}" TextDecorations="Underline">
                         Privacy Policy
                     </Hyperlink>
                 </TextBlock>

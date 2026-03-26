@@ -77,10 +77,8 @@
                 CornerRadius="0,0,12,12"
                 HorizontalAlignment="Center"
                 VerticalAlignment="Top"
-                ClipToBounds="True">
-            <Border.Background>
-                <SolidColorBrush x:Name="NotchBg" Color="Black" />
-            </Border.Background>
+                ClipToBounds="True"
+                Background="{DynamicResource ThemeNotchBg}">
 
             <!-- Glass border overlay -->
             <Border CornerRadius="0,0,12,12"

@@ -5,12 +5,12 @@
         Width="1000" Height="700"
         MinWidth="800" MinHeight="500"
         WindowStartupLocation="CenterScreen"
-        Background="{DynamicResource BackgroundBrush}">
+        Background="{DynamicResource ThemeBg}">
 
     <Window.Resources>
         <Style x:Key="SidebarButton" TargetType="Button">
             <Setter Property="Background" Value="Transparent" />
-            <Setter Property="Foreground" Value="#878E92" />
+            <Setter Property="Foreground" Value="{DynamicResource ThemeTextSecondary}" />
             <Setter Property="FontSize" Value="13" />
             <Setter Property="Padding" Value="16,8" />
             <Setter Property="HorizontalContentAlignment" Value="Left" />
@@ -25,7 +25,7 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="border" Property="Background" Value="#1AFFFFFF" />
+                                <Setter TargetName="border" Property="Background" Value="{DynamicResource ThemeHover}" />
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -47,11 +47,11 @@
         </Grid.ColumnDefinitions>
 
         <!-- Sidebar -->
-        <Grid Grid.Column="0" Background="#0A0A0A">
+        <Grid Grid.Column="0" Background="{DynamicResource ThemeSidebarBg}">
             <ScrollViewer VerticalScrollBarVisibility="Auto" Margin="12,16">
                 <StackPanel>
                     <!-- Apps Section -->
-                    <TextBlock Text="APPS" Foreground="#555" FontSize="10" FontWeight="SemiBold"
+                    <TextBlock Text="APPS" Foreground="{DynamicResource ThemeTextMuted}" FontSize="10" FontWeight="SemiBold"
                                Margin="16,0,0,8" />
                     <Button Content="Home" Tag="home" Click="SidebarButton_Click" Style="{StaticResource SidebarButton}" />
                     <Button Content="Chat" Tag="chat" Click="SidebarButton_Click" Style="{StaticResource SidebarButton}" />
@@ -64,10 +64,10 @@
                     <Button Content="Prediction Logs" Tag="predictionlogs" Click="SidebarButton_Click" Style="{StaticResource SidebarButton}" />
                     <Button Content="Dictation Logs" Tag="dictationlogs" Click="SidebarButton_Click" Style="{StaticResource SidebarButton}" />
 
-                    <Rectangle Height="1" Fill="#1AFFFFFF" Margin="16,12" />
+                    <Rectangle Height="1" Fill="{DynamicResource ThemeBorder}" Margin="16,12" />
 
                     <!-- Settings Section -->
-                    <TextBlock Text="SETTINGS" Foreground="#555" FontSize="10" FontWeight="SemiBold"
+                    <TextBlock Text="SETTINGS" Foreground="{DynamicResource ThemeTextMuted}" FontSize="10" FontWeight="SemiBold"
                                Margin="16,0,0,8" />
                     <Button Content="Shortcuts" Tag="shortcuts" Click="SidebarButton_Click" Style="{StaticResource SidebarButton}" />
                     <Button Content="My Profile" Tag="profile" Click="SidebarButton_Click" Style="{StaticResource SidebarButton}" />
@@ -76,7 +76,7 @@
                     <Button Content="Team Members" Tag="team" Click="SidebarButton_Click" Style="{StaticResource SidebarButton}" />
                     <Button Content="Share &amp; Earn" Tag="share" Click="SidebarButton_Click" Style="{StaticResource SidebarButton}" />
 
-                    <Rectangle Height="1" Fill="#1AFFFFFF" Margin="16,12" />
+                    <Rectangle Height="1" Fill="{DynamicResource ThemeBorder}" Margin="16,12" />
 
                     <Button Content="About" Tag="about" Click="SidebarButton_Click" Style="{StaticResource SidebarButton}" />
                     <Button Content="Log Out" Foreground="#FF4B59" Tag="logout" Click="SidebarButton_Click" Style="{StaticResource SidebarButton}" />
@@ -85,7 +85,7 @@
         </Grid>
 
         <!-- Divider -->
-        <Rectangle Grid.Column="1" Fill="#1AFFFFFF" />
+        <Rectangle Grid.Column="1" Fill="{DynamicResource ThemeBorder}" />
 
         <!-- Content Area -->
         <Grid Grid.Column="2" Margin="24,16">

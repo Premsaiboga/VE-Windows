@@ -26,30 +26,11 @@
                      VerticalAlignment="Center"
                      Margin="0,0,6,0" />
             <TextBlock Text="VE"
-                       Foreground="White"
+                       Foreground="{DynamicResource ThemeNotchText}"
                        FontSize="14"
                        FontWeight="SemiBold"
                        VerticalAlignment="Center" />
         </StackPanel>
-
-        <!-- Persistent right: settings gear (no hover background) -->
-        <Button x:Name="SettingsButton"
-                Content="&#x2699;"
-                Foreground="#878E92"
-                FontSize="14"
-                BorderThickness="0"
-                HorizontalAlignment="Right"
-                VerticalAlignment="Center"
-                Cursor="Hand"
-                Click="SettingsButton_Click"
-                Padding="8,0"
-                Margin="0,0,8,0">
-            <Button.Template>
-                <ControlTemplate TargetType="Button">
-                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
-                </ControlTemplate>
-            </Button.Template>
-        </Button>
 
         <!-- Idle State (shown in center area, nothing extra needed) -->
         <Grid x:Name="IdleContent" Visibility="Visible" />
@@ -57,7 +38,7 @@
         <!-- Welcome Message -->
         <Grid x:Name="WelcomeContent" Visibility="Collapsed">
             <TextBlock Text="Welcome to VE"
-                       Foreground="White"
+                       Foreground="{DynamicResource ThemeNotchText}"
                        FontSize="13"
                        HorizontalAlignment="Center"
                        VerticalAlignment="Center" />
@@ -69,7 +50,7 @@
                         HorizontalAlignment="Center"
                         VerticalAlignment="Center">
                 <TextBlock Text="Predicting"
-                           Foreground="White"
+                           Foreground="{DynamicResource ThemeNotchText}"
                            FontSize="12"
                            VerticalAlignment="Center"
                            Margin="0,0,6,0" />
@@ -83,7 +64,7 @@
         <Grid x:Name="PredictionStreamingContent" Visibility="Collapsed">
             <TextBlock x:Name="PredictionStreamText"
                        Text=""
-                       Foreground="White"
+                       Foreground="{DynamicResource ThemeNotchText}"
                        FontSize="12"
                        TextTrimming="CharacterEllipsis"
                        HorizontalAlignment="Center"
@@ -103,7 +84,7 @@
                            VerticalAlignment="Center"
                            Margin="0,0,6,0" />
                 <TextBlock Text="Pasted"
-                           Foreground="White"
+                           Foreground="{DynamicResource ThemeNotchText}"
                            FontSize="12"
                            VerticalAlignment="Center" />
             </StackPanel>
@@ -115,7 +96,7 @@
                         HorizontalAlignment="Center"
                         VerticalAlignment="Center">
                 <TextBlock Text="Listening"
-                           Foreground="White"
+                           Foreground="{DynamicResource ThemeNotchText}"
                            FontSize="12"
                            VerticalAlignment="Center"
                            Margin="0,0,6,0" />
@@ -137,7 +118,7 @@
                            VerticalAlignment="Center"
                            Margin="0,0,6,0" />
                 <TextBlock Text="Transcribed"
-                           Foreground="White"
+                           Foreground="{DynamicResource ThemeNotchText}"
                            FontSize="12"
                            VerticalAlignment="Center" />
             </StackPanel>

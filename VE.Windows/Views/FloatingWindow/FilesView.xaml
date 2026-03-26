@@ -10,9 +10,9 @@
 
         <!-- Header with upload buttons -->
         <Border Grid.Row="0" Padding="16,10" BorderThickness="0,0,0,1"
-                BorderBrush="#1AFFFFFF">
+                BorderBrush="{DynamicResource ThemeBorder}">
             <Grid>
-                <TextBlock Text="Knowledge Base" Foreground="White" FontSize="15"
+                <TextBlock Text="Knowledge Base" Foreground="{DynamicResource ThemeTextPrimary}" FontSize="15"
                            FontWeight="SemiBold" VerticalAlignment="Center" />
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                     <Button Content="+ URL" Style="{StaticResource VEGhostButton}"
@@ -28,11 +28,11 @@
         <!-- File List -->
         <Grid Grid.Row="1">
             <TextBlock x:Name="LoadingText" Text="Loading files..."
-                       Foreground="#878E92" FontSize="13"
+                       Foreground="{DynamicResource ThemeTextSecondary}" FontSize="13"
                        HorizontalAlignment="Center" Margin="0,40,0,0" />
 
             <TextBlock x:Name="EmptyText" Text="No files uploaded yet"
-                       Foreground="#878E92" FontSize="13"
+                       Foreground="{DynamicResource ThemeTextSecondary}" FontSize="13"
                        HorizontalAlignment="Center" Margin="0,40,0,0"
                        Visibility="Collapsed" />
 
@@ -40,7 +40,7 @@
                 <ItemsControl x:Name="FilesList" Margin="8,4">
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>
-                            <Border Background="#0DFFFFFF" CornerRadius="8"
+                            <Border Background="{DynamicResource ThemeRowBg}" CornerRadius="8"
                                     Padding="12,10" Margin="0,3">
                                 <Grid>
                                     <Grid.ColumnDefinitions>
@@ -59,13 +59,13 @@
 
                                     <!-- File Info -->
                                     <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                        <TextBlock Text="{Binding OriginalFileName}" Foreground="#F4F5F5"
+                                        <TextBlock Text="{Binding OriginalFileName}" Foreground="{DynamicResource ThemeTextPrimary}"
                                                    FontSize="12" TextTrimming="CharacterEllipsis" />
                                         <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
-                                            <TextBlock Text="{Binding Status}" Foreground="#878E92"
+                                            <TextBlock Text="{Binding Status}" Foreground="{DynamicResource ThemeTextSecondary}"
                                                        FontSize="10" />
-                                            <TextBlock Text=" · " Foreground="#555" FontSize="10" />
-                                            <TextBlock Text="{Binding FormattedDate}" Foreground="#555"
+                                            <TextBlock Text=" · " Foreground="{DynamicResource ThemeTextMuted}" FontSize="10" />
+                                            <TextBlock Text="{Binding FormattedDate}" Foreground="{DynamicResource ThemeTextMuted}"
                                                        FontSize="10" />
                                         </StackPanel>
                                     </StackPanel>

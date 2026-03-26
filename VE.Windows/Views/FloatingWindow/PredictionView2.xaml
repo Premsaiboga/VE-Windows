@@ -11,20 +11,20 @@
         <ScrollViewer Grid.Row="0" VerticalScrollBarVisibility="Auto">
             <StackPanel Margin="20,12,20,8">
                 <!-- Stats Card -->
-                <Border Background="#25292D" CornerRadius="10"
-                        BorderBrush="#33FFFFFF" BorderThickness="1"
+                <Border Background="{DynamicResource ThemeCard}" CornerRadius="10"
+                        BorderBrush="{DynamicResource ThemeBorderMedium}" BorderThickness="1"
                         Padding="20,16" Margin="0,0,0,16">
                     <Grid>
                         <StackPanel>
-                            <TextBlock Text="Prediction used" Foreground="#878E92"
+                            <TextBlock Text="Prediction used" Foreground="{DynamicResource ThemeTextSecondary}"
                                        FontSize="13" />
                             <TextBlock x:Name="PredictionCountText" Text="--"
-                                       Foreground="White" FontSize="28"
+                                       Foreground="{DynamicResource ThemeTextPrimary}" FontSize="28"
                                        FontWeight="Bold" Margin="0,4,0,0" />
                         </StackPanel>
                         <StackPanel HorizontalAlignment="Right" VerticalAlignment="Center"
                                     Orientation="Horizontal">
-                            <TextBlock Text="vs last month " Foreground="#878E92" FontSize="12" />
+                            <TextBlock Text="vs last month " Foreground="{DynamicResource ThemeTextSecondary}" FontSize="12" />
                             <TextBlock x:Name="GrowthText" Text="" Foreground="#00CA48"
                                        FontSize="12" FontWeight="Bold" />
                             <TextBlock x:Name="GrowthArrow" Text=" &#x2197;" Foreground="#00CA48"
@@ -35,12 +35,12 @@
 
                 <!-- Loading -->
                 <TextBlock x:Name="LoadingText" Text="Loading predictions..."
-                           Foreground="#878E92" FontSize="13"
+                           Foreground="{DynamicResource ThemeTextSecondary}" FontSize="13"
                            HorizontalAlignment="Center" Margin="0,30,0,0" />
 
                 <!-- Empty -->
                 <TextBlock x:Name="EmptyText" Text="No prediction history yet"
-                           Foreground="#878E92" FontSize="13"
+                           Foreground="{DynamicResource ThemeTextSecondary}" FontSize="13"
                            HorizontalAlignment="Center" Margin="0,30,0,0"
                            Visibility="Collapsed" />
 
@@ -51,8 +51,8 @@
 
         <!-- Search Bar -->
         <Border Grid.Row="1" Padding="16,8,16,12">
-            <Border Background="#25292D" CornerRadius="10"
-                    BorderBrush="#33FFFFFF" BorderThickness="1"
+            <Border Background="{DynamicResource ThemeCard}" CornerRadius="10"
+                    BorderBrush="{DynamicResource ThemeBorderMedium}" BorderThickness="1"
                     Padding="12,8">
                 <Grid>
                     <Grid.ColumnDefinitions>
@@ -60,10 +60,10 @@
                         <ColumnDefinition Width="*" />
                     </Grid.ColumnDefinitions>
                     <TextBlock Grid.Column="0" Text="&#x1F50D;" FontSize="13"
-                               Foreground="#878E92" VerticalAlignment="Center"
+                               Foreground="{DynamicResource ThemeTextSecondary}" VerticalAlignment="Center"
                                Margin="0,0,8,0" />
                     <TextBox x:Name="SearchBox" Grid.Column="1"
-                             Background="Transparent" Foreground="#F4F5F5"
+                             Background="Transparent" Foreground="{DynamicResource ThemeTextPrimary}"
                              FontSize="13" BorderThickness="0"
                              VerticalContentAlignment="Center"
                              TextChanged="SearchBox_TextChanged" />

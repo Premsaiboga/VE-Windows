@@ -10,10 +10,10 @@
             <components:SmoothDotLoader DotColor="White" DotSize="8"
                                         HorizontalAlignment="Center" Margin="0,0,0,12" />
             <TextBlock Text="Analyzing context..."
-                       Foreground="#878E92" FontSize="13"
+                       Foreground="{DynamicResource ThemeTextSecondary}" FontSize="13"
                        HorizontalAlignment="Center" />
             <TextBlock Text="Hold Ctrl to keep predicting"
-                       Foreground="#555555" FontSize="11"
+                       Foreground="{DynamicResource ThemeTextMuted}" FontSize="11"
                        HorizontalAlignment="Center" Margin="0,4,0,0" />
         </StackPanel>
 
@@ -22,7 +22,7 @@
             <ScrollViewer VerticalScrollBarVisibility="Auto" MaxHeight="380">
                 <TextBlock x:Name="StreamingText"
                            Text=""
-                           Foreground="White"
+                           Foreground="{DynamicResource ThemeTextPrimary}"
                            FontSize="14"
                            TextWrapping="Wrap"
                            LineHeight="22" />
@@ -35,11 +35,11 @@
             <TextBlock Text="&#x2713;" Foreground="#00CA48" FontSize="32"
                        HorizontalAlignment="Center" Margin="0,0,0,8" />
             <TextBlock Text="Pasted to active window"
-                       Foreground="White" FontSize="14"
+                       Foreground="{DynamicResource ThemeTextPrimary}" FontSize="14"
                        HorizontalAlignment="Center" />
             <TextBlock x:Name="SuccessPreviewText"
                        Text=""
-                       Foreground="#878E92" FontSize="12"
+                       Foreground="{DynamicResource ThemeTextSecondary}" FontSize="12"
                        TextTrimming="CharacterEllipsis"
                        MaxWidth="300"
                        HorizontalAlignment="Center"
@@ -56,7 +56,7 @@
                        Foreground="#FF4B59" FontSize="14"
                        HorizontalAlignment="Center" />
             <TextBlock Text="Please try again"
-                       Foreground="#878E92" FontSize="12"
+                       Foreground="{DynamicResource ThemeTextSecondary}" FontSize="12"
                        HorizontalAlignment="Center" Margin="0,4,0,0" />
         </StackPanel>
     </Grid>

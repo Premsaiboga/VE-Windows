@@ -6,7 +6,7 @@
         <!-- Tab button style for Summary/Transcript/Analytics -->
         <Style x:Key="DetailTabButton" TargetType="Button">
             <Setter Property="Background" Value="Transparent" />
-            <Setter Property="Foreground" Value="#878E92" />
+            <Setter Property="Foreground" Value="{DynamicResource ThemeTextSecondary}" />
             <Setter Property="BorderThickness" Value="0,0,0,2" />
             <Setter Property="BorderBrush" Value="Transparent" />
             <Setter Property="Padding" Value="12,6" />
@@ -38,10 +38,10 @@
 
             <!-- Header -->
             <Border Grid.Row="0" Padding="16,12" BorderThickness="0,0,0,1"
-                    BorderBrush="#1AFFFFFF">
+                    BorderBrush="{DynamicResource ThemeBorder}">
                 <Grid>
                     <TextBlock Text="Meeting Notes"
-                               Foreground="White" FontSize="16"
+                               Foreground="{DynamicResource ThemeTextPrimary}" FontSize="16"
                                FontWeight="SemiBold"
                                VerticalAlignment="Center" />
                     <Button x:Name="NewMeetingBtn" Content="+ Quick Note"
@@ -85,7 +85,7 @@
                 <StackPanel Margin="0,0,0,8">
                     <!-- Loading indicator -->
                     <TextBlock x:Name="LoadingText" Text="Loading meetings..."
-                               Foreground="#878E92" FontSize="13"
+                               Foreground="{DynamicResource ThemeTextSecondary}" FontSize="13"
                                HorizontalAlignment="Center" Margin="0,40,0,0"
                                Visibility="Collapsed" />
 
@@ -94,17 +94,17 @@
                                 VerticalAlignment="Center" HorizontalAlignment="Center"
                                 Margin="0,80,0,0">
                         <TextBlock Text="No Meetings Yet"
-                                   Foreground="#878E92" FontSize="18"
+                                   Foreground="{DynamicResource ThemeTextSecondary}" FontSize="18"
                                    HorizontalAlignment="Center" Margin="0,0,0,8" />
                         <TextBlock Text="Start a Quick Note to capture&#x0a;and transcribe your meetings"
-                                   Foreground="#555" FontSize="13"
+                                   Foreground="{DynamicResource ThemeTextMuted}" FontSize="13"
                                    HorizontalAlignment="Center"
                                    TextAlignment="Center" />
                     </StackPanel>
 
                     <!-- Upcoming Meetings Section -->
                     <StackPanel x:Name="UpcomingSection" Visibility="Collapsed">
-                        <TextBlock Text="Coming up next" Foreground="#878E92" FontSize="11"
+                        <TextBlock Text="Coming up next" Foreground="{DynamicResource ThemeTextSecondary}" FontSize="11"
                                    FontWeight="SemiBold" Margin="16,12,16,4" />
                         <ItemsControl x:Name="UpcomingList">
                             <ItemsControl.ItemTemplate>
@@ -124,10 +124,10 @@
                                                        Text="&#x1F4C5;" />
                                             <StackPanel Grid.Column="1">
                                                 <TextBlock Text="{Binding Title}"
-                                                           Foreground="#F4F5F5" FontSize="13"
+                                                           Foreground="{DynamicResource ThemeTextPrimary}" FontSize="13"
                                                            FontWeight="Medium"
                                                            TextTrimming="CharacterEllipsis" />
-                                                <TextBlock Foreground="#878E92" FontSize="11"
+                                                <TextBlock Foreground="{DynamicResource ThemeTextSecondary}" FontSize="11"
                                                            Margin="0,2,0,0">
                                                     <Run Text="{Binding FormattedTime, Mode=OneWay}" />
                                                     <Run Text=" · " />
@@ -135,7 +135,7 @@
                                                 </TextBlock>
                                             </StackPanel>
                                             <TextBlock Grid.Column="2" Text="&#x203A;"
-                                                       Foreground="#555" FontSize="18"
+                                                       Foreground="{DynamicResource ThemeTextMuted}" FontSize="18"
                                                        VerticalAlignment="Center"
                                                        Margin="8,0,0,0" />
                                         </Grid>
@@ -145,7 +145,7 @@
                         </ItemsControl>
 
                         <!-- Separator between upcoming and recent -->
-                        <Border Height="1" Background="#1AFFFFFF" Margin="16,8" />
+                        <Border Height="1" Background="{DynamicResource ThemeHover}" Margin="16,8" />
                     </StackPanel>
 
                     <!-- Recent Meeting groups by date -->
@@ -155,7 +155,7 @@
                                 <StackPanel Margin="0,0,0,4">
                                     <!-- Date header -->
                                     <TextBlock Text="{Binding DateHeader}"
-                                               Foreground="#878E92" FontSize="11"
+                                               Foreground="{DynamicResource ThemeTextSecondary}" FontSize="11"
                                                FontWeight="SemiBold"
                                                Margin="16,12,16,4" />
 
@@ -164,7 +164,7 @@
                                         <ItemsControl.ItemTemplate>
                                             <DataTemplate>
                                                 <Border Margin="8,2" Padding="12,10"
-                                                        Background="#0DFFFFFF" CornerRadius="8"
+                                                        Background="{DynamicResource ThemeRowBg}" CornerRadius="8"
                                                         Cursor="Hand"
                                                         MouseLeftButtonUp="Meeting_Click">
                                                     <Grid>
@@ -174,15 +174,15 @@
                                                         </Grid.ColumnDefinitions>
                                                         <StackPanel Grid.Column="0">
                                                             <TextBlock Text="{Binding Title}"
-                                                                       Foreground="#F4F5F5" FontSize="13"
+                                                                       Foreground="{DynamicResource ThemeTextPrimary}" FontSize="13"
                                                                        FontWeight="Medium"
                                                                        TextTrimming="CharacterEllipsis" />
                                                             <TextBlock Text="{Binding FormattedTime}"
-                                                                       Foreground="#666" FontSize="11"
+                                                                       Foreground="{DynamicResource ThemeTextMuted}" FontSize="11"
                                                                        Margin="0,2,0,0" />
                                                         </StackPanel>
                                                         <TextBlock Grid.Column="1" Text="&#x203A;"
-                                                                   Foreground="#555" FontSize="18"
+                                                                   Foreground="{DynamicResource ThemeTextMuted}" FontSize="18"
                                                                    VerticalAlignment="Center"
                                                                    Margin="8,0,0,0" />
                                                     </Grid>
@@ -209,7 +209,7 @@
 
             <!-- Detail Header with back button and delete -->
             <Border Grid.Row="0" Padding="12,10" BorderThickness="0,0,0,1"
-                    BorderBrush="#1AFFFFFF">
+                    BorderBrush="{DynamicResource ThemeBorder}">
                 <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto" />
@@ -221,7 +221,7 @@
                             BorderThickness="0" Cursor="Hand" FontSize="13"
                             Click="BackToList_Click" Padding="4,2" />
                     <TextBlock x:Name="DetailTitle" Grid.Column="1"
-                               Foreground="White" FontSize="14"
+                               Foreground="{DynamicResource ThemeTextPrimary}" FontSize="14"
                                FontWeight="SemiBold"
                                VerticalAlignment="Center"
                                TextTrimming="CharacterEllipsis"
@@ -234,7 +234,7 @@
             </Border>
 
             <!-- Detail Tabs: Summary | Transcript | Analytics -->
-            <Border Grid.Row="1" BorderThickness="0,0,0,1" BorderBrush="#1AFFFFFF">
+            <Border Grid.Row="1" BorderThickness="0,0,0,1" BorderBrush="{DynamicResource ThemeBorder}">
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Center"
                             Margin="0,4,0,0">
                     <Button x:Name="TabSummary" Content="Summary"
@@ -255,12 +255,12 @@
                     <!-- Summary Tab -->
                     <StackPanel x:Name="SummaryContent" Visibility="Visible">
                         <TextBlock x:Name="SummaryLoading" Text="Loading summary..."
-                                   Foreground="#878E92" FontSize="13"
+                                   Foreground="{DynamicResource ThemeTextSecondary}" FontSize="13"
                                    HorizontalAlignment="Center" Margin="0,40,0,0" />
 
                         <StackPanel x:Name="SummaryData" Visibility="Collapsed">
                             <!-- Meeting info -->
-                            <TextBlock x:Name="SummaryDate" Foreground="#878E92" FontSize="11"
+                            <TextBlock x:Name="SummaryDate" Foreground="{DynamicResource ThemeTextSecondary}" FontSize="11"
                                        Margin="0,8,0,12" />
 
                             <!-- Meeting Prep: "Things you need to know" -->
@@ -269,7 +269,7 @@
                                 <TextBlock Text="Things you need to know"
                                            Foreground="#FF9800" FontSize="13" FontWeight="SemiBold"
                                            Margin="0,0,0,8" />
-                                <TextBlock x:Name="MeetingPrepSummary" Foreground="#DDD" FontSize="12"
+                                <TextBlock x:Name="MeetingPrepSummary" Foreground="{DynamicResource ThemeTextBody}" FontSize="12"
                                            TextWrapping="Wrap" Margin="0,0,0,6"
                                            Visibility="Collapsed" />
                                 <ItemsControl x:Name="MeetingPrepList">
@@ -278,9 +278,9 @@
                                             <Border Background="#0DFF9800" CornerRadius="6"
                                                     Padding="10,6" Margin="0,2">
                                                 <StackPanel>
-                                                    <TextBlock Text="{Binding Title}" Foreground="#F4F5F5"
+                                                    <TextBlock Text="{Binding Title}" Foreground="{DynamicResource ThemeTextPrimary}"
                                                                FontSize="12" FontWeight="Medium" />
-                                                    <TextBlock Text="{Binding Description}" Foreground="#CCC"
+                                                    <TextBlock Text="{Binding Description}" Foreground="{DynamicResource ThemeTextBody}"
                                                                FontSize="11" TextWrapping="Wrap"
                                                                Margin="0,2,0,0" />
                                                 </StackPanel>
@@ -302,7 +302,7 @@
                                        Margin="0,0,0,12" Visibility="Collapsed" />
 
                             <!-- Summary text -->
-                            <TextBlock x:Name="SummaryText" Foreground="#F4F5F5" FontSize="13"
+                            <TextBlock x:Name="SummaryText" Foreground="{DynamicResource ThemeTextPrimary}" FontSize="13"
                                        TextWrapping="Wrap" Margin="0,0,0,16" />
 
                             <!-- Action Items -->
@@ -315,7 +315,7 @@
                                         <StackPanel Orientation="Horizontal" Margin="0,2">
                                             <TextBlock Text="&#x2022;" Foreground="#007CEC" FontSize="13"
                                                        Margin="0,0,8,0" />
-                                            <TextBlock Text="{Binding Text}" Foreground="#DDD" FontSize="12"
+                                            <TextBlock Text="{Binding Text}" Foreground="{DynamicResource ThemeTextBody}" FontSize="12"
                                                        TextWrapping="Wrap" />
                                         </StackPanel>
                                     </DataTemplate>
@@ -332,7 +332,7 @@
                                         <StackPanel Orientation="Horizontal" Margin="0,2">
                                             <TextBlock Text="&#x2022;" Foreground="#4CAF50" FontSize="13"
                                                        Margin="0,0,8,0" />
-                                            <TextBlock Text="{Binding Text}" Foreground="#DDD" FontSize="12"
+                                            <TextBlock Text="{Binding Text}" Foreground="{DynamicResource ThemeTextBody}" FontSize="12"
                                                        TextWrapping="Wrap" />
                                         </StackPanel>
                                     </DataTemplate>
@@ -346,12 +346,12 @@
                             <ItemsControl x:Name="HighlightsList">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
-                                        <Border Background="#0DFFFFFF" CornerRadius="6"
+                                        <Border Background="{DynamicResource ThemeRowBg}" CornerRadius="6"
                                                 Padding="10,6" Margin="0,2">
                                             <StackPanel>
-                                                <TextBlock Text="{Binding Text}" Foreground="#DDD" FontSize="12"
+                                                <TextBlock Text="{Binding Text}" Foreground="{DynamicResource ThemeTextBody}" FontSize="12"
                                                            TextWrapping="Wrap" />
-                                                <TextBlock Text="{Binding Type}" Foreground="#878E92" FontSize="10"
+                                                <TextBlock Text="{Binding Type}" Foreground="{DynamicResource ThemeTextSecondary}" FontSize="10"
                                                            Margin="0,2,0,0" />
                                             </StackPanel>
                                         </Border>
@@ -364,11 +364,11 @@
                     <!-- Transcript Tab -->
                     <StackPanel x:Name="TranscriptContent" Visibility="Collapsed">
                         <TextBlock x:Name="TranscriptLoading" Text="Loading transcript..."
-                                   Foreground="#878E92" FontSize="13"
+                                   Foreground="{DynamicResource ThemeTextSecondary}" FontSize="13"
                                    HorizontalAlignment="Center" Margin="0,40,0,0" />
 
                         <TextBlock x:Name="TranscriptEmpty" Text="No transcript available"
-                                   Foreground="#878E92" FontSize="13"
+                                   Foreground="{DynamicResource ThemeTextSecondary}" FontSize="13"
                                    HorizontalAlignment="Center" Margin="0,40,0,0"
                                    Visibility="Collapsed" />
 
@@ -378,15 +378,15 @@
                                 <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
-                            <Border Grid.Column="0" Background="#1AFFFFFF" CornerRadius="6"
+                            <Border Grid.Column="0" Background="{DynamicResource ThemeHover}" CornerRadius="6"
                                     Padding="8,4" Margin="0,0,8,0">
                                 <TextBox x:Name="TranscriptSearchBox"
-                                         Background="Transparent" Foreground="#F4F5F5"
+                                         Background="Transparent" Foreground="{DynamicResource ThemeTextPrimary}"
                                          BorderThickness="0" FontSize="12"
                                          TextChanged="TranscriptSearch_Changed">
                                     <TextBox.Style>
                                         <Style TargetType="TextBox">
-                                            <Setter Property="CaretBrush" Value="White" />
+                                            <Setter Property="CaretBrush" Value="{DynamicResource ThemeTextPrimary}" />
                                         </Style>
                                     </TextBox.Style>
                                 </TextBox>
@@ -401,18 +401,18 @@
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
                                     <Border Margin="0,2,0,2" Padding="8,6"
-                                            Background="#0DFFFFFF" CornerRadius="6">
+                                            Background="{DynamicResource ThemeRowBg}" CornerRadius="6">
                                         <StackPanel>
                                             <Grid>
                                                 <TextBlock Text="{Binding SpeakerName}"
                                                            Foreground="#007CEC" FontSize="11"
                                                            FontWeight="SemiBold" />
                                                 <TextBlock Text="{Binding FormattedTime}"
-                                                           Foreground="#555" FontSize="10"
+                                                           Foreground="{DynamicResource ThemeTextMuted}" FontSize="10"
                                                            HorizontalAlignment="Right" />
                                             </Grid>
                                             <TextBlock Text="{Binding Transcript}"
-                                                       Foreground="#F4F5F5" FontSize="13"
+                                                       Foreground="{DynamicResource ThemeTextPrimary}" FontSize="13"
                                                        TextWrapping="Wrap" Margin="0,2,0,0" />
                                         </StackPanel>
                                     </Border>
@@ -424,14 +424,14 @@
                     <!-- Analytics Tab -->
                     <StackPanel x:Name="AnalyticsContent" Visibility="Collapsed">
                         <TextBlock x:Name="AnalyticsLoading" Text="Loading analytics..."
-                                   Foreground="#878E92" FontSize="13"
+                                   Foreground="{DynamicResource ThemeTextSecondary}" FontSize="13"
                                    HorizontalAlignment="Center" Margin="0,40,0,0" />
 
                         <StackPanel x:Name="AnalyticsData" Visibility="Collapsed">
                             <!-- Analytics not generated message -->
                             <TextBlock x:Name="AnalyticsNotGenerated"
                                        Text="Analytics not yet generated for this meeting."
-                                       Foreground="#878E92" FontSize="13"
+                                       Foreground="{DynamicResource ThemeTextSecondary}" FontSize="13"
                                        HorizontalAlignment="Center" Margin="0,20,0,0"
                                        Visibility="Collapsed" />
 
@@ -442,12 +442,12 @@
                             <ItemsControl x:Name="ChaptersList">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
-                                        <Border Background="#0DFFFFFF" CornerRadius="6"
+                                        <Border Background="{DynamicResource ThemeRowBg}" CornerRadius="6"
                                                 Padding="10,8" Margin="0,3">
                                             <StackPanel>
-                                                <TextBlock Text="{Binding Title}" Foreground="White"
+                                                <TextBlock Text="{Binding Title}" Foreground="{DynamicResource ThemeTextPrimary}"
                                                            FontSize="12" FontWeight="SemiBold" />
-                                                <TextBlock Text="{Binding Summary}" Foreground="#CCC"
+                                                <TextBlock Text="{Binding Summary}" Foreground="{DynamicResource ThemeTextBody}"
                                                            FontSize="11" TextWrapping="Wrap"
                                                            Margin="0,4,0,0" />
                                             </StackPanel>
@@ -467,10 +467,10 @@
                                             <StackPanel Orientation="Horizontal">
                                                 <TextBlock Text="?" Foreground="#FF9800" FontSize="13"
                                                            FontWeight="Bold" Margin="0,0,8,0" />
-                                                <TextBlock Text="{Binding Text}" Foreground="#DDD" FontSize="12"
+                                                <TextBlock Text="{Binding Text}" Foreground="{DynamicResource ThemeTextBody}" FontSize="12"
                                                            TextWrapping="Wrap" />
                                             </StackPanel>
-                                            <TextBlock Text="{Binding Asker}" Foreground="#878E92" FontSize="10"
+                                            <TextBlock Text="{Binding Asker}" Foreground="{DynamicResource ThemeTextSecondary}" FontSize="10"
                                                        Margin="20,0,0,0" />
                                         </StackPanel>
                                     </DataTemplate>
@@ -484,7 +484,7 @@
                             <ItemsControl x:Name="ParticipantsList">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
-                                        <Border Background="#0DFFFFFF" CornerRadius="6"
+                                        <Border Background="{DynamicResource ThemeRowBg}" CornerRadius="6"
                                                 Padding="10,6" Margin="0,2">
                                             <Grid>
                                                 <Grid.ColumnDefinitions>
@@ -492,8 +492,8 @@
                                                     <ColumnDefinition Width="Auto" />
                                                 </Grid.ColumnDefinitions>
                                                 <TextBlock Grid.Column="0" Text="{Binding Name}"
-                                                           Foreground="#F4F5F5" FontSize="12" />
-                                                <TextBlock Grid.Column="1" Foreground="#878E92" FontSize="11"
+                                                           Foreground="{DynamicResource ThemeTextPrimary}" FontSize="12" />
+                                                <TextBlock Grid.Column="1" Foreground="{DynamicResource ThemeTextSecondary}" FontSize="11"
                                                            Text="{Binding TalkTimePercentage, StringFormat={}{0}% talk time}" />
                                             </Grid>
                                         </Border>
@@ -514,7 +514,7 @@
                            Foreground="#FF9800" FontSize="13" FontWeight="SemiBold"
                            HorizontalAlignment="Center" Margin="0,0,0,4" />
                 <TextBlock Text="Are you still in the meeting?"
-                           Foreground="#878E92" FontSize="12"
+                           Foreground="{DynamicResource ThemeTextSecondary}" FontSize="12"
                            HorizontalAlignment="Center" Margin="0,0,0,12" />
                 <Grid HorizontalAlignment="Center">
                     <Grid.ColumnDefinitions>

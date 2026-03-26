@@ -3,7 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
     <Border x:Name="ToastBorder"
-            Background="#25292D"
+            Background="{DynamicResource ThemeCard}"
             CornerRadius="8"
             Padding="16,10"
             Margin="8"
@@ -55,7 +55,7 @@
                        Foreground="#007CEC" FontSize="16"
                        VerticalAlignment="Center" Margin="0,0,10,0" />
             <TextBlock x:Name="ToastMessage" Text=""
-                       Foreground="#F4F5F5" FontSize="13"
+                       Foreground="{DynamicResource ThemeTextPrimary}" FontSize="13"
                        VerticalAlignment="Center"
                        TextWrapping="Wrap" MaxWidth="280" />
         </StackPanel>

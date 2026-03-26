@@ -5,7 +5,7 @@
     <UserControl.Resources>
         <Style x:Key="SettingsNavButton" TargetType="Button">
             <Setter Property="Background" Value="Transparent" />
-            <Setter Property="Foreground" Value="#A0A4A8" />
+            <Setter Property="Foreground" Value="{DynamicResource ThemeTextTertiary}" />
             <Setter Property="FontSize" Value="13" />
             <Setter Property="Padding" Value="12,8" />
             <Setter Property="HorizontalContentAlignment" Value="Left" />
@@ -21,7 +21,7 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="bg" Property="Background" Value="#1AFFFFFF" />
+                                <Setter TargetName="bg" Property="Background" Value="{DynamicResource ThemeHover}" />
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -30,11 +30,11 @@
         </Style>
 
         <Style x:Key="ProfileField" TargetType="TextBox">
-            <Setter Property="Background" Value="#25292D" />
-            <Setter Property="Foreground" Value="#F4F5F5" />
+            <Setter Property="Background" Value="{DynamicResource ThemeCard}" />
+            <Setter Property="Foreground" Value="{DynamicResource ThemeTextPrimary}" />
             <Setter Property="FontSize" Value="13" />
             <Setter Property="Padding" Value="14,10" />
-            <Setter Property="BorderBrush" Value="#33FFFFFF" />
+            <Setter Property="BorderBrush" Value="{DynamicResource ThemeBorderMedium}" />
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="CaretBrush" Value="White" />
             <Setter Property="Template">
@@ -53,7 +53,7 @@
         </Style>
     </UserControl.Resources>
 
-    <Border Background="#1A1A1A" CornerRadius="12" ClipToBounds="True">
+    <Border Background="{DynamicResource ThemeBg2}" CornerRadius="12" ClipToBounds="True">
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
@@ -61,13 +61,13 @@
         </Grid.RowDefinitions>
 
         <!-- Back to home header -->
-        <Border Grid.Row="0" Padding="16,10" BorderBrush="#1AFFFFFF" BorderThickness="0,0,0,1">
+        <Border Grid.Row="0" Padding="16,10" BorderBrush="{DynamicResource ThemeBorder}" BorderThickness="0,0,0,1">
             <Button Style="{StaticResource SettingsNavButton}"
                     HorizontalAlignment="Left" Click="BackToHome_Click">
                 <StackPanel Orientation="Horizontal">
-                    <TextBlock Text="&#x2190;" FontSize="14" Foreground="#A0A4A8"
+                    <TextBlock Text="&#x2190;" FontSize="14" Foreground="{DynamicResource ThemeTextTertiary}"
                                VerticalAlignment="Center" Margin="0,0,8,0" />
-                    <TextBlock Text="Back to home" Foreground="#A0A4A8" FontSize="13" />
+                    <TextBlock Text="Back to home" Foreground="{DynamicResource ThemeTextTertiary}" FontSize="13" />
                 </StackPanel>
             </Button>
         </Border>
@@ -80,16 +80,16 @@
             </Grid.ColumnDefinitions>
 
             <!-- Settings Sidebar -->
-            <Border Grid.Column="0" Background="#111315"
-                    BorderBrush="#1AFFFFFF" BorderThickness="0,0,1,0"
+            <Border Grid.Column="0" Background="{DynamicResource ThemeSidebarBg}"
+                    BorderBrush="{DynamicResource ThemeBorder}" BorderThickness="0,0,1,0"
                     CornerRadius="0,0,0,12">
-                <ScrollViewer VerticalScrollBarVisibility="Auto" Margin="8,12,8,8">
-                    <StackPanel>
+                <Grid>
+                    <StackPanel VerticalAlignment="Center" Margin="8,0,8,0">
                         <Button x:Name="NavProfile" Style="{StaticResource SettingsNavButton}"
                                 Click="SettingsNav_Click" Tag="profile"
-                                Foreground="White" FontWeight="SemiBold">
+                                Foreground="{DynamicResource ThemeTextPrimary}" FontWeight="SemiBold">
                             <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="&#x2699;" FontSize="13" Foreground="#A0A4A8"
+                                <TextBlock Text="&#x2699;" FontSize="13" Foreground="{DynamicResource ThemeTextTertiary}"
                                            VerticalAlignment="Center" Margin="0,0,10,0" />
                                 <TextBlock Text="My profile" VerticalAlignment="Center" />
                             </StackPanel>
@@ -97,7 +97,7 @@
                         <Button x:Name="NavWorkspace" Style="{StaticResource SettingsNavButton}"
                                 Click="SettingsNav_Click" Tag="workspace">
                             <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="&#x1F4BC;" FontSize="13" Foreground="#A0A4A8"
+                                <TextBlock Text="&#x1F4BC;" FontSize="13" Foreground="{DynamicResource ThemeTextTertiary}"
                                            VerticalAlignment="Center" Margin="0,0,10,0" />
                                 <TextBlock Text="Workspace" VerticalAlignment="Center" />
                             </StackPanel>
@@ -105,7 +105,7 @@
                         <Button x:Name="NavTeam" Style="{StaticResource SettingsNavButton}"
                                 Click="SettingsNav_Click" Tag="team">
                             <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="&#x1F465;" FontSize="13" Foreground="#A0A4A8"
+                                <TextBlock Text="&#x1F465;" FontSize="13" Foreground="{DynamicResource ThemeTextTertiary}"
                                            VerticalAlignment="Center" Margin="0,0,10,0" />
                                 <TextBlock Text="Team Members" VerticalAlignment="Center" />
                             </StackPanel>
@@ -113,7 +113,7 @@
                         <Button x:Name="NavConnectors" Style="{StaticResource SettingsNavButton}"
                                 Click="SettingsNav_Click" Tag="connectors">
                             <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="&#x1F517;" FontSize="13" Foreground="#A0A4A8"
+                                <TextBlock Text="&#x1F517;" FontSize="13" Foreground="{DynamicResource ThemeTextTertiary}"
                                            VerticalAlignment="Center" Margin="0,0,10,0" />
                                 <TextBlock Text="Workspace Connectors" VerticalAlignment="Center" />
                             </StackPanel>
@@ -121,7 +121,7 @@
                         <Button x:Name="NavSubscription" Style="{StaticResource SettingsNavButton}"
                                 Click="SettingsNav_Click" Tag="subscription">
                             <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="&#x1F4B3;" FontSize="13" Foreground="#A0A4A8"
+                                <TextBlock Text="&#x1F4B3;" FontSize="13" Foreground="{DynamicResource ThemeTextTertiary}"
                                            VerticalAlignment="Center" Margin="0,0,10,0" />
                                 <TextBlock Text="Subscription" VerticalAlignment="Center" />
                             </StackPanel>
@@ -129,7 +129,7 @@
                         <Button x:Name="NavRefer" Style="{StaticResource SettingsNavButton}"
                                 Click="SettingsNav_Click" Tag="refer">
                             <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="&#x1F381;" FontSize="13" Foreground="#A0A4A8"
+                                <TextBlock Text="&#x1F381;" FontSize="13" Foreground="{DynamicResource ThemeTextTertiary}"
                                            VerticalAlignment="Center" Margin="0,0,10,0" />
                                 <TextBlock Text="Refer &amp; Earn" VerticalAlignment="Center" />
                             </StackPanel>
@@ -137,7 +137,7 @@
                         <Button x:Name="NavAbout" Style="{StaticResource SettingsNavButton}"
                                 Click="SettingsNav_Click" Tag="about">
                             <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="&#x2139;" FontSize="13" Foreground="#A0A4A8"
+                                <TextBlock Text="&#x2139;" FontSize="13" Foreground="{DynamicResource ThemeTextTertiary}"
                                            VerticalAlignment="Center" Margin="0,0,10,0" />
                                 <TextBlock Text="About" VerticalAlignment="Center" />
                             </StackPanel>
@@ -145,7 +145,7 @@
                         <Button x:Name="NavHelp" Style="{StaticResource SettingsNavButton}"
                                 Click="SettingsNav_Click" Tag="help">
                             <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="&#x2753;" FontSize="13" Foreground="#A0A4A8"
+                                <TextBlock Text="&#x2753;" FontSize="13" Foreground="{DynamicResource ThemeTextTertiary}"
                                            VerticalAlignment="Center" Margin="0,0,10,0" />
                                 <TextBlock Text="Help center" VerticalAlignment="Center" />
                             </StackPanel>
@@ -153,7 +153,7 @@
                         <Button x:Name="NavTerms" Style="{StaticResource SettingsNavButton}"
                                 Click="SettingsNav_Click" Tag="terms">
                             <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="&#x1F4C4;" FontSize="13" Foreground="#A0A4A8"
+                                <TextBlock Text="&#x1F4C4;" FontSize="13" Foreground="{DynamicResource ThemeTextTertiary}"
                                            VerticalAlignment="Center" Margin="0,0,10,0" />
                                 <TextBlock Text="Terms of use" VerticalAlignment="Center" />
                             </StackPanel>
@@ -161,13 +161,13 @@
                         <Button x:Name="NavPrivacy" Style="{StaticResource SettingsNavButton}"
                                 Click="SettingsNav_Click" Tag="privacy">
                             <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="&#x1F512;" FontSize="13" Foreground="#A0A4A8"
+                                <TextBlock Text="&#x1F512;" FontSize="13" Foreground="{DynamicResource ThemeTextTertiary}"
                                            VerticalAlignment="Center" Margin="0,0,10,0" />
                                 <TextBlock Text="Privacy policy" VerticalAlignment="Center" />
                             </StackPanel>
                         </Button>
                     </StackPanel>
-                </ScrollViewer>
+                </Grid>
             </Border>
 
             <!-- Content Area -->
@@ -179,18 +179,18 @@
                         <Border HorizontalAlignment="Center" Margin="0,0,0,24">
                             <Grid>
                                 <Border Width="100" Height="100" CornerRadius="50"
-                                        BorderBrush="#33FFFFFF" BorderThickness="2">
+                                        BorderBrush="{DynamicResource ThemeBorderMedium}" BorderThickness="2">
                                     <TextBlock x:Name="AvatarInitials" Text="PB"
-                                               Foreground="White" FontSize="36"
+                                               Foreground="{DynamicResource ThemeTextPrimary}" FontSize="36"
                                                FontWeight="SemiBold"
                                                HorizontalAlignment="Center"
                                                VerticalAlignment="Center" />
                                 </Border>
                                 <Border Width="24" Height="24" CornerRadius="12"
-                                        Background="#25292D" BorderBrush="#33FFFFFF" BorderThickness="1"
+                                        Background="{DynamicResource ThemeCard}" BorderBrush="{DynamicResource ThemeBorderMedium}" BorderThickness="1"
                                         HorizontalAlignment="Right" VerticalAlignment="Bottom"
                                         Margin="0,0,4,4" Cursor="Hand">
-                                    <TextBlock Text="&#x270F;" FontSize="10" Foreground="#A0A4A8"
+                                    <TextBlock Text="&#x270F;" FontSize="10" Foreground="{DynamicResource ThemeTextTertiary}"
                                                HorizontalAlignment="Center"
                                                VerticalAlignment="Center" />
                                 </Border>
@@ -198,19 +198,19 @@
                         </Border>
 
                         <!-- Your Name -->
-                        <TextBlock Text="Your Name" Foreground="White" FontSize="13"
+                        <TextBlock Text="Your Name" Foreground="{DynamicResource ThemeTextPrimary}" FontSize="13"
                                    FontWeight="SemiBold" Margin="0,0,0,6" />
                         <TextBox x:Name="NameField" Style="{StaticResource ProfileField}"
                                  Margin="0,0,0,18" />
 
                         <!-- Your Contact Number -->
-                        <TextBlock Text="Your Contact Number" Foreground="White" FontSize="13"
+                        <TextBlock Text="Your Contact Number" Foreground="{DynamicResource ThemeTextPrimary}" FontSize="13"
                                    FontWeight="SemiBold" Margin="0,0,0,6" />
                         <TextBox x:Name="PhoneField" Style="{StaticResource ProfileField}"
                                  Margin="0,0,0,18" />
 
                         <!-- Your Primary Email -->
-                        <TextBlock Text="Your Primary Email" Foreground="White" FontSize="13"
+                        <TextBlock Text="Your Primary Email" Foreground="{DynamicResource ThemeTextPrimary}" FontSize="13"
                                    FontWeight="SemiBold" Margin="0,0,0,6" />
                         <Grid Margin="0,0,0,18">
                             <TextBox x:Name="EmailField" Style="{StaticResource ProfileField}"
@@ -226,7 +226,7 @@
 
                         <!-- Your Profession -->
                         <TextBlock x:Name="ProfessionLabel" Text="Your Profession In workspace"
-                                   Foreground="White" FontSize="13"
+                                   Foreground="{DynamicResource ThemeTextPrimary}" FontSize="13"
                                    FontWeight="SemiBold" Margin="0,0,0,6" />
                         <TextBox x:Name="ProfessionField" Style="{StaticResource ProfileField}"
                                  Margin="0,0,0,24" />
@@ -240,10 +240,10 @@
                                     <TextBlock Text="&#x1F514;" FontSize="16"
                                                VerticalAlignment="Center" Margin="0,0,12,0" />
                                     <StackPanel>
-                                        <TextBlock Text="Notifications are off" Foreground="White"
+                                        <TextBlock Text="Notifications are off" Foreground="{DynamicResource ThemeTextPrimary}"
                                                    FontSize="14" FontWeight="SemiBold" />
                                         <TextBlock Text="Enable to receive meeting reminders and important updates."
-                                                   Foreground="#878E92" FontSize="11"
+                                                   Foreground="{DynamicResource ThemeTextSecondary}" FontSize="11"
                                                    Margin="0,2,0,0" />
                                     </StackPanel>
                                 </StackPanel>
@@ -259,10 +259,10 @@
                                 Padding="16,14" Margin="0,0,0,12">
                             <StackPanel>
                                 <TextBlock Text="Do you want to leave your workspace?"
-                                           Foreground="White" FontSize="14"
+                                           Foreground="{DynamicResource ThemeTextPrimary}" FontSize="14"
                                            FontWeight="SemiBold" Margin="0,0,0,6" />
                                 <TextBlock Text="When you leave your workspace, your work will be lost, and your team will be notified. Select a workspace you would like to leave."
-                                           Foreground="#878E92" FontSize="12"
+                                           Foreground="{DynamicResource ThemeTextSecondary}" FontSize="12"
                                            TextWrapping="Wrap" Margin="0,0,0,14" />
                                 <Border Background="#33FF4B59" CornerRadius="8"
                                         Padding="0,10" Cursor="Hand">
@@ -284,17 +284,17 @@
                         <Border HorizontalAlignment="Center" Margin="0,0,0,24">
                             <Grid>
                                 <Border Width="100" Height="100" CornerRadius="50"
-                                        BorderBrush="#33FFFFFF" BorderThickness="2">
+                                        BorderBrush="{DynamicResource ThemeBorderMedium}" BorderThickness="2">
                                     <TextBlock x:Name="WorkspaceIcon" Text="&#x1F3E2;"
-                                               Foreground="#A0A4A8" FontSize="36"
+                                               Foreground="{DynamicResource ThemeTextTertiary}" FontSize="36"
                                                HorizontalAlignment="Center"
                                                VerticalAlignment="Center" />
                                 </Border>
                                 <Border Width="24" Height="24" CornerRadius="12"
-                                        Background="#25292D" BorderBrush="#33FFFFFF" BorderThickness="1"
+                                        Background="{DynamicResource ThemeCard}" BorderBrush="{DynamicResource ThemeBorderMedium}" BorderThickness="1"
                                         HorizontalAlignment="Right" VerticalAlignment="Bottom"
                                         Margin="0,0,4,4" Cursor="Hand">
-                                    <TextBlock Text="&#x270F;" FontSize="10" Foreground="#A0A4A8"
+                                    <TextBlock Text="&#x270F;" FontSize="10" Foreground="{DynamicResource ThemeTextTertiary}"
                                                HorizontalAlignment="Center"
                                                VerticalAlignment="Center" />
                                 </Border>
@@ -302,37 +302,37 @@
                         </Border>
 
                         <!-- Business Name -->
-                        <TextBlock Text="Business Name" Foreground="White" FontSize="13"
+                        <TextBlock Text="Business Name" Foreground="{DynamicResource ThemeTextPrimary}" FontSize="13"
                                    FontWeight="SemiBold" Margin="0,0,0,6" />
                         <TextBox x:Name="BusinessNameField" Style="{StaticResource ProfileField}"
                                  Margin="0,0,0,18" />
 
                         <!-- Company Email -->
-                        <TextBlock Text="Company Email" Foreground="White" FontSize="13"
+                        <TextBlock Text="Company Email" Foreground="{DynamicResource ThemeTextPrimary}" FontSize="13"
                                    FontWeight="SemiBold" Margin="0,0,0,6" />
                         <TextBox x:Name="CompanyEmailField" Style="{StaticResource ProfileField}"
                                  IsReadOnly="True" Margin="0,0,0,18" />
 
                         <!-- Website -->
-                        <TextBlock Text="Website" Foreground="White" FontSize="13"
+                        <TextBlock Text="Website" Foreground="{DynamicResource ThemeTextPrimary}" FontSize="13"
                                    FontWeight="SemiBold" Margin="0,0,0,6" />
                         <TextBox x:Name="WebsiteField" Style="{StaticResource ProfileField}"
                                  Margin="0,0,0,18" />
 
                         <!-- Company Type -->
-                        <TextBlock Text="Company type" Foreground="White" FontSize="13"
+                        <TextBlock Text="Company type" Foreground="{DynamicResource ThemeTextPrimary}" FontSize="13"
                                    FontWeight="SemiBold" Margin="0,0,0,6" />
                         <TextBox x:Name="CompanyTypeField" Style="{StaticResource ProfileField}"
                                  Margin="0,0,0,18" />
 
                         <!-- Phone Number -->
-                        <TextBlock Text="Phone Number" Foreground="White" FontSize="13"
+                        <TextBlock Text="Phone Number" Foreground="{DynamicResource ThemeTextPrimary}" FontSize="13"
                                    FontWeight="SemiBold" Margin="0,0,0,6" />
                         <TextBox x:Name="WorkspacePhoneField" Style="{StaticResource ProfileField}"
                                  Margin="0,0,0,18" />
 
                         <!-- Address -->
-                        <TextBlock Text="Address" Foreground="White" FontSize="13"
+                        <TextBlock Text="Address" Foreground="{DynamicResource ThemeTextPrimary}" FontSize="13"
                                    FontWeight="SemiBold" Margin="0,0,0,6" />
                         <TextBox x:Name="AddressField" Style="{StaticResource ProfileField}"
                                  Margin="0,0,0,24" />
@@ -343,12 +343,12 @@
                                 Margin="32,20,32,20">
                         <!-- Title + count -->
                         <TextBlock x:Name="TeamTitle" Text="Manage Your Team Members Access"
-                                   Foreground="White" FontSize="20"
+                                   Foreground="{DynamicResource ThemeTextPrimary}" FontSize="20"
                                    FontWeight="SemiBold" Margin="0,0,0,16" />
 
                         <!-- Invite input -->
-                        <Border Background="#25292D" CornerRadius="8"
-                                BorderBrush="#33FFFFFF" BorderThickness="1"
+                        <Border Background="{DynamicResource ThemeCard}" CornerRadius="8"
+                                BorderBrush="{DynamicResource ThemeBorderMedium}" BorderThickness="1"
                                 Padding="4,0" Margin="0,0,0,20">
                             <Grid>
                                 <Grid.ColumnDefinitions>
@@ -356,12 +356,12 @@
                                     <ColumnDefinition Width="*" />
                                 </Grid.ColumnDefinitions>
                                 <TextBlock Grid.Column="0" Text="&#x1F464;" FontSize="14"
-                                           Foreground="#878E92" VerticalAlignment="Center"
+                                           Foreground="{DynamicResource ThemeTextSecondary}" VerticalAlignment="Center"
                                            Margin="10,0,8,0" />
                                 <TextBox x:Name="InviteEmailField" Grid.Column="1"
-                                         Background="Transparent" Foreground="#F4F5F5"
+                                         Background="Transparent" Foreground="{DynamicResource ThemeTextPrimary}"
                                          FontSize="13" BorderThickness="0"
-                                         Padding="4,10" CaretBrush="White"
+                                         Padding="4,10" CaretBrush="{DynamicResource ThemeTextPrimary}"
                                          KeyDown="InviteEmail_KeyDown">
                                     <TextBox.Style>
                                         <Style TargetType="TextBox">
@@ -371,7 +371,7 @@
                                                         <Grid>
                                                             <TextBlock x:Name="placeholder"
                                                                        Text="Add name or Email"
-                                                                       Foreground="#555"
+                                                                       Foreground="{DynamicResource ThemeTextMuted}"
                                                                        FontSize="13"
                                                                        VerticalAlignment="Center"
                                                                        Margin="6,0,0,0"
@@ -397,7 +397,7 @@
 
                         <!-- Loading text -->
                         <TextBlock x:Name="TeamLoadingText" Text="Loading team members..."
-                                   Foreground="#878E92" FontSize="13"
+                                   Foreground="{DynamicResource ThemeTextSecondary}" FontSize="13"
                                    HorizontalAlignment="Center" Margin="0,20,0,0" />
 
                         <!-- Members list -->
@@ -417,7 +417,7 @@
                                                     CornerRadius="19" Background="#2A8C8C"
                                                     Margin="0,0,12,0">
                                                 <TextBlock Text="{Binding Initials}"
-                                                           Foreground="White" FontSize="13"
+                                                           Foreground="{DynamicResource ThemeTextPrimary}" FontSize="13"
                                                            FontWeight="SemiBold"
                                                            HorizontalAlignment="Center"
                                                            VerticalAlignment="Center" />
@@ -425,9 +425,9 @@
 
                                             <!-- Name + email -->
                                             <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                                <TextBlock Text="{Binding Name}" Foreground="White"
+                                                <TextBlock Text="{Binding Name}" Foreground="{DynamicResource ThemeTextPrimary}"
                                                            FontSize="13" FontWeight="Medium" />
-                                                <TextBlock Text="{Binding Email}" Foreground="#878E92"
+                                                <TextBlock Text="{Binding Email}" Foreground="{DynamicResource ThemeTextSecondary}"
                                                            FontSize="11" Margin="0,2,0,0" />
                                             </StackPanel>
 
@@ -447,31 +447,31 @@
                                 Margin="32,20,32,20">
 
                         <!-- Plan Card -->
-                        <Border CornerRadius="12" BorderBrush="#33FFFFFF" BorderThickness="1"
+                        <Border CornerRadius="12" BorderBrush="{DynamicResource ThemeBorderMedium}" BorderThickness="1"
                                 Padding="24,20" Margin="0,0,0,0">
                             <StackPanel>
                                 <TextBlock x:Name="PlanNameText" Text="Free"
                                            Foreground="#007CEC" FontSize="24"
                                            FontWeight="Bold" Margin="0,0,0,4" />
-                                <TextBlock Text="Current plan" Foreground="White"
+                                <TextBlock Text="Current plan" Foreground="{DynamicResource ThemeTextPrimary}"
                                            FontSize="14" FontWeight="Medium"
                                            Margin="0,0,0,4" />
                                 <TextBlock x:Name="PlanExpiryText" Text=""
-                                           Foreground="#878E92" FontSize="13"
+                                           Foreground="{DynamicResource ThemeTextSecondary}" FontSize="13"
                                            Margin="0,0,0,16" />
 
                                 <!-- Buttons -->
                                 <StackPanel Orientation="Horizontal"
                                             HorizontalAlignment="Right">
-                                    <Border CornerRadius="8" BorderBrush="#55FFFFFF"
+                                    <Border CornerRadius="8" BorderBrush="{DynamicResource ThemeBorderStrong}"
                                             BorderThickness="1" Padding="18,8"
                                             Margin="0,0,10,0" Cursor="Hand">
-                                        <TextBlock Text="Manage billing" Foreground="White"
+                                        <TextBlock Text="Manage billing" Foreground="{DynamicResource ThemeTextPrimary}"
                                                    FontSize="13" />
                                     </Border>
                                     <Border CornerRadius="8" Background="#007CEC"
                                             Padding="24,8" Cursor="Hand">
-                                        <TextBlock Text="Upgrade" Foreground="White"
+                                        <TextBlock Text="Upgrade" Foreground="{DynamicResource ThemeTextPrimary}"
                                                    FontSize="13" FontWeight="SemiBold" />
                                     </Border>
                                 </StackPanel>
@@ -479,21 +479,21 @@
                         </Border>
 
                         <!-- Team Members Usage -->
-                        <Border CornerRadius="12" BorderBrush="#33FFFFFF" BorderThickness="1"
+                        <Border CornerRadius="12" BorderBrush="{DynamicResource ThemeBorderMedium}" BorderThickness="1"
                                 Padding="24,16" Margin="0,16,0,0">
                             <StackPanel>
                                 <Grid Margin="0,0,0,10">
-                                    <TextBlock Text="TEAM MEMBERS" Foreground="White"
+                                    <TextBlock Text="TEAM MEMBERS" Foreground="{DynamicResource ThemeTextPrimary}"
                                                FontSize="13" FontWeight="Bold"
                                                VerticalAlignment="Center" />
                                     <StackPanel Orientation="Horizontal"
                                                 HorizontalAlignment="Right"
                                                 VerticalAlignment="Center">
                                         <TextBlock x:Name="SeatsUsedText" Text="0"
-                                                   Foreground="White" FontSize="22"
+                                                   Foreground="{DynamicResource ThemeTextPrimary}" FontSize="22"
                                                    FontWeight="Bold" />
                                         <TextBlock x:Name="SeatsTotalText" Text=" used / 0"
-                                                   Foreground="#878E92" FontSize="13"
+                                                   Foreground="{DynamicResource ThemeTextSecondary}" FontSize="13"
                                                    VerticalAlignment="Bottom"
                                                    Margin="0,0,0,2" />
                                     </StackPanel>
@@ -501,7 +501,7 @@
 
                                 <!-- Progress bar -->
                                 <Grid Height="4" Margin="0,0,0,6">
-                                    <Border Background="#333" CornerRadius="2" />
+                                    <Border Background="{DynamicResource ThemeCard}" CornerRadius="2" />
                                     <Border x:Name="SeatsProgressBar" Background="#FF4B59"
                                             CornerRadius="2" HorizontalAlignment="Left"
                                             Width="0" />
@@ -513,14 +513,14 @@
                         </Border>
 
                         <!-- Referral Code Card -->
-                        <Border CornerRadius="12" BorderBrush="#33FFFFFF" BorderThickness="1"
+                        <Border CornerRadius="12" BorderBrush="{DynamicResource ThemeBorderMedium}" BorderThickness="1"
                                 Padding="24,20" Margin="0,16,0,0">
                             <StackPanel>
-                                <TextBlock Text="Have a referral code?" Foreground="White"
+                                <TextBlock Text="Have a referral code?" Foreground="{DynamicResource ThemeTextPrimary}"
                                            FontSize="15" FontWeight="SemiBold"
                                            Margin="0,0,0,4" />
                                 <TextBlock Text="Referral credits apply to invoices following your initial payment"
-                                           Foreground="#878E92" FontSize="12"
+                                           Foreground="{DynamicResource ThemeTextSecondary}" FontSize="12"
                                            Margin="0,0,0,14" />
 
                                 <Grid Margin="0,0,0,14">
@@ -541,7 +541,7 @@
 
                                 <StackPanel Orientation="Horizontal">
                                     <TextBlock Text="Want Ve for your team or business? "
-                                               Foreground="#878E92" FontSize="12" />
+                                               Foreground="{DynamicResource ThemeTextSecondary}" FontSize="12" />
                                     <TextBlock Text="Contact us &#x2197;"
                                                Foreground="#007CEC" FontSize="12"
                                                Cursor="Hand" />
@@ -553,11 +553,11 @@
                     <!-- Placeholder for other sections -->
                     <StackPanel x:Name="PlaceholderContent" Visibility="Collapsed"
                                 Margin="32,40" HorizontalAlignment="Center">
-                        <TextBlock x:Name="PlaceholderTitle" Text="" Foreground="White"
+                        <TextBlock x:Name="PlaceholderTitle" Text="" Foreground="{DynamicResource ThemeTextPrimary}"
                                    FontSize="20" FontWeight="SemiBold"
                                    HorizontalAlignment="Center" />
                         <TextBlock x:Name="PlaceholderSubtitle" Text="Coming soon"
-                                   Foreground="#878E92" FontSize="14"
+                                   Foreground="{DynamicResource ThemeTextSecondary}" FontSize="14"
                                    HorizontalAlignment="Center" Margin="0,6,0,0" />
                     </StackPanel>
                 </Grid>

@@ -5,7 +5,7 @@
     <TargetFramework>net8.0-windows</TargetFramework>
     <UseWPF>true</UseWPF>
     <ApplicationManifest>app.manifest</ApplicationManifest>
-    <!-- <ApplicationIcon>Assets\ve-icon.ico</ApplicationIcon> -->
+    <ApplicationIcon>Assets\ve-icon.ico</ApplicationIcon>
     <RootNamespace>VE.Windows</RootNamespace>
     <AssemblyName>VE</AssemblyName>
     <Version>1.0.0</Version>

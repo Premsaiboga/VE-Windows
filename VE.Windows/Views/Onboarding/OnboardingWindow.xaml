@@ -5,7 +5,7 @@
         Width="640" Height="480"
         WindowStartupLocation="CenterScreen"
         ResizeMode="NoResize"
-        Background="#151719">
+        Background="{DynamicResource ThemeBg}">
 
     <Grid>
         <!-- Progress indicator -->

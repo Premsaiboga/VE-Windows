@@ -46,8 +46,8 @@ public partial class App : Application
         // Setup crash handler
         SetupCrashHandler();
 
-        // Initialize core services
-        _ = ThemeManager.Instance;
+        // Initialize core services — theme must apply resources after App.Resources are loaded
+        ThemeManager.Instance.Initialize();
         _ = AuthManager.Instance;
         _ = BaseURLService.Instance;
         _ = NetworkService.Instance;

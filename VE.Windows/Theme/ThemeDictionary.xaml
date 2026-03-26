@@ -1,41 +1,51 @@
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
-    <!-- VE Brand Colors -->
+    <!-- ═══ VE Brand Colors (constant across themes) ═══ -->
     <Color x:Key="VEBlue">#007CEC</Color>
     <Color x:Key="VERed">#FF4B59</Color>
     <Color x:Key="VEYellow">#FFC600</Color>
     <Color x:Key="VEGreen">#00CA48</Color>
-    <Color x:Key="VETextSecondary">#878E92</Color>
     <Color x:Key="VEWhite">#FFFFFF</Color>
     <Color x:Key="VEBlack">#000000</Color>
 
-    <!-- Dark Theme Colors -->
-    <Color x:Key="DarkBackground">#151719</Color>
-    <Color x:Key="DarkCard">#25292D</Color>
-    <Color x:Key="DarkTextPrimary">#F4F5F5</Color>
-    <Color x:Key="DarkBorder">#1AF4F5F5</Color>
-
-    <!-- Light Theme Colors -->
-    <Color x:Key="LightBackground">#F4F5F5</Color>
-    <Color x:Key="LightCard">#FFFFFF</Color>
-    <Color x:Key="LightTextPrimary">#272B30</Color>
-    <Color x:Key="LightBorder">#1A000000</Color>
-
-    <!-- Default Brushes (Dark mode default) -->
     <SolidColorBrush x:Key="VEBlueBrush" Color="{StaticResource VEBlue}" />
     <SolidColorBrush x:Key="VEBlueHoverBrush" Color="{StaticResource VEBlue}" Opacity="0.8" />
     <SolidColorBrush x:Key="VERedBrush" Color="{StaticResource VERed}" />
     <SolidColorBrush x:Key="VEYellowBrush" Color="{StaticResource VEYellow}" />
     <SolidColorBrush x:Key="VEGreenBrush" Color="{StaticResource VEGreen}" />
-    <SolidColorBrush x:Key="VETextSecondaryBrush" Color="{StaticResource VETextSecondary}" />
     <SolidColorBrush x:Key="VEWhiteBrush" Color="{StaticResource VEWhite}" />
     <SolidColorBrush x:Key="VEBlackBrush" Color="{StaticResource VEBlack}" />
 
-    <!-- Notch Colors -->
-    <SolidColorBrush x:Key="NotchBackground" Color="#0D0D0D" />
-    <SolidColorBrush x:Key="NotchBorderBrush" Color="#33FFFFFF" />
-    <SolidColorBrush x:Key="LoginBackgroundBrush" Color="{StaticResource VEBlue}" />
+    <!-- ═══ Theme-Aware Semantic Brushes (swapped at runtime by ThemeManager) ═══ -->
+    <!-- Backgrounds -->
+    <SolidColorBrush x:Key="ThemeBg" Color="#151719" />
+    <SolidColorBrush x:Key="ThemeBg2" Color="#1A1A1A" />
+    <SolidColorBrush x:Key="ThemeSidebarBg" Color="#111315" />
+    <SolidColorBrush x:Key="ThemeCard" Color="#25292D" />
+    <SolidColorBrush x:Key="ThemePopupBg" Color="#1E2024" />
+    <SolidColorBrush x:Key="ThemeInputBg" Color="#25292D" />
+
+    <!-- Text -->
+    <SolidColorBrush x:Key="ThemeTextPrimary" Color="#F4F5F5" />
+    <SolidColorBrush x:Key="ThemeTextSecondary" Color="#878E92" />
+    <SolidColorBrush x:Key="ThemeTextTertiary" Color="#A0A4A8" />
+    <SolidColorBrush x:Key="ThemeTextMuted" Color="#555555" />
+    <SolidColorBrush x:Key="ThemeTextBody" Color="#DDDDDD" />
+
+    <!-- Borders -->
+    <SolidColorBrush x:Key="ThemeBorder" Color="#1AF4F5F5" />
+    <SolidColorBrush x:Key="ThemeBorderMedium" Color="#33FFFFFF" />
+    <SolidColorBrush x:Key="ThemeBorderStrong" Color="#55FFFFFF" />
+
+    <!-- Interactive -->
+    <SolidColorBrush x:Key="ThemeHover" Color="#1AFFFFFF" />
+    <SolidColorBrush x:Key="ThemeRowBg" Color="#0DFFFFFF" />
+    <SolidColorBrush x:Key="ThemeOverlay" Color="#80000000" />
+
+    <!-- Notch -->
+    <SolidColorBrush x:Key="ThemeNotchBg" Color="#000000" />
+    <SolidColorBrush x:Key="ThemeNotchText" Color="#FFFFFF" />
 
     <!-- Font Family -->
     <FontFamily x:Key="VEFont">Segoe UI</FontFamily>
@@ -60,8 +70,8 @@
 
     <!-- Base Button Style -->
     <Style x:Key="VEButton" TargetType="Button">
-        <Setter Property="Background" Value="{StaticResource VEBlueBrush}" />
-        <Setter Property="Foreground" Value="{StaticResource VEWhiteBrush}" />
+        <Setter Property="Background" Value="{DynamicResource VEBlueBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource VEWhiteBrush}" />
         <Setter Property="FontFamily" Value="{StaticResource VEFontMedium}" />
         <Setter Property="FontSize" Value="{StaticResource FontSizeButton}" />
         <Setter Property="Padding" Value="16,8" />
@@ -97,15 +107,15 @@
     <!-- Secondary Button Style -->
     <Style x:Key="VESecondaryButton" TargetType="Button" BasedOn="{StaticResource VEButton}">
         <Setter Property="Background" Value="Transparent" />
-        <Setter Property="Foreground" Value="{StaticResource VEBlueBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource VEBlueBrush}" />
         <Setter Property="BorderThickness" Value="1" />
-        <Setter Property="BorderBrush" Value="{StaticResource VEBlueBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource VEBlueBrush}" />
     </Style>
 
     <!-- Ghost Button -->
     <Style x:Key="VEGhostButton" TargetType="Button" BasedOn="{StaticResource VEButton}">
         <Setter Property="Background" Value="Transparent" />
-        <Setter Property="Foreground" Value="{StaticResource VETextSecondaryBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource ThemeTextSecondary}" />
     </Style>
 
     <!-- TextBox Style -->
@@ -183,7 +193,7 @@
     <!-- Floating Panel Tab Button -->
     <Style x:Key="FloatingTabButton" TargetType="Button">
         <Setter Property="Background" Value="Transparent" />
-        <Setter Property="Foreground" Value="#878E92" />
+        <Setter Property="Foreground" Value="{DynamicResource ThemeTextSecondary}" />
         <Setter Property="FontFamily" Value="{StaticResource VEFont}" />
         <Setter Property="FontSize" Value="12" />
         <Setter Property="Padding" Value="10,6" />
@@ -201,7 +211,7 @@
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
-                            <Setter TargetName="border" Property="Background" Value="#33FFFFFF" />
+                            <Setter TargetName="border" Property="Background" Value="{DynamicResource ThemeHover}" />
                         </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>

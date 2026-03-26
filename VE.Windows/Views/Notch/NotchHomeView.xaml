@@ -15,21 +15,11 @@
         <!-- Header -->
         <Grid Height="40" VerticalAlignment="Top" Margin="16,8,16,0">
             <TextBlock Text="VE"
-                       Foreground="White"
+                       Foreground="{DynamicResource ThemeNotchText}"
                        FontSize="16"
                        FontWeight="SemiBold"
                        VerticalAlignment="Center"
                        HorizontalAlignment="Left" />
-            <Button x:Name="SettingsButton"
-                    Content="&#x2699;"
-                    Foreground="#878E92"
-                    FontSize="16"
-                    Background="Transparent"
-                    BorderThickness="0"
-                    HorizontalAlignment="Right"
-                    VerticalAlignment="Center"
-                    Cursor="Hand"
-                    Click="SettingsButton_Click" />
         </Grid>
 
         <!-- Content Area -->
@@ -54,22 +44,22 @@
             <Grid x:Name="DefaultContent" Visibility="Collapsed">
                 <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
                     <TextBlock Text="Tap F2 for Screenshot Prediction"
-                               Foreground="#878E92"
+                               Foreground="{DynamicResource ThemeTextSecondary}"
                                FontSize="13"
                                HorizontalAlignment="Center"
                                Margin="0,0,0,8" />
                     <TextBlock Text="Hold F2 for Voice Prediction"
-                               Foreground="#878E92"
+                               Foreground="{DynamicResource ThemeTextSecondary}"
                                FontSize="13"
                                HorizontalAlignment="Center"
                                Margin="0,0,0,8" />
                     <TextBlock Text="Hold F3 for Dictation"
-                               Foreground="#878E92"
+                               Foreground="{DynamicResource ThemeTextSecondary}"
                                FontSize="13"
                                HorizontalAlignment="Center"
                                Margin="0,0,0,8" />
                     <TextBlock Text="Click Notch for Chat"
-                               Foreground="#878E92"
+                               Foreground="{DynamicResource ThemeTextSecondary}"
                                FontSize="13"
                                HorizontalAlignment="Center" />
                 </StackPanel>

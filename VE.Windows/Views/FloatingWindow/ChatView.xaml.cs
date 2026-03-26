@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -17,6 +18,9 @@ public partial class ChatView : UserControl
     private readonly ObservableCollection<WorkspaceDisplayItem> _workspaces = new();
     private bool _isChatMode = true;
     private bool _recentChatsLoaded;
+    private int _recentChatsPage = 1;
+    private bool _hasMoreChats;
+    private bool _isLoadingMoreChats;
 
     /// <summary>
     /// Raised when user clicks Integrations or other sidebar actions that need tab switching.
@@ -55,6 +59,32 @@ public partial class ChatView : UserControl
     {
         UpdateUserInfo();
         _ = LoadRecentChats();
+        InitializeThemeButtons();
+    }
+
+    private void InitializeThemeButtons()
+    {
+        var current = VE.Windows.Theme.ThemeManager.Instance.CurrentTheme;
+        var theme = current switch
+        {
+            Models.ThemePreference.Light => "light",
+            Models.ThemePreference.Dark => "dark",
+            _ => "system"
+        };
+
+        var blue = new System.Windows.Media.SolidColorBrush(
+            (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#007CEC"));
+        var transparent = System.Windows.Media.Brushes.Transparent;
+        var white = System.Windows.Media.Brushes.White;
+        var gray = new System.Windows.Media.SolidColorBrush(
+            (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#878E92"));
+
+        ThemeSystem.Background = theme == "system" ? blue : transparent;
+        ThemeSystem.Foreground = theme == "system" ? white : gray;
+        ThemeLight.Background = theme == "light" ? blue : transparent;
+        ThemeLight.Foreground = theme == "light" ? white : gray;
+        ThemeDark.Background = theme == "dark" ? blue : transparent;
+        ThemeDark.Foreground = theme == "dark" ? white : gray;
     }
 
     // ═══ USER INFO ═══
@@ -90,15 +120,52 @@ public partial class ChatView : UserControl
     {
         try
         {
-            var (items, _) = await ChatService.Instance.ListRecentSessions(1, 5);
+            _recentChatsPage = 1;
+            var (items, hasMore) = await ChatService.Instance.ListRecentSessions(1, 20);
             _recentChats.Clear();
             foreach (var item in items)
                 _recentChats.Add(item);
+            _hasMoreChats = hasMore;
             _recentChatsLoaded = true;
         }
         catch (Exception ex)
         {
             FileLogger.Instance.Error("ChatView", $"Load recent chats failed: {ex.Message}");
+        }
+    }
+
+    private async Task LoadMoreRecentChats()
+    {
+        if (_isLoadingMoreChats || !_hasMoreChats) return;
+        _isLoadingMoreChats = true;
+        LoadingMoreText.Visibility = Visibility.Visible;
+
+        try
+        {
+            _recentChatsPage++;
+            var (items, hasMore) = await ChatService.Instance.ListRecentSessions(_recentChatsPage, 20);
+            foreach (var item in items)
+                _recentChats.Add(item);
+            _hasMoreChats = hasMore;
+        }
+        catch (Exception ex)
+        {
+            FileLogger.Instance.Error("ChatView", $"Load more chats failed: {ex.Message}");
+        }
+        finally
+        {
+            _isLoadingMoreChats = false;
+            LoadingMoreText.Visibility = Visibility.Collapsed;
+        }
+    }
+
+    private void RecentChatsScroll_ScrollChanged(object sender, ScrollChangedEventArgs e)
+    {
+        if (sender is ScrollViewer sv &&
+            sv.VerticalOffset >= sv.ScrollableHeight - 10 &&
+            sv.ScrollableHeight > 0)
+        {
+            _ = LoadMoreRecentChats();
         }
     }
 
@@ -136,12 +203,56 @@ public partial class ChatView : UserControl
         UpdateWorkNavSelection("Connectors");
     }
 
-    private void RecentChat_Click(object sender, RoutedEventArgs e)
+    private async void RecentChat_Click(object sender, RoutedEventArgs e)
     {
-        // Future: load selected conversation messages
-        if (sender is Button btn && btn.Tag is string chatId)
+        if (sender is Button btn && btn.Tag is string sessionId)
         {
-            FileLogger.Instance.Debug("ChatView", $"Selected recent chat: {chatId}");
+            FileLogger.Instance.Debug("ChatView", $"Loading chat: {sessionId}");
+
+            // Clear current chat and show messages area
+            _vm.ClearHistory();
+            WelcomePanel.Visibility = Visibility.Collapsed;
+            MessagesScroll.Visibility = Visibility.Visible;
+
+            try
+            {
+                var messages = await ChatService.Instance.GetSessionMessages(sessionId, 1, 50);
+                if (messages.Count == 0) return;
+
+                // Messages come in reverse order (newest first), so reverse them
+                messages.Reverse();
+
+                foreach (var msg in messages)
+                {
+                    if (!string.IsNullOrEmpty(msg.Query))
+                    {
+                        ChatManager.Instance.Messages.Add(new ChatMessage
+                        {
+                            Role = ChatRole.User,
+                            Content = msg.Query
+                        });
+                    }
+                    if (!string.IsNullOrEmpty(msg.Response))
+                    {
+                        ChatManager.Instance.Messages.Add(new ChatMessage
+                        {
+                            Role = ChatRole.Assistant,
+                            Content = msg.Response
+                        });
+                    }
+                }
+
+                // Scroll to bottom
+                Dispatcher.BeginInvoke(() =>
+                {
+                    if (MessagesScroll.ScrollableHeight > 0)
+                        MessagesScroll.ScrollToEnd();
+                }, System.Windows.Threading.DispatcherPriority.Loaded);
+            }
+            catch (Exception ex)
+            {
+                FileLogger.Instance.Error("ChatView", $"Load chat history failed: {ex.Message}");
+            }
         }
     }
 
@@ -298,12 +409,97 @@ public partial class ChatView : UserControl
 
     private async Task SendMessage()
     {
+        CloseInputPopups();
         var text = ChatInput.Text?.Trim();
         if (string.IsNullOrEmpty(text)) return;
 
         _vm.CurrentInput = text;
         ChatInput.Text = "";
         await _vm.SendMessage();
+    }
+
+    // ═══ CLOSE POPUPS HELPER ═══
+
+    private void CloseInputPopups()
+    {
+        PlusMenuPopup.Visibility = Visibility.Collapsed;
+        ModelSelectorPopup.Visibility = Visibility.Collapsed;
+    }
+
+    // ═══ PLUS MENU & MODEL SELECTOR ═══
+
+    private bool _searchWebEnabled = true;
+    private bool _internalKnowledgeEnabled = true;
+    private bool _deepSearchEnabled;
+
+    private void PlusButton_Click(object sender, MouseButtonEventArgs e)
+    {
+        e.Handled = true;
+        ModelSelectorPopup.Visibility = Visibility.Collapsed;
+        PlusMenuPopup.Visibility = PlusMenuPopup.Visibility == Visibility.Visible
+            ? Visibility.Collapsed : Visibility.Visible;
+    }
+
+    private void ModelSelector_Click(object sender, MouseButtonEventArgs e)
+    {
+        e.Handled = true;
+        PlusMenuPopup.Visibility = Visibility.Collapsed;
+        RefreshModelList();
+        ModelSelectorPopup.Visibility = Visibility.Visible;
+    }
+
+    private void RefreshModelList()
+    {
+        var current = ChatManager.Instance.SelectedModel;
+        var items = AIModel.AvailableModels.Select(m => new ModelDisplayItem
+        {
+            Id = m.Id,
+            DisplayName = m.DisplayName,
+            Icon = m.Id == "auto" ? "ve" : "&#x25CF;",
+            IsSelected = m.Id == current.Id,
+            IsDefault = m.Id == "auto"
+        }).ToList();
+        ModelList.ItemsSource = items;
+    }
+
+    private void ModelItem_Click(object sender, MouseButtonEventArgs e)
+    {
+        e.Handled = true;
+        if (sender is FrameworkElement el && el.Tag is string modelId)
+        {
+            var model = AIModel.AvailableModels.FirstOrDefault(m => m.Id == modelId) ?? AIModel.Auto;
+            ChatManager.Instance.SelectedModel = model;
+            SelectedModelName.Text = model.Id == "auto" ? "Ve" : model.DisplayName;
+            ModelSelectorPopup.Visibility = Visibility.Collapsed;
+            PlusMenuPopup.Visibility = Visibility.Collapsed;
+        }
+    }
+
+    private void ToggleSearchWeb_Click(object sender, MouseButtonEventArgs e)
+    {
+        e.Handled = true;
+        _searchWebEnabled = !_searchWebEnabled;
+        ToggleSearchWeb.Background = _searchWebEnabled ? BlueBrush : new System.Windows.Media.SolidColorBrush(
+            (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#555"));
+        SearchWebKnob.HorizontalAlignment = _searchWebEnabled ? HorizontalAlignment.Right : HorizontalAlignment.Left;
+    }
+
+    private void ToggleInternalKnowledge_Click(object sender, MouseButtonEventArgs e)
+    {
+        e.Handled = true;
+        _internalKnowledgeEnabled = !_internalKnowledgeEnabled;
+        ToggleInternalKnowledge.Background = _internalKnowledgeEnabled ? BlueBrush : new System.Windows.Media.SolidColorBrush(
+            (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#555"));
+        InternalKnowledgeKnob.HorizontalAlignment = _internalKnowledgeEnabled ? HorizontalAlignment.Right : HorizontalAlignment.Left;
+    }
+
+    private void ToggleDeepSearch_Click(object sender, MouseButtonEventArgs e)
+    {
+        e.Handled = true;
+        _deepSearchEnabled = !_deepSearchEnabled;
+        ToggleDeepSearch.Background = _deepSearchEnabled ? BlueBrush : new System.Windows.Media.SolidColorBrush(
+            (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#555"));
+        DeepSearchKnob.HorizontalAlignment = _deepSearchEnabled ? HorizontalAlignment.Right : HorizontalAlignment.Left;
     }
 
     // ═══ ACCOUNT POPUP ═══
@@ -508,4 +704,13 @@ public class WorkspaceDisplayItem
     public string Initial { get; set; } = "";
     public bool IsSelected { get; set; }
     public int MemberCount { get; set; }
+}
+
+public class ModelDisplayItem
+{
+    public string Id { get; set; } = "";
+    public string DisplayName { get; set; } = "";
+    public string Icon { get; set; } = "";
+    public bool IsSelected { get; set; }
+    public bool IsDefault { get; set; }
 }

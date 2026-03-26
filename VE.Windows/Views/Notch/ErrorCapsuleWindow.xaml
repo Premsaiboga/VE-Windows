@@ -10,7 +10,7 @@
         Width="300" Height="36"
         ResizeMode="NoResize">
 
-    <Border CornerRadius="18" Background="#2A2A2A" BorderBrush="#44FFFFFF" BorderThickness="0.5"
+    <Border CornerRadius="18" Background="{DynamicResource ThemeCard}" BorderBrush="{DynamicResource ThemeBorderMedium}" BorderThickness="0.5"
             Padding="16,0" Margin="4">
         <Border.Effect>
             <DropShadowEffect Color="Black" BlurRadius="10" ShadowDepth="2" Opacity="0.4" />

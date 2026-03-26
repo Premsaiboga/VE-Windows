@@ -9,7 +9,7 @@
         <!-- Sidebar button style -->
         <Style x:Key="SidebarButton" TargetType="Button">
             <Setter Property="Background" Value="Transparent" />
-            <Setter Property="Foreground" Value="#A0A4A8" />
+            <Setter Property="Foreground" Value="{DynamicResource ThemeTextTertiary}" />
             <Setter Property="FontSize" Value="13" />
             <Setter Property="Padding" Value="12,8" />
             <Setter Property="HorizontalContentAlignment" Value="Left" />
@@ -25,7 +25,7 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="bg" Property="Background" Value="#1AFFFFFF" />
+                                <Setter TargetName="bg" Property="Background" Value="{DynamicResource ThemeHover}" />
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -36,14 +36,14 @@
         <!-- Recent chat item style -->
         <Style x:Key="RecentChatButton" TargetType="Button" BasedOn="{StaticResource SidebarButton}">
             <Setter Property="FontSize" Value="12" />
-            <Setter Property="Foreground" Value="#888D91" />
+            <Setter Property="Foreground" Value="{DynamicResource ThemeTextSecondary}" />
             <Setter Property="Padding" Value="12,6" />
         </Style>
 
         <!-- Toggle button style -->
         <Style x:Key="ToggleTabButton" TargetType="Button">
             <Setter Property="Background" Value="Transparent" />
-            <Setter Property="Foreground" Value="#878E92" />
+            <Setter Property="Foreground" Value="{DynamicResource ThemeTextSecondary}" />
             <Setter Property="FontSize" Value="13" />
             <Setter Property="FontWeight" Value="SemiBold" />
             <Setter Property="Padding" Value="20,6" />
@@ -69,7 +69,7 @@
         <!-- Theme icon button -->
         <Style x:Key="ThemeIconButton" TargetType="Button">
             <Setter Property="Background" Value="Transparent" />
-            <Setter Property="Foreground" Value="#878E92" />
+            <Setter Property="Foreground" Value="{DynamicResource ThemeTextSecondary}" />
             <Setter Property="Width" Value="40" />
             <Setter Property="Height" Value="32" />
             <Setter Property="FontSize" Value="15" />
@@ -84,7 +84,7 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="bg" Property="Background" Value="#33FFFFFF" />
+                                <Setter TargetName="bg" Property="Background" Value="{DynamicResource ThemeHover}" />
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -107,8 +107,8 @@
             </Grid.ColumnDefinitions>
 
             <!-- ═══ LEFT SIDEBAR ═══ -->
-            <Border Grid.Column="0" Background="#111315"
-                    BorderBrush="#1AFFFFFF" BorderThickness="0,0,1,0"
+            <Border Grid.Column="0" Background="{DynamicResource ThemeSidebarBg}"
+                    BorderBrush="{DynamicResource ThemeBorder}" BorderThickness="0,0,1,0"
                     CornerRadius="12,0,0,12">
                 <Grid>
                     <Grid.RowDefinitions>
@@ -121,46 +121,54 @@
                         <StackPanel VerticalAlignment="Center" Margin="8,0,8,0">
                             <Button Style="{StaticResource SidebarButton}" Click="NewChat_Click">
                                 <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="+" FontSize="15" Foreground="#A0A4A8"
+                                    <TextBlock Text="+" FontSize="15" Foreground="{DynamicResource ThemeTextTertiary}"
                                                VerticalAlignment="Center" Margin="0,0,8,0" />
                                     <TextBlock Text="New Chat" VerticalAlignment="Center" />
                                 </StackPanel>
                             </Button>
                             <Button Style="{StaticResource SidebarButton}" Click="Integrations_Click">
                                 <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="&#x2630;" FontSize="13" Foreground="#A0A4A8"
+                                    <TextBlock Text="&#x2630;" FontSize="13" Foreground="{DynamicResource ThemeTextTertiary}"
                                                VerticalAlignment="Center" Margin="0,0,8,0" />
                                     <TextBlock Text="Integrations" VerticalAlignment="Center" />
                                 </StackPanel>
                             </Button>
 
-                            <TextBlock Text="Recent" Foreground="#555"
+                            <TextBlock Text="Recent" Foreground="{DynamicResource ThemeTextMuted}"
                                        FontSize="11" FontWeight="SemiBold"
                                        Margin="12,16,0,6" />
 
-                            <ScrollViewer VerticalScrollBarVisibility="Auto"
-                                          MaxHeight="160">
-                                <ItemsControl x:Name="RecentChatsList">
-                                    <ItemsControl.ItemTemplate>
-                                        <DataTemplate>
-                                            <Button Style="{StaticResource RecentChatButton}"
-                                                    Click="RecentChat_Click" Tag="{Binding Id}">
-                                                <TextBlock Text="{Binding Title}"
-                                                           TextTrimming="CharacterEllipsis"
-                                                           MaxWidth="170" />
-                                            </Button>
-                                        </DataTemplate>
-                                    </ItemsControl.ItemTemplate>
-                                </ItemsControl>
+                            <ScrollViewer x:Name="RecentChatsScroll"
+                                          VerticalScrollBarVisibility="Hidden"
+                                          MaxHeight="200"
+                                          ScrollChanged="RecentChatsScroll_ScrollChanged">
+                                <StackPanel>
+                                    <ItemsControl x:Name="RecentChatsList">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Button Style="{StaticResource RecentChatButton}"
+                                                        Click="RecentChat_Click" Tag="{Binding Id}">
+                                                    <TextBlock Text="{Binding Title}"
+                                                               TextTrimming="CharacterEllipsis"
+                                                               MaxWidth="170" />
+                                                </Button>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                    <TextBlock x:Name="LoadingMoreText" Text="Loading..."
+                                               Foreground="{DynamicResource ThemeTextMuted}" FontSize="11"
+                                               HorizontalAlignment="Center"
+                                               Margin="0,4" Visibility="Collapsed" />
+                                </StackPanel>
                             </ScrollViewer>
                         </StackPanel>
                     </Grid>
 
                     <!-- ─── WORK SIDEBAR (visible in Work mode) ─── -->
-                    <StackPanel x:Name="WorkSidebar" Grid.Row="0" Margin="8,10,8,0"
-                                Visibility="Collapsed">
+                    <Grid x:Name="WorkSidebar" Grid.Row="0" Visibility="Collapsed">
+                    <StackPanel VerticalAlignment="Center" Margin="8,0,8,0">
                         <Button x:Name="WorkNavNotes" Style="{StaticResource SidebarButton}"
-                                Click="WorkNav_Click" Tag="Notes" Foreground="White" FontWeight="SemiBold">
+                                Click="WorkNav_Click" Tag="Notes" Foreground="{DynamicResource ThemeTextPrimary}" FontWeight="SemiBold">
                             <StackPanel Orientation="Horizontal">
                                 <TextBlock Text="&#x1F4DD;" FontSize="13"
                                            VerticalAlignment="Center" Margin="0,0,10,0" />
@@ -170,7 +178,7 @@
                         <Button x:Name="WorkNavMails" Style="{StaticResource SidebarButton}"
                                 Click="WorkNav_Click" Tag="Mail">
                             <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="&#x2709;" FontSize="13" Foreground="#A0A4A8"
+                                <TextBlock Text="&#x2709;" FontSize="13" Foreground="{DynamicResource ThemeTextTertiary}"
                                            VerticalAlignment="Center" Margin="0,0,10,0" />
                                 <TextBlock Text="Mails" VerticalAlignment="Center" />
                             </StackPanel>
@@ -178,7 +186,7 @@
                         <Button x:Name="WorkNavPrediction" Style="{StaticResource SidebarButton}"
                                 Click="WorkNav_Click" Tag="Prediction">
                             <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="&#x2728;" FontSize="13" Foreground="#A0A4A8"
+                                <TextBlock Text="&#x2728;" FontSize="13" Foreground="{DynamicResource ThemeTextTertiary}"
                                            VerticalAlignment="Center" Margin="0,0,10,0" />
                                 <TextBlock Text="Prediction" VerticalAlignment="Center" />
                             </StackPanel>
@@ -186,7 +194,7 @@
                         <Button x:Name="WorkNavRoutines" Style="{StaticResource SidebarButton}"
                                 Click="WorkNav_Click" Tag="Routines">
                             <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="&#x1F504;" FontSize="13" Foreground="#A0A4A8"
+                                <TextBlock Text="&#x1F504;" FontSize="13" Foreground="{DynamicResource ThemeTextTertiary}"
                                            VerticalAlignment="Center" Margin="0,0,10,0" />
                                 <TextBlock Text="Routines" VerticalAlignment="Center" />
                             </StackPanel>
@@ -194,7 +202,7 @@
                         <Button x:Name="WorkNavIntentModel" Style="{StaticResource SidebarButton}"
                                 Click="WorkNav_Click" Tag="IntentModel">
                             <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="&#x1F4CB;" FontSize="13" Foreground="#A0A4A8"
+                                <TextBlock Text="&#x1F4CB;" FontSize="13" Foreground="{DynamicResource ThemeTextTertiary}"
                                            VerticalAlignment="Center" Margin="0,0,10,0" />
                                 <TextBlock Text="Intent Model" VerticalAlignment="Center" />
                             </StackPanel>
@@ -202,7 +210,7 @@
                         <Button x:Name="WorkNavFiles" Style="{StaticResource SidebarButton}"
                                 Click="WorkNav_Click" Tag="Knowledge">
                             <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="&#x1F4C1;" FontSize="13" Foreground="#A0A4A8"
+                                <TextBlock Text="&#x1F4C1;" FontSize="13" Foreground="{DynamicResource ThemeTextTertiary}"
                                            VerticalAlignment="Center" Margin="0,0,10,0" />
                                 <TextBlock Text="Files" VerticalAlignment="Center" />
                             </StackPanel>
@@ -210,7 +218,7 @@
                         <Button x:Name="WorkNavShared" Style="{StaticResource SidebarButton}"
                                 Click="WorkNav_Click" Tag="Shared">
                             <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="&#x1F465;" FontSize="13" Foreground="#A0A4A8"
+                                <TextBlock Text="&#x1F465;" FontSize="13" Foreground="{DynamicResource ThemeTextTertiary}"
                                            VerticalAlignment="Center" Margin="0,0,10,0" />
                                 <TextBlock Text="Shared with me" VerticalAlignment="Center" />
                             </StackPanel>
@@ -218,7 +226,7 @@
                         <Button x:Name="WorkNavConnectors" Style="{StaticResource SidebarButton}"
                                 Click="WorkNav_Click" Tag="Connectors">
                             <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="&#x1F517;" FontSize="13" Foreground="#A0A4A8"
+                                <TextBlock Text="&#x1F517;" FontSize="13" Foreground="{DynamicResource ThemeTextTertiary}"
                                            VerticalAlignment="Center" Margin="0,0,10,0" />
                                 <TextBlock Text="Connectors" VerticalAlignment="Center" />
                             </StackPanel>
@@ -226,16 +234,17 @@
                         <Button x:Name="WorkNavShortcuts" Style="{StaticResource SidebarButton}"
                                 Click="WorkNav_Click" Tag="Shortcuts">
                             <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="&#x2328;" FontSize="13" Foreground="#A0A4A8"
+                                <TextBlock Text="&#x2328;" FontSize="13" Foreground="{DynamicResource ThemeTextTertiary}"
                                            VerticalAlignment="Center" Margin="0,0,10,0" />
                                 <TextBlock Text="Shortcuts" VerticalAlignment="Center" />
                             </StackPanel>
                         </Button>
                     </StackPanel>
+                    </Grid>
 
                     <!-- ─── BOTTOM: User Profile (shared between Chat/Work) ─── -->
                     <Border Grid.Row="1" Padding="10,8" Margin="0,4,0,0"
-                            BorderBrush="#1AFFFFFF" BorderThickness="0,1,0,0"
+                            BorderBrush="{DynamicResource ThemeBorder}" BorderThickness="0,1,0,0"
                             Cursor="Hand" MouseLeftButtonDown="UserProfile_Click">
                         <Grid>
                             <Grid.ColumnDefinitions>
@@ -256,19 +265,19 @@
 
                             <StackPanel Grid.Column="1" VerticalAlignment="Center">
                                 <TextBlock x:Name="UserWorkspaceText" Text=""
-                                           Foreground="#F4F5F5" FontSize="12"
+                                           Foreground="{DynamicResource ThemeTextPrimary}" FontSize="12"
                                            FontWeight="Medium"
                                            TextTrimming="CharacterEllipsis" />
                                 <TextBlock x:Name="UserNameText" Text="User"
-                                           Foreground="#666" FontSize="10"
+                                           Foreground="{DynamicResource ThemeTextMuted}" FontSize="10"
                                            TextTrimming="CharacterEllipsis" />
                             </StackPanel>
 
                             <StackPanel Grid.Column="2" Orientation="Horizontal"
                                         VerticalAlignment="Center">
-                                <TextBlock Text="&#x25C7;" Foreground="#555" FontSize="9"
+                                <TextBlock Text="&#x25C7;" Foreground="{DynamicResource ThemeTextMuted}" FontSize="9"
                                            VerticalAlignment="Center" Margin="4,0" />
-                                <Button Content="&#x2699;" Foreground="#878E92" FontSize="14"
+                                <Button Content="&#x2699;" Foreground="{DynamicResource ThemeTextSecondary}" FontSize="14"
                                         Background="Transparent" BorderThickness="0"
                                         Cursor="Hand" Padding="4,0"
                                         Click="SettingsGear_Click" />
@@ -288,7 +297,7 @@
 
                 <!-- Chat / Work Toggle -->
                 <Border Grid.Row="0" Padding="0,12,0,8">
-                    <Border HorizontalAlignment="Center" Background="#25292D"
+                    <Border HorizontalAlignment="Center" Background="{DynamicResource ThemeCard}"
                             CornerRadius="16" Padding="3">
                         <StackPanel Orientation="Horizontal">
                             <Button x:Name="ToggleChat" Content="Chat"
@@ -321,11 +330,11 @@
                                     </Border>
                                     <!-- Assistant message -->
                                     <Border HorizontalAlignment="Left" MaxWidth="380"
-                                            Background="#25292D" CornerRadius="14,14,14,4"
+                                            Background="{DynamicResource ThemeCard}" CornerRadius="14,14,14,4"
                                             Padding="14,9"
                                             Visibility="{Binding IsAssistant, Converter={StaticResource BoolToVis}}">
                                         <TextBlock Text="{Binding Content}"
-                                                   Foreground="#F4F5F5" FontSize="13"
+                                                   Foreground="{DynamicResource ThemeTextPrimary}" FontSize="13"
                                                    TextWrapping="Wrap" />
                                     </Border>
                                 </Grid>
@@ -339,11 +348,11 @@
                             VerticalAlignment="Center" HorizontalAlignment="Center"
                             Margin="24,0">
                     <TextBlock x:Name="GreetingName" Text="Hey there,"
-                               Foreground="White" FontSize="24"
+                               Foreground="{DynamicResource ThemeTextPrimary}" FontSize="24"
                                FontWeight="Bold"
                                HorizontalAlignment="Center" />
                     <TextBlock Text="how are you feeling today?"
-                               Foreground="#878E92" FontSize="18"
+                               Foreground="{DynamicResource ThemeTextSecondary}" FontSize="18"
                                HorizontalAlignment="Center" Margin="0,4,0,0" />
 
                     <!-- Suggestion Chips (below greeting) -->
@@ -373,8 +382,8 @@
 
                 <!-- Input Bar (hidden in Work mode) -->
                 <Border x:Name="InputBar" Grid.Row="2" Padding="14,8,14,14">
-                    <Border Background="#25292D" CornerRadius="12"
-                            BorderBrush="#33FFFFFF" BorderThickness="1"
+                    <Border Background="{DynamicResource ThemeCard}" CornerRadius="12"
+                            BorderBrush="{DynamicResource ThemeBorderMedium}" BorderThickness="1"
                             Padding="4">
                         <Grid>
                             <Grid.RowDefinitions>
@@ -384,7 +393,7 @@
 
                             <!-- Text Input -->
                             <TextBox x:Name="ChatInput" Grid.Row="0"
-                                     Background="Transparent" Foreground="#F4F5F5"
+                                     Background="Transparent" Foreground="{DynamicResource ThemeTextPrimary}"
                                      FontSize="13" BorderThickness="0"
                                      Padding="10,8"
                                      VerticalContentAlignment="Center"
@@ -393,13 +402,21 @@
 
                             <!-- Bottom Row: Attach + Send -->
                             <Grid Grid.Row="1" Margin="4,2,4,4">
-                                <Button Content="+" FontSize="18" Foreground="#878E92"
-                                        Background="Transparent" BorderThickness="0"
-                                        HorizontalAlignment="Left" Cursor="Hand"
-                                        Padding="8,2" />
-                                <Border HorizontalAlignment="Right"
-                                        Background="#007CEC" CornerRadius="12"
+                                <!-- + Button (opens options popup) -->
+                                <Border HorizontalAlignment="Left"
+                                        Background="{DynamicResource ThemeHover}" CornerRadius="8"
                                         Cursor="Hand" Padding="8,4"
+                                        MouseLeftButtonDown="PlusButton_Click">
+                                    <TextBlock Text="+" Foreground="{DynamicResource ThemeTextTertiary}"
+                                               FontSize="16" FontWeight="Bold"
+                                               HorizontalAlignment="Center"
+                                               VerticalAlignment="Center" />
+                                </Border>
+
+                                <!-- Send Button -->
+                                <Border HorizontalAlignment="Right"
+                                        Background="#007CEC" CornerRadius="8"
+                                        Cursor="Hand" Padding="10,5"
                                         MouseLeftButtonDown="SendButton_Click">
                                     <TextBlock Text="&#x2191;" Foreground="White"
                                                FontSize="14" FontWeight="Bold"
@@ -410,6 +427,171 @@
                         </Grid>
                     </Border>
                 </Border>
+
+                <!-- ═══ PLUS MENU POPUP (above input bar) ═══ -->
+                <Border x:Name="PlusMenuPopup" Grid.Row="1"
+                        Visibility="Collapsed"
+                        VerticalAlignment="Bottom" HorizontalAlignment="Left"
+                        Margin="20,0,0,8"
+                        Background="{DynamicResource ThemePopupBg}" CornerRadius="14"
+                        BorderBrush="{DynamicResource ThemeBorderMedium}" BorderThickness="1"
+                        Width="280" Panel.ZIndex="20">
+                    <Border.Effect>
+                        <DropShadowEffect Color="Black" BlurRadius="20" Opacity="0.6" ShadowDepth="4" />
+                    </Border.Effect>
+                    <StackPanel>
+                        <!-- Model selector row -->
+                        <Border Padding="14,12" BorderBrush="{DynamicResource ThemeBorder}" BorderThickness="0,0,0,1"
+                                Cursor="Hand" MouseLeftButtonDown="ModelSelector_Click">
+                            <Grid>
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="ve" Foreground="#007CEC" FontSize="14"
+                                               FontWeight="Bold" FontStyle="Italic"
+                                               VerticalAlignment="Center" Margin="0,0,10,0" />
+                                    <TextBlock x:Name="SelectedModelName" Text="Ve"
+                                               Foreground="{DynamicResource ThemeTextPrimary}" FontSize="14"
+                                               FontWeight="Medium" VerticalAlignment="Center" />
+                                </StackPanel>
+                                <TextBlock Text="&#x203A;" Foreground="{DynamicResource ThemeTextSecondary}" FontSize="18"
+                                           HorizontalAlignment="Right" VerticalAlignment="Center" />
+                            </Grid>
+                        </Border>
+
+                        <!-- Upload file -->
+                        <Border Padding="14,12" BorderBrush="{DynamicResource ThemeBorder}" BorderThickness="0,0,0,1"
+                                Cursor="Hand">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="&#x1F4C4;" FontSize="14"
+                                           VerticalAlignment="Center" Margin="0,0,10,0" />
+                                <TextBlock Text="Upload file" Foreground="{DynamicResource ThemeTextPrimary}" FontSize="14"
+                                           VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Search web toggle -->
+                        <Border Padding="14,10" BorderBrush="{DynamicResource ThemeBorder}" BorderThickness="0,0,0,1">
+                            <Grid>
+                                <StackPanel>
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="&#x1F310;" FontSize="14"
+                                                   VerticalAlignment="Center" Margin="0,0,10,0" />
+                                        <TextBlock Text="Search web" Foreground="{DynamicResource ThemeTextPrimary}" FontSize="14"
+                                                   FontWeight="SemiBold" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                    <TextBlock Text="Search web for latest information"
+                                               Foreground="{DynamicResource ThemeTextSecondary}" FontSize="11"
+                                               Margin="24,2,0,0" />
+                                </StackPanel>
+                                <Border x:Name="ToggleSearchWeb" HorizontalAlignment="Right"
+                                        VerticalAlignment="Center" Width="40" Height="22"
+                                        CornerRadius="11" Background="#007CEC" Cursor="Hand"
+                                        MouseLeftButtonDown="ToggleSearchWeb_Click">
+                                    <Border x:Name="SearchWebKnob" Width="18" Height="18"
+                                            CornerRadius="9" Background="White"
+                                            HorizontalAlignment="Right" Margin="2" />
+                                </Border>
+                            </Grid>
+                        </Border>
+
+                        <!-- Internal Knowledge toggle -->
+                        <Border Padding="14,10" BorderBrush="{DynamicResource ThemeBorder}" BorderThickness="0,0,0,1">
+                            <Grid>
+                                <StackPanel>
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="&#x1F4DA;" FontSize="14"
+                                                   VerticalAlignment="Center" Margin="0,0,10,0" />
+                                        <TextBlock Text="Internal Knowledge" Foreground="{DynamicResource ThemeTextPrimary}" FontSize="14"
+                                                   FontWeight="SemiBold" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                    <TextBlock Text="Search internal knowledge base"
+                                               Foreground="{DynamicResource ThemeTextSecondary}" FontSize="11"
+                                               Margin="24,2,0,0" />
+                                </StackPanel>
+                                <Border x:Name="ToggleInternalKnowledge" HorizontalAlignment="Right"
+                                        VerticalAlignment="Center" Width="40" Height="22"
+                                        CornerRadius="11" Background="#007CEC" Cursor="Hand"
+                                        MouseLeftButtonDown="ToggleInternalKnowledge_Click">
+                                    <Border x:Name="InternalKnowledgeKnob" Width="18" Height="18"
+                                            CornerRadius="9" Background="White"
+                                            HorizontalAlignment="Right" Margin="2" />
+                                </Border>
+                            </Grid>
+                        </Border>
+
+                        <!-- Deep Search toggle -->
+                        <Border Padding="14,10">
+                            <Grid>
+                                <StackPanel>
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="&#x1F50D;" FontSize="14"
+                                                   VerticalAlignment="Center" Margin="0,0,10,0" />
+                                        <TextBlock Text="Deep Search" Foreground="{DynamicResource ThemeTextPrimary}" FontSize="14"
+                                                   FontWeight="SemiBold" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                    <TextBlock Text="In-depth research and analysis"
+                                               Foreground="{DynamicResource ThemeTextSecondary}" FontSize="11"
+                                               Margin="24,2,0,0" />
+                                </StackPanel>
+                                <Border x:Name="ToggleDeepSearch" HorizontalAlignment="Right"
+                                        VerticalAlignment="Center" Width="40" Height="22"
+                                        CornerRadius="11" Background="{DynamicResource ThemeTextMuted}" Cursor="Hand"
+                                        MouseLeftButtonDown="ToggleDeepSearch_Click">
+                                    <Border x:Name="DeepSearchKnob" Width="18" Height="18"
+                                            CornerRadius="9" Background="White"
+                                            HorizontalAlignment="Left" Margin="2" />
+                                </Border>
+                            </Grid>
+                        </Border>
+                    </StackPanel>
+                </Border>
+
+                <!-- ═══ MODEL SELECTOR POPUP ═══ -->
+                <Border x:Name="ModelSelectorPopup" Grid.Row="1"
+                        Visibility="Collapsed"
+                        VerticalAlignment="Bottom" HorizontalAlignment="Left"
+                        Margin="20,0,0,8"
+                        Background="{DynamicResource ThemePopupBg}" CornerRadius="14"
+                        BorderBrush="{DynamicResource ThemeBorderMedium}" BorderThickness="1"
+                        Width="260" Panel.ZIndex="25">
+                    <Border.Effect>
+                        <DropShadowEffect Color="Black" BlurRadius="20" Opacity="0.6" ShadowDepth="4" />
+                    </Border.Effect>
+                    <ItemsControl x:Name="ModelList">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border Padding="14,11" Cursor="Hand"
+                                        MouseLeftButtonDown="ModelItem_Click"
+                                        Tag="{Binding Id}">
+                                    <Grid>
+                                        <StackPanel Orientation="Horizontal">
+                                            <!-- Checkmark for selected -->
+                                            <TextBlock Text="&#x2713;" Foreground="#007CEC"
+                                                       FontSize="13" FontWeight="Bold"
+                                                       VerticalAlignment="Center"
+                                                       Margin="0,0,8,0"
+                                                       Visibility="{Binding IsSelected, Converter={StaticResource BoolToVis}}" />
+                                            <!-- Icon -->
+                                            <TextBlock Text="{Binding Icon}" FontSize="13"
+                                                       Foreground="#007CEC" FontWeight="Bold"
+                                                       FontStyle="Italic"
+                                                       VerticalAlignment="Center"
+                                                       Margin="0,0,10,0" />
+                                            <!-- Name -->
+                                            <TextBlock Text="{Binding DisplayName}" Foreground="{DynamicResource ThemeTextPrimary}"
+                                                       FontSize="14" VerticalAlignment="Center" />
+                                        </StackPanel>
+                                        <!-- Default badge -->
+                                        <Border HorizontalAlignment="Right" VerticalAlignment="Center"
+                                                Background="{DynamicResource ThemeCard}" CornerRadius="4" Padding="8,3"
+                                                Visibility="{Binding IsDefault, Converter={StaticResource BoolToVis}}">
+                                            <TextBlock Text="Default" Foreground="{DynamicResource ThemeTextSecondary}" FontSize="10" />
+                                        </Border>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </Border>
             </Grid>
         </Grid>
 
@@ -419,14 +601,14 @@
         <!-- ═══ ACCOUNT POPUP OVERLAY ═══ -->
         <Grid x:Name="AccountOverlay" Visibility="Collapsed">
             <!-- Semi-transparent backdrop -->
-            <Border Background="#80000000" MouseLeftButtonDown="CloseAccountPopup_Click" />
+            <Border Background="{DynamicResource ThemeOverlay}" MouseLeftButtonDown="CloseAccountPopup_Click" />
 
             <!-- Popup Card -->
             <Border x:Name="AccountPopup"
                     VerticalAlignment="Bottom" HorizontalAlignment="Left"
                     Width="270" Margin="10,0,0,56"
-                    Background="#1E2024" CornerRadius="14"
-                    BorderBrush="#33FFFFFF" BorderThickness="1">
+                    Background="{DynamicResource ThemePopupBg}" CornerRadius="14"
+                    BorderBrush="{DynamicResource ThemeBorderMedium}" BorderThickness="1">
                 <Border.Effect>
                     <DropShadowEffect Color="Black" BlurRadius="20" Opacity="0.6" ShadowDepth="6" />
                 </Border.Effect>
@@ -434,7 +616,7 @@
                 <StackPanel>
                     <!-- Theme Toggle -->
                     <Border Padding="16,14,16,10">
-                        <Border HorizontalAlignment="Center" Background="#25292D"
+                        <Border HorizontalAlignment="Center" Background="{DynamicResource ThemeCard}"
                                 CornerRadius="12" Padding="4,3">
                             <StackPanel Orientation="Horizontal">
                                 <Button x:Name="ThemeSystem" Content="&#x1F5B5;"
@@ -452,7 +634,7 @@
                     </Border>
 
                     <!-- Workspace Card -->
-                    <Border Margin="12,0,12,0" Background="#25292D" CornerRadius="10"
+                    <Border Margin="12,0,12,0" Background="{DynamicResource ThemeCard}" CornerRadius="10"
                             Padding="14,12">
                         <StackPanel>
                             <StackPanel Orientation="Horizontal">
@@ -466,16 +648,16 @@
                                 </Border>
                                 <StackPanel VerticalAlignment="Center">
                                     <TextBlock x:Name="PopupWorkspaceName" Text=""
-                                               Foreground="White" FontSize="14"
+                                               Foreground="{DynamicResource ThemeTextPrimary}" FontSize="14"
                                                FontWeight="SemiBold" />
                                     <TextBlock x:Name="PopupWorkspaceDetail" Text=""
-                                               Foreground="#878E92" FontSize="11"
+                                               Foreground="{DynamicResource ThemeTextSecondary}" FontSize="11"
                                                Margin="0,2,0,0" />
                                 </StackPanel>
                             </StackPanel>
 
                             <!-- Intent Score Bar -->
-                            <Border Margin="0,10,0,0" Background="#1A1A1A" CornerRadius="12"
+                            <Border Margin="0,10,0,0" Background="{DynamicResource ThemeBg2}" CornerRadius="12"
                                     Padding="12,7">
                                 <Grid>
                                     <TextBlock Text="Your Intent score" Foreground="#00CA48"
@@ -492,21 +674,21 @@
                     </Border>
 
                     <!-- Invite Teammates -->
-                    <Border Margin="12,8,12,0" BorderBrush="#33FFFFFF" BorderThickness="1"
+                    <Border Margin="12,8,12,0" BorderBrush="{DynamicResource ThemeBorderMedium}" BorderThickness="1"
                             CornerRadius="10" Padding="0">
                         <Button Style="{StaticResource SidebarButton}"
                                 HorizontalContentAlignment="Center" Padding="12,10">
                             <StackPanel Orientation="Horizontal">
                                 <TextBlock Text="&#x1F465;" FontSize="13"
                                            VerticalAlignment="Center" Margin="0,0,8,0" />
-                                <TextBlock Text="Invite teammates" Foreground="#F4F5F5"
+                                <TextBlock Text="Invite teammates" Foreground="{DynamicResource ThemeTextPrimary}"
                                            FontSize="13" VerticalAlignment="Center" />
                             </StackPanel>
                         </Button>
                     </Border>
 
                     <!-- Divider -->
-                    <Border Height="1" Background="#1AFFFFFF" Margin="12,10" />
+                    <Border Height="1" Background="{DynamicResource ThemeHover}" Margin="12,10" />
 
                     <!-- All Workspaces -->
                     <TextBlock Text="All workspaces" Foreground="#007CEC" FontSize="12"
@@ -520,14 +702,14 @@
                                     <Grid Width="230">
                                         <StackPanel Orientation="Horizontal">
                                             <Border Width="28" Height="28" CornerRadius="14"
-                                                    Background="#333" Margin="0,0,8,0">
+                                                    Background="{DynamicResource ThemeCard}" Margin="0,0,8,0">
                                                 <TextBlock Text="{Binding Initial}"
                                                            Foreground="White" FontSize="11"
                                                            FontWeight="SemiBold"
                                                            HorizontalAlignment="Center"
                                                            VerticalAlignment="Center" />
                                             </Border>
-                                            <TextBlock Text="{Binding Name}" Foreground="#F4F5F5"
+                                            <TextBlock Text="{Binding Name}" Foreground="{DynamicResource ThemeTextPrimary}"
                                                        FontSize="13" VerticalAlignment="Center" />
                                         </StackPanel>
                                         <TextBlock Text="&#x2713;" Foreground="#007CEC"
@@ -542,7 +724,7 @@
                     </ItemsControl>
 
                     <!-- Divider -->
-                    <Border Height="1" Background="#1AFFFFFF" Margin="12,6" />
+                    <Border Height="1" Background="{DynamicResource ThemeHover}" Margin="12,6" />
 
                     <!-- Logout -->
                     <Button Style="{StaticResource SidebarButton}" Click="Logout_Click"

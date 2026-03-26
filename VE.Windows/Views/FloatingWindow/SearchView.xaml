@@ -18,8 +18,8 @@
                 </Grid.ColumnDefinitions>
 
                 <TextBox x:Name="SearchBox" Grid.Column="0"
-                         Background="#25292D" Foreground="#F4F5F5"
-                         FontSize="13" BorderBrush="#33FFFFFF" BorderThickness="1"
+                         Background="{DynamicResource ThemeCard}" Foreground="{DynamicResource ThemeTextPrimary}"
+                         FontSize="13" BorderBrush="{DynamicResource ThemeBorderMedium}" BorderThickness="1"
                          Padding="10,8" VerticalContentAlignment="Center"
                          KeyDown="SearchBox_KeyDown">
                     <!-- Placeholder text via adorner -->
@@ -36,8 +36,8 @@
         <Border Grid.Row="1" Padding="16,0,16,8">
             <Grid>
                 <TextBlock x:Name="StatusText" Text="Type a file name and press Search"
-                           Foreground="#878E92" FontSize="11" />
-                <TextBlock x:Name="ResultCountText" Foreground="#878E92" FontSize="11"
+                           Foreground="{DynamicResource ThemeTextSecondary}" FontSize="11" />
+                <TextBlock x:Name="ResultCountText" Foreground="{DynamicResource ThemeTextSecondary}" FontSize="11"
                            HorizontalAlignment="Right" Visibility="Collapsed" />
             </Grid>
         </Border>
@@ -51,7 +51,7 @@
                            Foreground="#007CEC" FontSize="13"
                            HorizontalAlignment="Center" />
                 <TextBlock x:Name="SearchingDetail" Text="Checking Windows Search Index..."
-                           Foreground="#555" FontSize="11"
+                           Foreground="{DynamicResource ThemeTextMuted}" FontSize="11"
                            HorizontalAlignment="Center" Margin="0,4,0,0" />
             </StackPanel>
 
@@ -61,7 +61,7 @@
                 <TextBlock Text="File not found" Foreground="#FF4444" FontSize="16"
                            FontWeight="SemiBold" HorizontalAlignment="Center" />
                 <TextBlock Text="No files matching your search were found&#x0a;on this computer"
-                           Foreground="#878E92" FontSize="12" TextAlignment="Center"
+                           Foreground="{DynamicResource ThemeTextSecondary}" FontSize="12" TextAlignment="Center"
                            HorizontalAlignment="Center" Margin="0,8,0,0" />
             </StackPanel>
 
@@ -70,7 +70,7 @@
                 <ItemsControl x:Name="ResultsList" Margin="8,0,8,8">
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>
-                            <Border Background="#0DFFFFFF" CornerRadius="8"
+                            <Border Background="{DynamicResource ThemeRowBg}" CornerRadius="8"
                                     Padding="12,10" Margin="0,3">
                                 <Grid>
                                     <Grid.ColumnDefinitions>
@@ -80,14 +80,14 @@
 
                                     <!-- File Info -->
                                     <StackPanel Grid.Column="0" Margin="0,0,8,0">
-                                        <TextBlock Text="{Binding FileName}" Foreground="#F4F5F5"
+                                        <TextBlock Text="{Binding FileName}" Foreground="{DynamicResource ThemeTextPrimary}"
                                                    FontSize="13" FontWeight="Medium"
                                                    TextTrimming="CharacterEllipsis" />
-                                        <TextBlock Text="{Binding FolderPath}" Foreground="#878E92"
+                                        <TextBlock Text="{Binding FolderPath}" Foreground="{DynamicResource ThemeTextSecondary}"
                                                    FontSize="10" TextTrimming="CharacterEllipsis"
                                                    Margin="0,3,0,0"
                                                    ToolTip="{Binding FullPath}" />
-                                        <TextBlock Text="{Binding FormattedSize}" Foreground="#555"
+                                        <TextBlock Text="{Binding FormattedSize}" Foreground="{DynamicResource ThemeTextMuted}"
                                                    FontSize="10" Margin="0,2,0,0" />
                                     </StackPanel>
 

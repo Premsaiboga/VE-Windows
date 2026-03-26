@@ -13,7 +13,7 @@
         Loaded="Window_Loaded"
         Deactivated="Window_Deactivated">
 
-    <Border CornerRadius="12" Background="#1A1A1A" BorderBrush="#33FFFFFF" BorderThickness="1"
+    <Border CornerRadius="12" Background="{DynamicResource ThemeBg2}" BorderBrush="{DynamicResource ThemeBorderMedium}" BorderThickness="1"
             Margin="8" MouseLeftButtonDown="TitleBar_MouseLeftButtonDown"
             ClipToBounds="True">
         <Border.Effect>

@@ -8,16 +8,16 @@
 
                 <!-- Private Integrations Header -->
                 <Grid Margin="0,0,0,16">
-                    <TextBlock Text="Private Integrations" Foreground="White"
+                    <TextBlock Text="Private Integrations" Foreground="{DynamicResource ThemeTextPrimary}"
                                FontSize="18" FontWeight="Bold"
                                VerticalAlignment="Center" />
-                    <Border HorizontalAlignment="Right" Background="#25292D"
-                            CornerRadius="8" BorderBrush="#33FFFFFF"
+                    <Border HorizontalAlignment="Right" Background="{DynamicResource ThemeCard}"
+                            CornerRadius="8" BorderBrush="{DynamicResource ThemeBorderMedium}"
                             BorderThickness="1" Padding="14,6">
                         <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="Private" Foreground="White"
+                            <TextBlock Text="Private" Foreground="{DynamicResource ThemeTextPrimary}"
                                        FontSize="12" VerticalAlignment="Center" />
-                            <TextBlock Text=" &#x25BE;" Foreground="#878E92"
+                            <TextBlock Text=" &#x25BE;" Foreground="{DynamicResource ThemeTextSecondary}"
                                        FontSize="12" VerticalAlignment="Center" />
                         </StackPanel>
                     </Border>
@@ -25,7 +25,7 @@
 
                 <!-- Loading -->
                 <TextBlock x:Name="LoadingText" Text="Loading connectors..."
-                           Foreground="#878E92" FontSize="13"
+                           Foreground="{DynamicResource ThemeTextSecondary}" FontSize="13"
                            HorizontalAlignment="Center" Margin="0,40,0,0" />
 
                 <!-- Connected Section -->
@@ -33,7 +33,7 @@
                     <ItemsControl x:Name="ConnectedList">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
-                                <Border Background="#0DFFFFFF" CornerRadius="10"
+                                <Border Background="{DynamicResource ThemeRowBg}" CornerRadius="10"
                                         Padding="14,12" Margin="0,4">
                                     <Grid>
                                         <Grid.ColumnDefinitions>
@@ -52,9 +52,9 @@
                                                        VerticalAlignment="Center" />
                                         </Border>
                                         <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                            <TextBlock Text="{Binding DisplayName}" Foreground="White"
+                                            <TextBlock Text="{Binding DisplayName}" Foreground="{DynamicResource ThemeTextPrimary}"
                                                        FontSize="14" FontWeight="Medium" />
-                                            <TextBlock Text="{Binding Email}" Foreground="#878E92"
+                                            <TextBlock Text="{Binding Email}" Foreground="{DynamicResource ThemeTextSecondary}"
                                                        FontSize="11" Margin="0,2,0,0" />
                                         </StackPanel>
                                         <TextBlock Grid.Column="2" Text="{Binding StatusText}"
@@ -75,20 +75,20 @@
                 <!-- No connected integrations (empty state) -->
                 <StackPanel x:Name="EmptyConnectedState" Visibility="Collapsed"
                             HorizontalAlignment="Center" Margin="0,30,0,30">
-                    <TextBlock Text="&#x1F517;" FontSize="36" Foreground="#555"
+                    <TextBlock Text="&#x1F517;" FontSize="36" Foreground="{DynamicResource ThemeTextMuted}"
                                HorizontalAlignment="Center" Margin="0,0,0,10" />
-                    <TextBlock Text="No connected integrations" Foreground="#878E92"
+                    <TextBlock Text="No connected integrations" Foreground="{DynamicResource ThemeTextSecondary}"
                                FontSize="13" HorizontalAlignment="Center" />
                 </StackPanel>
 
                 <!-- Available Integrations -->
                 <StackPanel x:Name="AvailableSection" Visibility="Collapsed">
-                    <TextBlock Text="Available Integrations" Foreground="White"
+                    <TextBlock Text="Available Integrations" Foreground="{DynamicResource ThemeTextPrimary}"
                                FontSize="16" FontWeight="Bold" Margin="0,8,0,12" />
 
                     <!-- Search Bar -->
-                    <Border Background="#25292D" CornerRadius="8"
-                            BorderBrush="#33FFFFFF" BorderThickness="1"
+                    <Border Background="{DynamicResource ThemeCard}" CornerRadius="8"
+                            BorderBrush="{DynamicResource ThemeBorderMedium}" BorderThickness="1"
                             Padding="4,0" Margin="0,0,0,16">
                         <Grid>
                             <Grid.ColumnDefinitions>
@@ -96,12 +96,12 @@
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
                             <TextBlock Grid.Column="0" Text="&#x1F50D;" FontSize="13"
-                                       Foreground="#878E92" VerticalAlignment="Center"
+                                       Foreground="{DynamicResource ThemeTextSecondary}" VerticalAlignment="Center"
                                        Margin="10,0,8,0" />
                             <TextBox x:Name="SearchBox" Grid.Column="1"
-                                     Background="Transparent" Foreground="#F4F5F5"
+                                     Background="Transparent" Foreground="{DynamicResource ThemeTextPrimary}"
                                      FontSize="13" BorderThickness="0"
-                                     Padding="4,10" CaretBrush="White"
+                                     Padding="4,10" CaretBrush="{DynamicResource ThemeTextPrimary}"
                                      TextChanged="SearchBox_TextChanged">
                                 <TextBox.Style>
                                     <Style TargetType="TextBox">
@@ -110,7 +110,7 @@
                                                 <ControlTemplate TargetType="TextBox">
                                                     <Grid>
                                                         <TextBlock x:Name="ph" Text="Search"
-                                                                   Foreground="#555" FontSize="13"
+                                                                   Foreground="{DynamicResource ThemeTextMuted}" FontSize="13"
                                                                    VerticalAlignment="Center"
                                                                    Margin="6,0,0,0"
                                                                    Visibility="Collapsed" />
@@ -137,7 +137,7 @@
                     <ItemsControl x:Name="AvailableList">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
-                                <Border Background="#0DFFFFFF" CornerRadius="10"
+                                <Border Background="{DynamicResource ThemeRowBg}" CornerRadius="10"
                                         Padding="14,12" Margin="0,4">
                                     <Grid>
                                         <Grid.ColumnDefinitions>
@@ -159,7 +159,7 @@
 
                                         <!-- Name -->
                                         <TextBlock Grid.Column="1" Text="{Binding Name}"
-                                                   Foreground="White" FontSize="14"
+                                                   Foreground="{DynamicResource ThemeTextPrimary}" FontSize="14"
                                                    FontWeight="Medium"
                                                    VerticalAlignment="Center" />
 

@@ -4,10 +4,10 @@
 
     <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
         <TextBlock x:Name="TitleText" Text="Coming Soon"
-                   Foreground="#878E92" FontSize="18"
+                   Foreground="{DynamicResource ThemeTextSecondary}" FontSize="18"
                    HorizontalAlignment="Center" Margin="0,0,0,8" />
         <TextBlock x:Name="SubtitleText" Text="This feature will be available soon"
-                   Foreground="#555" FontSize="13"
+                   Foreground="{DynamicResource ThemeTextMuted}" FontSize="13"
                    HorizontalAlignment="Center"
                    TextAlignment="Center" />
     </StackPanel>

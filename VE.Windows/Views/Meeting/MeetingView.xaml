@@ -7,7 +7,7 @@
         <StackPanel x:Name="StartingPanel" Visibility="Collapsed"
                     VerticalAlignment="Center" HorizontalAlignment="Center">
             <TextBlock Text="Starting meeting notes..."
-                       Foreground="White" FontSize="14"
+                       Foreground="{DynamicResource ThemeTextPrimary}" FontSize="14"
                        HorizontalAlignment="Center" />
         </StackPanel>
 
@@ -36,7 +36,7 @@
                 <!-- Timer -->
                 <TextBlock x:Name="MeetingTimer"
                            Text="0:00"
-                           Foreground="White" FontSize="36"
+                           Foreground="{DynamicResource ThemeTextPrimary}" FontSize="36"
                            FontWeight="Light"
                            HorizontalAlignment="Center" Margin="0,0,0,24" />
 
@@ -68,11 +68,11 @@
             <ScrollViewer VerticalScrollBarVisibility="Auto">
                 <StackPanel>
                     <TextBlock Text="Meeting Notes"
-                               Foreground="White" FontSize="18" FontWeight="SemiBold"
+                               Foreground="{DynamicResource ThemeTextPrimary}" FontSize="18" FontWeight="SemiBold"
                                Margin="0,0,0,12" />
                     <TextBlock x:Name="SummaryText"
                                Text=""
-                               Foreground="#B0B0B0" FontSize="13"
+                               Foreground="{DynamicResource ThemeTextSecondary}" FontSize="13"
                                TextWrapping="Wrap"
                                Margin="0,0,0,16" />
                     <Button Content="View Full Summary"

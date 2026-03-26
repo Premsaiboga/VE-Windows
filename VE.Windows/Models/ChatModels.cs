@@ -139,10 +139,11 @@ public class AIModel
     public static readonly AIModel[] AvailableModels =
     {
         Auto,
-        new() { Id = "gpt-4o", DisplayName = "GPT-4o" },
         new() { Id = "gpt-4o-mini", DisplayName = "GPT-4o Mini" },
-        new() { Id = "kimi-k2", DisplayName = "Kimi K2" },
+        new() { Id = "gpt-4o", DisplayName = "GPT-4o" },
         new() { Id = "o4-mini", DisplayName = "O4 Mini" },
+        new() { Id = "gpt-4.1", DisplayName = "GPT-4.1" },
+        new() { Id = "kimi-k2", DisplayName = "Kimi K2" },
     };
 }
 

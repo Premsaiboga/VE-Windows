@@ -10,7 +10,7 @@
             <components:SmoothDotLoader DotColor="#007CEC" DotSize="8"
                                         HorizontalAlignment="Center" Margin="0,0,0,12" />
             <TextBlock Text="Preparing microphone..."
-                       Foreground="#878E92" FontSize="13"
+                       Foreground="{DynamicResource ThemeTextSecondary}" FontSize="13"
                        HorizontalAlignment="Center" />
         </StackPanel>
 
@@ -21,17 +21,17 @@
                                       Width="80" Height="40"
                                       HorizontalAlignment="Center" Margin="0,0,0,12" />
             <TextBlock Text="Listening..."
-                       Foreground="White" FontSize="16"
+                       Foreground="{DynamicResource ThemeTextPrimary}" FontSize="16"
                        FontWeight="SemiBold"
                        HorizontalAlignment="Center" Margin="0,0,0,4" />
             <TextBlock x:Name="DurationText"
                        Text="0:00"
-                       Foreground="#878E92" FontSize="13"
+                       Foreground="{DynamicResource ThemeTextSecondary}" FontSize="13"
                        HorizontalAlignment="Center" Margin="0,0,0,12" />
             <!-- Streaming transcription -->
             <TextBlock x:Name="LiveTranscription"
                        Text=""
-                       Foreground="#B0B0B0"
+                       Foreground="{DynamicResource ThemeTextSecondary}"
                        FontSize="13" FontStyle="Italic"
                        TextWrapping="Wrap"
                        MaxWidth="280"
@@ -44,7 +44,7 @@
             <components:SmoothDotLoader DotColor="#007CEC" DotSize="6"
                                         HorizontalAlignment="Center" Margin="0,0,0,12" />
             <TextBlock Text="Processing..."
-                       Foreground="White" FontSize="14"
+                       Foreground="{DynamicResource ThemeTextPrimary}" FontSize="14"
                        HorizontalAlignment="Center" />
         </StackPanel>
 
@@ -54,11 +54,11 @@
             <TextBlock Text="&#x2713;" Foreground="#00CA48" FontSize="32"
                        HorizontalAlignment="Center" Margin="0,0,0,8" />
             <TextBlock Text="Transcribed and pasted"
-                       Foreground="White" FontSize="14"
+                       Foreground="{DynamicResource ThemeTextPrimary}" FontSize="14"
                        HorizontalAlignment="Center" Margin="0,0,0,8" />
             <TextBlock x:Name="TranscribedPreview"
                        Text=""
-                       Foreground="#878E92" FontSize="12"
+                       Foreground="{DynamicResource ThemeTextSecondary}" FontSize="12"
                        TextTrimming="CharacterEllipsis"
                        TextWrapping="Wrap"
                        MaxWidth="280" MaxHeight="60"
