@@ -378,7 +378,10 @@ public sealed class AuthStorage
 #endif
             }
         }
-        catch { }
+        catch (Exception ex)
+        {
+            FileLogger.Instance.Warning("AuthManager", $"LoadStore failed: {ex.Message}");
+        }
         return new Dictionary<string, string>();
     }
 

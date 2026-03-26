@@ -155,7 +155,10 @@ public class MultiAgentSocketClient
                         OnCitationsReceived?.Invoke(this, citations);
                     }
                 }
-                catch { }
+                catch (Exception ex)
+                {
+                    FileLogger.Instance.Warning("MultiAgentSocket", $"Citation parse failed: {ex.Message}");
+                }
             }
 
             // 5. Stream end - check BEFORE answer (matches macOS: processes final chunk in stream_end)

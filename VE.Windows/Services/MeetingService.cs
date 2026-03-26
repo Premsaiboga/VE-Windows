@@ -159,10 +159,14 @@ public sealed class MeetingService : INotifyPropertyChanged
 
         try
         {
-            // Send final signal
+            // Unsubscribe event handlers to prevent leaks
             var client = WebSocketRegistry.Instance.MeetingClient;
             if (client != null)
             {
+                client.OnTranscription -= OnTranscriptionReceived;
+                client.OnPartialTranscription -= OnPartialTranscriptionReceived;
+                client.OnConnectionConfirmed -= OnConnectionConfirmed;
+                client.OnError -= OnMeetingError;
                 await client.SendFinalSignal();
             }
 
@@ -268,6 +272,8 @@ public sealed class MeetingService : INotifyPropertyChanged
         _ = client?.SendAudioData(data);
     }
 
+    private static readonly int MaxTranscriptions = Infrastructure.AppConfiguration.Instance.MaxLiveTranscriptions;
+
     private void OnTranscriptionReceived(object? sender, MeetingTranscription transcription)
     {
         _lastTranscriptionTime = DateTime.UtcNow;
@@ -275,6 +281,11 @@ public sealed class MeetingService : INotifyPropertyChanged
 
         System.Windows.Application.Current?.Dispatcher.Invoke(() =>
         {
+            // Cap transcriptions to prevent unbounded memory growth
+            if (LiveTranscriptions.Count >= MaxTranscriptions)
+            {
+                LiveTranscriptions.RemoveAt(0);
+            }
             LiveTranscriptions.Add(transcription);
             FileLogger.Instance.Info("Meeting",
                 $"Transcription [{transcription.Speaker}]: {transcription.Text.Substring(0, Math.Min(50, transcription.Text.Length))}");
@@ -373,8 +384,12 @@ public sealed class MeetingService : INotifyPropertyChanged
                 return false;
             }
 
-            client.OnSummaryComplete += (s, analytics) =>
+            // Use named handlers so they can self-unsubscribe (prevents leaks on repeated calls)
+            void OnComplete(object? s, MeetingAnalyticsData analytics)
             {
+                client.OnSummaryComplete -= OnComplete;
+                client.OnSummarySkipped -= OnSkipped;
+                client.OnError -= OnSummaryError;
                 _isSummaryGenerationInProgress = false;
                 OnPropertyChanged(nameof(IsSummaryGenerationInProgress));
                 WebSocketRegistry.Instance.DisconnectSummaryTransport();
@@ -382,10 +397,13 @@ public sealed class MeetingService : INotifyPropertyChanged
                 {
                     SummaryGenerationComplete?.Invoke(this, analytics);
                 });
-            };
+            }
 
-            client.OnSummarySkipped += (s, e) =>
+            void OnSkipped(object? s, EventArgs e)
             {
+                client.OnSummaryComplete -= OnComplete;
+                client.OnSummarySkipped -= OnSkipped;
+                client.OnError -= OnSummaryError;
                 _isSummaryGenerationInProgress = false;
                 OnPropertyChanged(nameof(IsSummaryGenerationInProgress));
                 WebSocketRegistry.Instance.DisconnectSummaryTransport();
@@ -393,14 +411,21 @@ public sealed class MeetingService : INotifyPropertyChanged
                 {
                     SummaryGenerationSkipped?.Invoke(this, EventArgs.Empty);
                 });
-            };
+            }
 
-            client.OnError += (s, error) =>
+            void OnSummaryError(object? s, string error)
             {
+                client.OnSummaryComplete -= OnComplete;
+                client.OnSummarySkipped -= OnSkipped;
+                client.OnError -= OnSummaryError;
                 _isSummaryGenerationInProgress = false;
                 OnPropertyChanged(nameof(IsSummaryGenerationInProgress));
                 WebSocketRegistry.Instance.DisconnectSummaryTransport();
-            };
+            }
+
+            client.OnSummaryComplete += OnComplete;
+            client.OnSummarySkipped += OnSkipped;
+            client.OnError += OnSummaryError;
 
             // Generate session ID and get tenant ID
             var sessionId = Guid.NewGuid().ToString("N").Substring(0, 24);

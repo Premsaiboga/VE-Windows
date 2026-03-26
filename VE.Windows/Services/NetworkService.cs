@@ -7,6 +7,7 @@ using System.Text;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using VE.Windows.Helpers;
+using VE.Windows.Infrastructure;
 using VE.Windows.Managers;
 
 namespace VE.Windows.Services;
@@ -21,7 +22,7 @@ namespace VE.Windows.Services;
 /// On Windows, CookieContainer is in-memory only, so we manually persist cookies to disk
 /// (DPAPI-encrypted in Release, plain JSON in Debug) to survive app restarts.
 /// </summary>
-public sealed class NetworkService
+public sealed class NetworkService : INetworkService
 {
     public static NetworkService Instance { get; } = new();
 
@@ -196,7 +197,10 @@ public sealed class NetworkService
                     File.Delete(_cookiePersistPath);
             }
         }
-        catch { }
+        catch (Exception ex)
+        {
+            FileLogger.Instance.Warning("Network", $"Clear persisted cookies failed: {ex.Message}");
+        }
     }
 
     private class SerializedCookie
@@ -299,12 +303,46 @@ public sealed class NetworkService
                     JsonConvert.SerializeObject(body), Encoding.UTF8, "application/json");
             }
             var response = await _httpClient.SendAsync(request);
-            return await response.Content.ReadAsStringAsync();
+            var content = await response.Content.ReadAsStringAsync();
+            if (!response.IsSuccessStatusCode)
+            {
+                FileLogger.Instance.Warning("Network",
+                    $"POST raw failed: {(int)response.StatusCode} {url} - {content.Substring(0, Math.Min(200, content.Length))}");
+                return null;
+            }
+            return content;
         }
         catch (Exception ex)
         {
             FileLogger.Instance.Error("Network", $"POST raw failed: {url} - {ex.Message}");
             return null;
+        }
+    }
+
+    public async Task<Result<string>> PostRawCheckedAsync(string url, object? body = null)
+    {
+        try
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Post, url);
+            AttachAuthHeaders(request);
+            if (body != null)
+            {
+                request.Content = new StringContent(
+                    JsonConvert.SerializeObject(body), Encoding.UTF8, "application/json");
+            }
+            var response = await _httpClient.SendAsync(request);
+            var content = await response.Content.ReadAsStringAsync();
+            if (response.IsSuccessStatusCode)
+            {
+                return Result.Success(content);
+            }
+            FileLogger.Instance.Warning("Network", $"POST checked failed: {(int)response.StatusCode} {url}");
+            return Result.Failure<string>($"HTTP {(int)response.StatusCode}: {content.Substring(0, Math.Min(200, content.Length))}");
+        }
+        catch (Exception ex)
+        {
+            FileLogger.Instance.Error("Network", $"POST checked failed: {url} - {ex.Message}");
+            return Result.Failure<string>(ex.Message, ex);
         }
     }
 
@@ -320,7 +358,14 @@ public sealed class NetworkService
                     JsonConvert.SerializeObject(body), Encoding.UTF8, "application/json");
             }
             var response = await _httpClient.SendAsync(request);
-            return await response.Content.ReadAsStringAsync();
+            var content = await response.Content.ReadAsStringAsync();
+            if (!response.IsSuccessStatusCode)
+            {
+                FileLogger.Instance.Warning("Network",
+                    $"PUT raw failed: {(int)response.StatusCode} {url} - {content.Substring(0, Math.Min(200, content.Length))}");
+                return null;
+            }
+            return content;
         }
         catch (Exception ex)
         {
@@ -341,7 +386,14 @@ public sealed class NetworkService
                     JsonConvert.SerializeObject(body), Encoding.UTF8, "application/json");
             }
             var response = await _httpClient.SendAsync(request);
-            return await response.Content.ReadAsStringAsync();
+            var content = await response.Content.ReadAsStringAsync();
+            if (!response.IsSuccessStatusCode)
+            {
+                FileLogger.Instance.Warning("Network",
+                    $"DELETE raw failed: {(int)response.StatusCode} {url} - {content.Substring(0, Math.Min(200, content.Length))}");
+                return null;
+            }
+            return content;
         }
         catch (Exception ex)
         {

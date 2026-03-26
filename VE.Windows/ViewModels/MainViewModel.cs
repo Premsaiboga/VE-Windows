@@ -124,7 +124,10 @@ public class MainViewModel : INotifyPropertyChanged
                 }
             }
         }
-        catch { }
+        catch (Exception ex)
+        {
+            Helpers.FileLogger.Instance.Warning("MainVM", $"SaveDisplayPreference failed: {ex.Message}");
+        }
     }
 
     private Rect GetTargetScreen()
@@ -147,7 +150,10 @@ public class MainViewModel : INotifyPropertyChanged
                 Helpers.FileLogger.Instance.Debug("MainVM", $"Saved display '{savedKey}' not found, using primary");
             }
         }
-        catch { }
+        catch (Exception ex)
+        {
+            Helpers.FileLogger.Instance.Warning("MainVM", $"GetTargetScreen failed: {ex.Message}");
+        }
 
         // Default: primary screen
         return new Rect(0, 0, SystemParameters.PrimaryScreenWidth, SystemParameters.PrimaryScreenHeight);

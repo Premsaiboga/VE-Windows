@@ -147,7 +147,10 @@ public class MeetingSocketClient
                 var json = JsonConvert.SerializeObject(payload);
                 await _transport.SendAsync(json);
             }
-            catch { }
+            catch (Exception ex)
+            {
+                FileLogger.Instance.Warning("MeetingSocket", $"Buffer flush send failed: {ex.Message}");
+            }
         }
         _pendingAudioBuffer.Clear();
         FileLogger.Instance.Info("MeetingSocket", "Flushed pending audio buffer");

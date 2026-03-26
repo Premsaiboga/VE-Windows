@@ -272,7 +272,10 @@ public sealed class ChatManager : INotifyPropertyChanged
                         });
                     }
                 }
-                catch { }
+                catch (Exception ex)
+                {
+                    Helpers.FileLogger.Instance.Warning("ChatManager", $"Citation parse failed: {ex.Message}");
+                }
             }
 
             // 1. Error field
@@ -387,8 +390,8 @@ public sealed class ChatManager : INotifyPropertyChanged
     private void CleanupWebSocket()
     {
         _cts?.Cancel();
-        try { _ws?.Dispose(); } catch { }
-        try { _cts?.Dispose(); } catch { }
+        try { _ws?.Dispose(); } catch (Exception ex) { Helpers.FileLogger.Instance.Warning("ChatManager", $"WS dispose: {ex.Message}"); }
+        try { _cts?.Dispose(); } catch (Exception ex) { Helpers.FileLogger.Instance.Warning("ChatManager", $"CTS dispose: {ex.Message}"); }
         _ws = null;
         _cts = null;
     }
@@ -447,7 +450,7 @@ public sealed class ChatManager : INotifyPropertyChanged
                 return ianaId;
             }
         }
-        catch { }
+        catch (Exception) { } // TryConvertWindowsIdToIanaId may not be available on all platforms
         // Fallback to Windows ID if conversion fails
         return TimeZoneInfo.Local.Id;
     }

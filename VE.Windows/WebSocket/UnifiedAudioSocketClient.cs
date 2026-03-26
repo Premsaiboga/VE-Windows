@@ -15,9 +15,10 @@ namespace VE.Windows.WebSocket;
 public class UnifiedAudioSocketClient
 {
     private readonly WebSocketTransport _transport;
+    private readonly object _textLock = new();
     private string _accumulatedText = "";
     private DateTime _predictionStartTime;
-    private bool _predictionCompleted;
+    private volatile bool _predictionCompleted;
 
     public event EventHandler<string>? OnPredictionStreaming;
     public event EventHandler<PredictionResult>? OnPredictionComplete;
@@ -34,7 +35,10 @@ public class UnifiedAudioSocketClient
 
     public void ResetAccumulatedText()
     {
-        _accumulatedText = "";
+        lock (_textLock)
+        {
+            _accumulatedText = "";
+        }
         _predictionCompleted = false;
         _predictionStartTime = DateTime.UtcNow;
     }
@@ -220,11 +224,20 @@ public class UnifiedAudioSocketClient
                 }
             }
 
-            // Accumulate suggested_text
+            // Accumulate suggested_text (thread-safe)
+            string accumulatedSnapshot;
             if (json.ContainsKey("suggested_text"))
             {
                 var suggestedText = json["suggested_text"]?.ToString() ?? "";
-                _accumulatedText += suggestedText;
+                lock (_textLock)
+                {
+                    _accumulatedText += suggestedText;
+                    accumulatedSnapshot = _accumulatedText;
+                }
+            }
+            else
+            {
+                lock (_textLock) { accumulatedSnapshot = _accumulatedText; }
             }
 
             // Show step text (streaming display)
@@ -236,7 +249,7 @@ public class UnifiedAudioSocketClient
             else if (json.ContainsKey("suggested_text"))
             {
                 // If no step field, show accumulated text
-                OnPredictionStreaming?.Invoke(this, _accumulatedText);
+                OnPredictionStreaming?.Invoke(this, accumulatedSnapshot);
             }
 
             // Output completed - prediction is ready for paste
@@ -245,14 +258,14 @@ public class UnifiedAudioSocketClient
                 var outputCompleted = json["output_completed"]?.Value<bool>() ?? false;
                 if (outputCompleted && !_predictionCompleted)
                 {
-                    if (!string.IsNullOrEmpty(_accumulatedText))
+                    if (!string.IsNullOrEmpty(accumulatedSnapshot))
                     {
                         _predictionCompleted = true;
-                        FileLogger.Instance.Info("UnifiedAudioClient", $"Prediction complete: {_accumulatedText.Length} chars");
+                        FileLogger.Instance.Info("UnifiedAudioClient", $"Prediction complete: {accumulatedSnapshot.Length} chars");
                         OnPredictionComplete?.Invoke(this, new PredictionResult
                         {
                             Id = json["id"]?.ToString() ?? "",
-                            Text = _accumulatedText,
+                            Text = accumulatedSnapshot,
                             Status = 200
                         });
                     }
@@ -278,17 +291,17 @@ public class UnifiedAudioSocketClient
                         var error = json["error"]?.ToString() ?? "Couldn't capture your intent";
                         OnError?.Invoke(this, error);
                     }
-                    else if (statusCode == 200 && !string.IsNullOrEmpty(_accumulatedText) && !_predictionCompleted)
+                    else if (statusCode == 200 && !string.IsNullOrEmpty(accumulatedSnapshot) && !_predictionCompleted)
                     {
                         _predictionCompleted = true;
                         OnPredictionComplete?.Invoke(this, new PredictionResult
                         {
                             Id = id,
-                            Text = _accumulatedText,
+                            Text = accumulatedSnapshot,
                             Status = statusCode
                         });
                     }
-                    else if (string.IsNullOrEmpty(_accumulatedText) && !_predictionCompleted)
+                    else if (string.IsNullOrEmpty(accumulatedSnapshot) && !_predictionCompleted)
                     {
                         var errorMsg = json["status_message"]?.ToString() ?? "No words detected. Please speak closer to the microphone.";
                         FileLogger.Instance.Warning("UnifiedAudioClient", $"stream_end with no accumulated text, status: {statusCode}");

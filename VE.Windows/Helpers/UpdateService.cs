@@ -221,10 +221,10 @@ public sealed class UpdateService : INotifyPropertyChanged
             {
                 // Clean up old installers
                 try { File.Delete(installer); }
-                catch { }
+                catch (Exception) { } // Best-effort cleanup of temp files
             }
         }
-        catch { }
+        catch (Exception) { } // Best-effort cleanup
     }
 
     /// <summary>

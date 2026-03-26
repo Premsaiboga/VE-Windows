@@ -48,10 +48,10 @@ public static class UIAutomationHelper
         string? processName = null;
         try
         {
-            var process = System.Diagnostics.Process.GetProcessById((int)processId);
+            using var process = System.Diagnostics.Process.GetProcessById((int)processId);
             processName = process.ProcessName;
         }
-        catch { }
+        catch (Exception) { } // Process may have exited
 
         return new ActiveWindowInfo
         {

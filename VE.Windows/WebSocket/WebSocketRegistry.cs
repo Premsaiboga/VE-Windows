@@ -1,5 +1,6 @@
 using Microsoft.Win32;
 using VE.Windows.Helpers;
+using VE.Windows.Infrastructure;
 using VE.Windows.Managers;
 using VE.Windows.Services;
 
@@ -12,7 +13,7 @@ namespace VE.Windows.WebSocket;
 /// Matches macOS WebSocketRegistry: pending transport swap, lifecycle observers,
 /// sleep/wake handling.
 /// </summary>
-public sealed class WebSocketRegistry : IDisposable
+public sealed class WebSocketRegistry : IWebSocketRegistry
 {
     public static WebSocketRegistry Instance { get; } = new();
 
@@ -80,22 +81,39 @@ public sealed class WebSocketRegistry : IDisposable
         }
     }
 
-    private void DisconnectAllForSleep()
+    private async void DisconnectAllForSleep()
     {
         // Intentional disconnect — don't trigger reconnect logic
-        try { _unifiedAudioTransport?.DisconnectAsync().Wait(TimeSpan.FromSeconds(2)); } catch { }
-        try { _dictationTransport?.DisconnectAsync().Wait(TimeSpan.FromSeconds(2)); } catch { }
-        try { _multiAgentTransport?.DisconnectAsync().Wait(TimeSpan.FromSeconds(2)); } catch { }
-        try { _voiceToTextTransport?.DisconnectAsync().Wait(TimeSpan.FromSeconds(2)); } catch { }
-        // Keep meeting transport if meeting is active
-        if (MeetingClient != null && MeetingService.Instance.IsActive)
+        try
         {
-            FileLogger.Instance.Info("WebSocketRegistry", "Keeping meeting transport alive during sleep");
+            var tasks = new List<Task>();
+            if (_unifiedAudioTransport != null) tasks.Add(DisconnectSafe(_unifiedAudioTransport));
+            if (_dictationTransport != null) tasks.Add(DisconnectSafe(_dictationTransport));
+            if (_multiAgentTransport != null) tasks.Add(DisconnectSafe(_multiAgentTransport));
+            if (_voiceToTextTransport != null) tasks.Add(DisconnectSafe(_voiceToTextTransport));
+
+            // Keep meeting transport if meeting is active
+            if (MeetingClient != null && MeetingService.Instance.IsActive)
+            {
+                FileLogger.Instance.Info("WebSocketRegistry", "Keeping meeting transport alive during sleep");
+            }
+            else if (_meetingTransport != null)
+            {
+                tasks.Add(DisconnectSafe(_meetingTransport));
+            }
+
+            await Task.WhenAll(tasks).WaitAsync(TimeSpan.FromSeconds(3));
         }
-        else
+        catch (Exception ex)
         {
-            try { _meetingTransport?.DisconnectAsync().Wait(TimeSpan.FromSeconds(2)); } catch { }
+            FileLogger.Instance.Warning("WebSocketRegistry", $"Sleep disconnect error: {ex.Message}");
         }
+    }
+
+    private static async Task DisconnectSafe(WebSocketTransport transport)
+    {
+        try { await transport.DisconnectAsync(); }
+        catch (Exception ex) { FileLogger.Instance.Warning("WebSocketRegistry", $"Disconnect failed: {ex.Message}"); }
     }
 
     private async Task ReconnectAllAfterDelay(TimeSpan delay)
@@ -146,7 +164,7 @@ public sealed class WebSocketRegistry : IDisposable
         {
             FileLogger.Instance.Info("WebSocketRegistry", "App deactivated for >60s — disconnecting non-essential transports");
             // Don't disconnect meeting if active
-            try { _multiAgentTransport?.DisconnectAsync().Wait(TimeSpan.FromSeconds(2)); } catch { }
+            _ = DisconnectSafe(_multiAgentTransport!);
         }, null, TimeSpan.FromSeconds(DeactivationTimeoutSeconds), Timeout.InfiniteTimeSpan);
     }
 
@@ -271,7 +289,7 @@ public sealed class WebSocketRegistry : IDisposable
         var sessionId = Guid.NewGuid().ToString("N").Substring(0, 24);
         var url = $"{baseUrl}/{tenantId}/{sessionId}/invoke-predictor";
 
-        FileLogger.Instance.Info("WebSocketRegistry", $"Connecting unified audio to: {url}");
+        FileLogger.Instance.Info("WebSocketRegistry", $"Connecting unified audio to: {baseUrl}/.../{sessionId}/invoke-predictor");
 
         _unifiedAudioTransport?.Dispose();
         _unifiedAudioTransport = new WebSocketTransport(url);
@@ -339,8 +357,9 @@ public sealed class WebSocketRegistry : IDisposable
             return;
         }
 
+        var meetingWsBase = AppConfiguration.Instance.MeetingWebSocketBaseUrl;
         var encodedToken = Uri.EscapeDataString(token);
-        var url = $"wss://meetings.us-east-1.ve.ai/frontend/ws/{meetingId}?token={encodedToken}";
+        var url = $"{meetingWsBase}/frontend/ws/{meetingId}?token={encodedToken}";
 
         FileLogger.Instance.Info("WebSocketRegistry", $"Connecting meeting transport for meeting: {meetingId}");
 
@@ -377,7 +396,8 @@ public sealed class WebSocketRegistry : IDisposable
         }
 
         var encodedToken = Uri.EscapeDataString(token);
-        var url = $"wss://meetings.us-east-1.ve.ai/genarateSummary/ws/{meetingId}?token={encodedToken}";
+        var summaryWsBase = AppConfiguration.Instance.SummaryWebSocketBaseUrl;
+        var url = $"{summaryWsBase}/genarateSummary/ws/{meetingId}?token={encodedToken}";
 
         FileLogger.Instance.Info("WebSocketRegistry", $"Connecting summary transport for meeting: {meetingId}");
 
@@ -389,14 +409,15 @@ public sealed class WebSocketRegistry : IDisposable
         FileLogger.Instance.Info("WebSocketRegistry", "Summary transport connected");
     }
 
-    public void DisconnectSummaryTransport()
+    public async Task DisconnectSummaryTransport()
     {
         _summaryTransport?.Dispose();
         _summaryTransport = null;
         SummaryClient = null;
+        await Task.CompletedTask;
     }
 
-    public void DisconnectAll()
+    public async Task DisconnectAll()
     {
         FileLogger.Instance.Info("WebSocketRegistry", "Disconnecting all transports...");
         _unifiedAudioTransport?.Dispose();
@@ -422,6 +443,7 @@ public sealed class WebSocketRegistry : IDisposable
         MultiAgentClient = null;
         MeetingClient = null;
         SummaryClient = null;
+        await Task.CompletedTask;
     }
 
     public async Task VerifyAllConnections()

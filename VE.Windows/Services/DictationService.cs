@@ -32,13 +32,15 @@ public sealed class DictationService : INotifyPropertyChanged
     private string? _dictationAppName;
     private string? _dictationWindowTitle;
     private DateTime _dictationStartTime;
-    private bool _stopRequested;
+    private volatile bool _stopRequested;
     private UnifiedAudioSocketClient? _activeClient;
+    private CancellationTokenSource? _timeoutCts;
 
     // Audio buffering - capture audio immediately, buffer until WebSocket connects
     private readonly List<byte[]> _audioBuffer = new();
-    private bool _isBuffering;
-    private bool _webSocketReady;
+    private volatile bool _isBuffering;
+    private volatile bool _webSocketReady;
+    private static readonly int MaxAudioBufferChunks = Infrastructure.AppConfiguration.Instance.AudioBufferMaxChunks;
 
     /// <summary>
     /// Target window handle to paste dictation result into.
@@ -238,10 +240,14 @@ public sealed class DictationService : INotifyPropertyChanged
             return;
         }
 
-        // Auto-timeout if processing takes too long
-        _ = Task.Delay(TimeSpan.FromSeconds(15)).ContinueWith(_ =>
+        // Auto-timeout if processing takes too long — cancellable via CancellationToken
+        _timeoutCts?.Cancel();
+        _timeoutCts?.Dispose();
+        _timeoutCts = new CancellationTokenSource();
+        var token = _timeoutCts.Token;
+        _ = Task.Delay(TimeSpan.FromSeconds(15), token).ContinueWith(t =>
         {
-            if (State == DictationState.Processing)
+            if (!t.IsCanceled && State == DictationState.Processing)
             {
                 Helpers.DispatcherHelper.PostOnUI(() =>
                 {
@@ -251,11 +257,12 @@ public sealed class DictationService : INotifyPropertyChanged
                     ViewCoordinator.Instance.DictationState = DictationState.Inactive;
                 });
             }
-        });
+        }, CancellationToken.None);
     }
 
     public void CancelDictation()
     {
+        _timeoutCts?.Cancel();
         _stopRequested = true;
         _isBuffering = false;
         _webSocketReady = false;
@@ -273,10 +280,11 @@ public sealed class DictationService : INotifyPropertyChanged
     {
         if (_isBuffering)
         {
-            // Buffer audio until WebSocket is ready
+            // Buffer audio until WebSocket is ready (cap to prevent unbounded growth)
             lock (_audioBuffer)
             {
-                _audioBuffer.Add(data);
+                if (_audioBuffer.Count < MaxAudioBufferChunks)
+                    _audioBuffer.Add(data);
             }
             return;
         }
@@ -293,6 +301,7 @@ public sealed class DictationService : INotifyPropertyChanged
 
     private void OnDictationResultHandler(object? sender, string enhancedText)
     {
+        _timeoutCts?.Cancel();
         Helpers.DispatcherHelper.PostOnUI(() =>
         {
             TranscribedText = enhancedText;
@@ -339,6 +348,7 @@ public sealed class DictationService : INotifyPropertyChanged
 
     private void OnDictationErrorHandler(object? sender, string error)
     {
+        _timeoutCts?.Cancel();
         Helpers.DispatcherHelper.PostOnUI(() =>
         {
             FileLogger.Instance.Error("Dictation", $"Error received: {error}");

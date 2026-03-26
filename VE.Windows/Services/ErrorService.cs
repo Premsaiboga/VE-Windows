@@ -4,6 +4,7 @@ using System.Text;
 using Newtonsoft.Json;
 using Sentry;
 using VE.Windows.Helpers;
+using VE.Windows.Infrastructure;
 using VE.Windows.Managers;
 
 namespace VE.Windows.Services;
@@ -31,11 +32,12 @@ public enum ErrorSeverity
 /// Matches macOS ErrorService: max 10 errors per 60-second window, 10-second minimum
 /// between sends, critical errors bypass rate limiting, error batching.
 /// </summary>
-public sealed class ErrorService
+public sealed class ErrorService : IErrorService
 {
     public static ErrorService Instance { get; } = new();
 
-    private const string SentryDSN = "https://3317a0b1eb30bcefaa9926d5f8db90fd@o4510844418195456.ingest.us.sentry.io/4511019648811008";
+    private const string DefaultSentryDSN = "https://3317a0b1eb30bcefaa9926d5f8db90fd@o4510844418195456.ingest.us.sentry.io/4511019648811008";
+    private readonly string _sentryDSN;
     private readonly HttpClient _httpClient = new();
 
     // Rate limiting (matches macOS: 10 errors/60s, 10s minimum interval)
@@ -49,7 +51,11 @@ public sealed class ErrorService
     private readonly ConcurrentQueue<PendingError> _errorQueue = new();
     private Timer? _batchTimer;
 
-    private ErrorService() { }
+    private ErrorService()
+    {
+        var configDsn = AppConfiguration.Instance.SentryDSN;
+        _sentryDSN = string.IsNullOrWhiteSpace(configDsn) ? DefaultSentryDSN : configDsn;
+    }
 
     public void ConfigureSentry()
     {
@@ -57,7 +63,7 @@ public sealed class ErrorService
         {
             SentrySdk.Init(options =>
             {
-                options.Dsn = SentryDSN;
+                options.Dsn = _sentryDSN;
 #if DEBUG
                 options.Environment = "development";
                 options.TracesSampleRate = 0.2;
@@ -96,7 +102,10 @@ public sealed class ErrorService
                 };
             });
         }
-        catch { }
+        catch (Exception ex)
+        {
+            FileLogger.Instance.Warning("ErrorService", $"Failed to update Sentry user: {ex.Message}");
+        }
     }
 
     /// <summary>
@@ -161,7 +170,10 @@ public sealed class ErrorService
         {
             SentrySdk.CaptureException(exception);
         }
-        catch { }
+        catch (Exception ex)
+        {
+            FileLogger.Instance.Warning("ErrorService", $"Failed to send exception to Sentry: {ex.Message}");
+        }
     }
 
     /// <summary>
@@ -187,9 +199,13 @@ public sealed class ErrorService
             {
                 SentrySdk.CaptureMessage("Unknown crash", SentryLevel.Fatal);
             }
-            SentrySdk.FlushAsync(TimeSpan.FromSeconds(5)).Wait();
+            // Use Task.Run to avoid potential deadlock in crash handler context
+            Task.Run(() => SentrySdk.FlushAsync(TimeSpan.FromSeconds(5))).Wait(TimeSpan.FromSeconds(6));
         }
-        catch { }
+        catch (Exception ex)
+        {
+            FileLogger.Instance.Warning("ErrorService", $"Failed to flush Sentry on crash: {ex.Message}");
+        }
     }
 
     /// <summary>
@@ -242,7 +258,10 @@ public sealed class ErrorService
                 _ => SentryLevel.Info
             });
         }
-        catch { }
+        catch (Exception ex)
+        {
+            FileLogger.Instance.Warning("ErrorService", $"Failed to send to Sentry: {ex.Message}");
+        }
     }
 
     public async Task Flush()
@@ -258,7 +277,10 @@ public sealed class ErrorService
         {
             await SentrySdk.FlushAsync(TimeSpan.FromSeconds(5));
         }
-        catch { }
+        catch (Exception ex)
+        {
+            FileLogger.Instance.Warning("ErrorService", $"Sentry flush failed: {ex.Message}");
+        }
     }
 
     private record PendingError(string Message, ErrorSeverity Severity, Dictionary<string, string>? Context);

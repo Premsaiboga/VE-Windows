@@ -17,7 +17,7 @@ public class RetryPolicy
 
     public static RetryPolicy Default => new()
     {
-        MaxRetries = -1,
+        MaxRetries = Infrastructure.AppConfiguration.Instance.MaxWebSocketRetries,
         InitialDelay = 1.0,
         MaxDelay = 60.0,
         BackoffMultiplier = 2.0,

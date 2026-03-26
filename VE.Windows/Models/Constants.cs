@@ -1,5 +1,7 @@
 using System.IO;
 using Newtonsoft.Json;
+using VE.Windows.Helpers;
+using VE.Windows.Infrastructure;
 
 namespace VE.Windows.Models;
 
@@ -62,13 +64,15 @@ public enum DownloadIconStyle
 /// Centralized settings manager using JSON file storage in %AppData%/VE/
 /// Equivalent to macOS Defaults.Keys
 /// </summary>
-public sealed class SettingsManager
+public sealed class SettingsManager : ISettingsManager
 {
     public static SettingsManager Instance { get; } = new();
 
+    private const string LogCategory = "Settings";
     private readonly string _settingsPath;
     private Dictionary<string, object> _settings;
     private readonly object _lock = new();
+    private Timer? _debounceTimer;
 
     private SettingsManager()
     {
@@ -90,7 +94,21 @@ public sealed class SettingsManager
                        ?? new Dictionary<string, object>();
             }
         }
-        catch { }
+        catch (Exception ex)
+        {
+            FileLogger.Instance.Warning(LogCategory,
+                $"Corrupt settings file, backing up and starting fresh: {ex.Message}");
+            try
+            {
+                var backupPath = _settingsPath + ".corrupt";
+                File.Copy(_settingsPath, backupPath, overwrite: true);
+            }
+            catch (Exception backupEx)
+            {
+                FileLogger.Instance.Error(LogCategory,
+                    $"Failed to backup corrupt settings: {backupEx.Message}");
+            }
+        }
         return new Dictionary<string, object>();
     }
 
@@ -99,9 +117,27 @@ public sealed class SettingsManager
         try
         {
             var json = JsonConvert.SerializeObject(_settings, Formatting.Indented);
-            File.WriteAllText(_settingsPath, json);
+            var tmpPath = _settingsPath + ".tmp";
+            File.WriteAllText(tmpPath, json);
+            File.Move(tmpPath, _settingsPath, overwrite: true);
         }
-        catch { }
+        catch (Exception ex)
+        {
+            FileLogger.Instance.Error(LogCategory,
+                $"Failed to save settings: {ex.Message}");
+        }
+    }
+
+    private void ScheduleSave()
+    {
+        _debounceTimer?.Dispose();
+        _debounceTimer = new Timer(_ =>
+        {
+            lock (_lock)
+            {
+                SaveSettings();
+            }
+        }, null, 500, Timeout.Infinite);
     }
 
     public T Get<T>(string key, T defaultValue)
@@ -116,7 +152,11 @@ public sealed class SettingsManager
                     var json = JsonConvert.SerializeObject(value);
                     return JsonConvert.DeserializeObject<T>(json) ?? defaultValue;
                 }
-                catch { return defaultValue; }
+                catch (Exception ex)
+                {
+                    FileLogger.Instance.Warning(LogCategory, $"Failed to deserialize setting '{key}': {ex.Message}");
+                    return defaultValue;
+                }
             }
             return defaultValue;
         }
@@ -127,8 +167,8 @@ public sealed class SettingsManager
         lock (_lock)
         {
             _settings[key] = value!;
-            SaveSettings();
         }
+        ScheduleSave();
     }
 
     public bool Has(string key)
@@ -141,8 +181,8 @@ public sealed class SettingsManager
         lock (_lock)
         {
             _settings.Remove(key);
-            SaveSettings();
         }
+        ScheduleSave();
     }
 
     // MARK: General

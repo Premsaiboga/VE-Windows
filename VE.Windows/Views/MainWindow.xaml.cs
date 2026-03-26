@@ -45,6 +45,7 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
         DataContext = _vm;
+        Closed += OnWindowClosed;
 
         // Subscribe to keyboard events
         KeyboardHookManager.Instance.OnEscapePressed += (s, e) =>
@@ -220,7 +221,10 @@ public partial class MainWindow : Window
                     SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_SHOWWINDOW);
             }
         }
-        catch { }
+        catch (Exception ex)
+        {
+            FileLogger.Instance.Warning("MainWindow", $"EnsureTopmost failed: {ex.Message}");
+        }
     }
 
     private void PositionWindow()
@@ -686,5 +690,12 @@ public partial class MainWindow : Window
         {
             _floatingPanel.ShowAndActivate();
         }
+    }
+
+    private void OnWindowClosed(object? sender, EventArgs e)
+    {
+        _topmostTimer?.Dispose();
+        _topmostTimer = null;
+        Microsoft.Win32.SystemEvents.DisplaySettingsChanged -= OnDisplaySettingsChanged;
     }
 }

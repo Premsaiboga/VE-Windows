@@ -4,7 +4,9 @@ using System.IO.Pipes;
 using System.Threading;
 using System.Windows;
 using Hardcodet.Wpf.TaskbarNotification;
+using Microsoft.Extensions.DependencyInjection;
 using VE.Windows.Helpers;
+using VE.Windows.Infrastructure;
 using VE.Windows.Managers;
 using VE.Windows.Models;
 using VE.Windows.Services;
@@ -22,6 +24,12 @@ public partial class App : Application
     private CancellationTokenSource? _pipeCts;
     private const string PipeName = "VE.Windows.SingleInstance.Pipe";
 
+    /// <summary>
+    /// DI service provider — available for resolving interfaces throughout the app.
+    /// Singletons are registered pointing to existing .Instance properties for backward compatibility.
+    /// </summary>
+    public static ServiceProvider Services { get; private set; } = null!;
+
     protected override void OnStartup(StartupEventArgs e)
     {
         // Single instance check
@@ -36,6 +44,11 @@ public partial class App : Application
         }
 
         base.OnStartup(e);
+
+        // Bootstrap DI container
+        var serviceCollection = new ServiceCollection();
+        serviceCollection.AddVEServices();
+        Services = serviceCollection.BuildServiceProvider();
 
         // Initialize logging
         FileLogger.Instance.Info("App", "Application starting");
@@ -194,9 +207,9 @@ public partial class App : Application
                 _notifyIcon.Icon = new System.Drawing.Icon(iconStream);
             }
         }
-        catch
+        catch (Exception ex)
         {
-            // Use default app icon
+            FileLogger.Instance.Warning("App", $"Failed to load tray icon: {ex.Message}");
         }
 
         _notifyIcon.ContextMenu = CreateContextMenu();
@@ -372,7 +385,9 @@ public partial class App : Application
         _pipeCts?.Cancel();
         KeyboardHookManager.Instance.Stop();
         WebSocketRegistry.Instance.DisconnectAll();
+        TokenRefreshService.Instance.Dispose();
         _notifyIcon?.Dispose();
+        Services?.Dispose();
         _mutex?.ReleaseMutex();
         _mutex?.Dispose();
         base.OnExit(e);

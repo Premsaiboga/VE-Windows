@@ -169,7 +169,7 @@ public sealed class TokenRefreshService : IDisposable
                 return false;
             }
 
-            FileLogger.Instance.Debug("TokenRefresh", $"Refresh response ({response.Length} chars): {response.Substring(0, Math.Min(200, response.Length))}");
+            FileLogger.Instance.Debug("TokenRefresh", $"Refresh response ({response.Length} chars): [redacted]");
 
             // Server returns {"tokens":{"accessToken":"...","csrfToken":"..."}}
             // Parse with wrapper support
@@ -197,7 +197,10 @@ public sealed class TokenRefreshService : IDisposable
                 var authUri = new Uri(authUrl);
                 NetworkService.Instance.PersistCookies(authUri);
             }
-            catch { }
+            catch (Exception ex)
+            {
+                FileLogger.Instance.Warning("TokenRefresh", $"Cookie persist after refresh failed: {ex.Message}");
+            }
 
             _consecutiveFailures = 0; // Reset on success
             ScheduleRefresh(accessToken);

@@ -54,7 +54,11 @@ public static class ProtocolHandler
             var expectedValue = $"\"{exePath}\" \"%1\"";
             return string.Equals(currentValue, expectedValue, StringComparison.OrdinalIgnoreCase);
         }
-        catch { return false; }
+        catch (Exception ex)
+        {
+            FileLogger.Instance.Warning("ProtocolHandler", $"Registry check failed: {ex.Message}");
+            return false;
+        }
     }
 
     public static void UnregisterProtocol()
@@ -63,14 +67,17 @@ public static class ProtocolHandler
         {
             Registry.CurrentUser.DeleteSubKeyTree($@"SOFTWARE\Classes\{Protocol}", false);
         }
-        catch { }
+        catch (Exception ex)
+        {
+            FileLogger.Instance.Warning("ProtocolHandler", $"Unregister failed: {ex.Message}");
+        }
     }
 
     public static async Task HandleUri(string uri)
     {
         if (!uri.StartsWith("ve://")) return;
 
-        FileLogger.Instance.Info("ProtocolHandler", $"Handling URI: {uri}");
+        FileLogger.Instance.Info("ProtocolHandler", $"Handling URI: {RedactUri(uri)}");
 
         try
         {
@@ -81,19 +88,42 @@ public static class ProtocolHandler
                 var query = System.Web.HttpUtility.ParseQueryString(parsedUri.Query);
                 var sessionId = query["sessionId"];
 
-                if (!string.IsNullOrEmpty(sessionId))
-                {
-                    await AuthManager.Instance.HandleOAuthCallback(sessionId);
-                }
-                else
+                if (string.IsNullOrEmpty(sessionId))
                 {
                     FileLogger.Instance.Warning("ProtocolHandler", "No sessionId in callback URI");
+                    return;
                 }
+
+                // Validate sessionId format (alphanumeric + hyphens/underscores, 10-100 chars)
+                if (!IsValidSessionId(sessionId))
+                {
+                    FileLogger.Instance.Warning("ProtocolHandler", $"Invalid sessionId format (length={sessionId.Length})");
+                    return;
+                }
+
+                await AuthManager.Instance.HandleOAuthCallback(sessionId);
+            }
+            else
+            {
+                FileLogger.Instance.Warning("ProtocolHandler", $"Unexpected URI host: {parsedUri.Host}");
             }
         }
         catch (Exception ex)
         {
             FileLogger.Instance.Error("ProtocolHandler", $"URI handling failed: {ex.Message}");
         }
+    }
+
+    private static bool IsValidSessionId(string sessionId)
+    {
+        if (sessionId.Length < 10 || sessionId.Length > 100) return false;
+        return sessionId.All(c => char.IsLetterOrDigit(c) || c == '-' || c == '_');
+    }
+
+    /// <summary>Redact query parameters from URI for safe logging.</summary>
+    private static string RedactUri(string uri)
+    {
+        var idx = uri.IndexOf('?');
+        return idx >= 0 ? uri.Substring(0, idx) + "?[redacted]" : uri;
     }
 }

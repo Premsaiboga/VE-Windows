@@ -4,6 +4,7 @@ using System.IO;
 using System.Runtime.InteropServices;
 using System.Text;
 using VE.Windows.Helpers;
+using VE.Windows.Infrastructure;
 
 namespace VE.Windows.Managers;
 
@@ -11,7 +12,7 @@ namespace VE.Windows.Managers;
 /// Screenshot capture and active window detection.
 /// Matches macOS: captures full screen, resizes to max 1660px, encodes as JPEG 85%.
 /// </summary>
-public sealed class ScreenCaptureManager
+public sealed class ScreenCaptureManager : IScreenCaptureManager
 {
     public static ScreenCaptureManager Instance { get; } = new();
 
@@ -38,16 +39,26 @@ public sealed class ScreenCaptureManager
 
     private ScreenCaptureManager() { }
 
+    public IntPtr GetForegroundWindowHandle()
+    {
+        return GetForegroundWindow();
+    }
+
     public string GetActiveWindowTitle()
     {
         try
         {
             var hwnd = GetForegroundWindow();
+            if (hwnd == IntPtr.Zero) return "";
             var sb = new StringBuilder(256);
             GetWindowText(hwnd, sb, 256);
             return sb.ToString();
         }
-        catch { return ""; }
+        catch (Exception ex)
+        {
+            FileLogger.Instance.Warning("ScreenCapture", $"GetActiveWindowTitle failed: {ex.Message}");
+            return "";
+        }
     }
 
     public string GetActiveAppName()
@@ -55,11 +66,17 @@ public sealed class ScreenCaptureManager
         try
         {
             var hwnd = GetForegroundWindow();
+            if (hwnd == IntPtr.Zero) return "";
             GetWindowThreadProcessId(hwnd, out uint processId);
-            var process = System.Diagnostics.Process.GetProcessById((int)processId);
+            if (processId == 0) return "";
+            using var process = System.Diagnostics.Process.GetProcessById((int)processId);
             return process.ProcessName;
         }
-        catch { return ""; }
+        catch (Exception ex)
+        {
+            FileLogger.Instance.Warning("ScreenCapture", $"GetActiveAppName failed: {ex.Message}");
+            return "";
+        }
     }
 
     /// <summary>
@@ -70,8 +87,11 @@ public sealed class ScreenCaptureManager
     {
         try
         {
-            // Capture full primary screen (matches macOS CGWindowListCreateImage)
-            var screen = System.Windows.Forms.Screen.PrimaryScreen;
+            // Capture the screen containing the active window (fixes multi-monitor)
+            var hwnd = GetForegroundWindow();
+            var screen = hwnd != IntPtr.Zero
+                ? System.Windows.Forms.Screen.FromHandle(hwnd)
+                : System.Windows.Forms.Screen.PrimaryScreen;
             if (screen == null) return null;
 
             var bounds = screen.Bounds;

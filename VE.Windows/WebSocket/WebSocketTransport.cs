@@ -173,7 +173,10 @@ public class WebSocketTransport : IDisposable
                     await _webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Closing", closeCts.Token);
                 }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                FileLogger.Instance.Warning("WebSocketTransport", $"Close handshake failed: {ex.Message}");
+            }
 
             _webSocket.Dispose();
             _webSocket = null;
@@ -273,7 +276,11 @@ public class WebSocketTransport : IDisposable
         if (_intentionalDisconnect || _isDisposed) return;
         // Don't blindly reconnect with expired token — let AuthErrorDetected handler do the refresh + reconnect
         if (_authErrorDetected) return;
-        if (!_retryPolicy.ShouldRetry(_retryAttempt)) return;
+        if (!_retryPolicy.ShouldRetry(_retryAttempt))
+        {
+            FileLogger.Instance.Error("WebSocket", $"Max retries ({_retryAttempt}) exhausted, giving up reconnection");
+            return;
+        }
 
         var delay = _retryPolicy.CalculateDelay(_retryAttempt);
         _retryAttempt++;

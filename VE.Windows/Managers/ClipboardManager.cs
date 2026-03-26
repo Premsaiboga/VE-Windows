@@ -146,7 +146,8 @@ public sealed class ClipboardManager
         string? text = null;
         RunOnSTAThread(() =>
         {
-            try { text = Clipboard.GetText(); } catch { }
+            try { text = Clipboard.GetText(); }
+                catch (Exception ex) { FileLogger.Instance.Warning("Clipboard", $"Read failed: {ex.Message}"); }
         });
         return text;
     }
@@ -344,7 +345,10 @@ public sealed class ClipboardManager
             _originalClipboardContent = ReadClipboard();
             _pasteTimestamp = DateTime.UtcNow;
         }
-        catch { }
+        catch (Exception ex)
+        {
+            FileLogger.Instance.Warning("Clipboard", $"SaveOriginalClipboard failed: {ex.Message}");
+        }
     }
 
     /// <summary>
@@ -495,7 +499,10 @@ public sealed class ClipboardManager
             var thread = new Thread(() => action());
             thread.SetApartmentState(ApartmentState.STA);
             thread.Start();
-            thread.Join();
+            if (!thread.Join(TimeSpan.FromSeconds(5)))
+            {
+                FileLogger.Instance.Warning("Clipboard", "STA thread timed out after 5s");
+            }
         }
     }
 }

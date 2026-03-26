@@ -48,7 +48,10 @@ public class SettingsViewModel : INotifyPropertyChanged
         {
             Subscription = await SubscriptionService.Instance.GetSubscription();
         }
-        catch { }
+        catch (Exception ex)
+        {
+            Helpers.FileLogger.Instance.Warning("SettingsVM", $"Load subscription failed: {ex.Message}");
+        }
         IsLoading = false;
     }
 
