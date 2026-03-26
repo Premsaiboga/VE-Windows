@@ -36,7 +36,7 @@
             <Setter Property="Padding" Value="14,10" />
             <Setter Property="BorderBrush" Value="{DynamicResource ThemeBorderMedium}" />
             <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="CaretBrush" Value="White" />
+            <Setter Property="CaretBrush" Value="{DynamicResource ThemeTextPrimary}" />
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="TextBox">
@@ -417,7 +417,7 @@
                                                     CornerRadius="19" Background="#2A8C8C"
                                                     Margin="0,0,12,0">
                                                 <TextBlock Text="{Binding Initials}"
-                                                           Foreground="{DynamicResource ThemeTextPrimary}" FontSize="13"
+                                                           Foreground="White" FontSize="13"
                                                            FontWeight="SemiBold"
                                                            HorizontalAlignment="Center"
                                                            VerticalAlignment="Center" />
@@ -471,7 +471,7 @@
                                     </Border>
                                     <Border CornerRadius="8" Background="#007CEC"
                                             Padding="24,8" Cursor="Hand">
-                                        <TextBlock Text="Upgrade" Foreground="{DynamicResource ThemeTextPrimary}"
+                                        <TextBlock Text="Upgrade" Foreground="White"
                                                    FontSize="13" FontWeight="SemiBold" />
                                     </Border>
                                 </StackPanel>

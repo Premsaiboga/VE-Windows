@@ -65,7 +65,8 @@ public partial class PredictionView2 : UserControl
             var header = new TextBlock
             {
                 Text = group.Key,
-                Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#878E92")),
+                Foreground = Application.Current.Resources["ThemeTextSecondary"] as Brush
+                    ?? new SolidColorBrush((Color)ColorConverter.ConvertFromString("#878E92")),
                 FontSize = 13,
                 Margin = new Thickness(0, 16, 0, 8)
             };

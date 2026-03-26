@@ -25,6 +25,7 @@ public sealed class ChatManager : INotifyPropertyChanged
     private ChatMessage? _currentAssistantMessage;
     private AIModel _selectedModel = AIModel.Auto;
     private string _streamingAnswer = "";
+    private string? _currentSessionId;
 
     public event PropertyChangedEventHandler? PropertyChanged;
 
@@ -78,7 +79,8 @@ public sealed class ChatManager : INotifyPropertyChanged
                 return;
             }
 
-            var sessionId = Guid.NewGuid().ToString("N").Substring(0, 24);
+            var sessionId = _currentSessionId ?? Guid.NewGuid().ToString("N").Substring(0, 24);
+            _currentSessionId = sessionId;
             var encodedToken = Uri.EscapeDataString(token);
             var url = $"{baseUrl}/{workspaceId}/{sessionId}/multi_agent_chat_streaming?token={encodedToken}";
 
@@ -391,12 +393,15 @@ public sealed class ChatManager : INotifyPropertyChanged
         _cts = null;
     }
 
+    public void SetSessionId(string sessionId) => _currentSessionId = sessionId;
+
     public void ClearChat()
     {
         CleanupWebSocket();
         Messages.Clear();
         _currentAssistantMessage = null;
         _streamingAnswer = "";
+        _currentSessionId = null;
     }
 
     // --- Recent Chats (Section 5.6) ---

@@ -137,8 +137,7 @@ public partial class SettingsWindow : Window
             Margin = new Thickness(0, 16, 0, 0),
             Padding = new Thickness(0, 12, 0, 0),
             BorderThickness = new Thickness(0, 1, 0, 0),
-            BorderBrush = new System.Windows.Media.SolidColorBrush(
-                System.Windows.Media.Color.FromArgb(26, 255, 255, 255))
+            BorderBrush = ThemeManager.Instance.BorderBrush
         });
 
         AddShortcutRow(panel, "Click Notch", "Open Chat");
@@ -178,9 +177,8 @@ public partial class SettingsWindow : Window
         {
             Width = 100,
             VerticalAlignment = VerticalAlignment.Center,
-            Background = new System.Windows.Media.SolidColorBrush(
-                System.Windows.Media.Color.FromArgb(26, 255, 255, 255)),
-            Foreground = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Colors.White),
+            Background = ThemeManager.Instance.CardBrush,
+            Foreground = ThemeManager.Instance.TextPrimaryBrush,
             FontSize = 13
         };
 
@@ -229,8 +227,7 @@ public partial class SettingsWindow : Window
 
         var border = new Border
         {
-            Background = new System.Windows.Media.SolidColorBrush(
-                System.Windows.Media.Color.FromArgb(26, 255, 255, 255)),
+            Background = ThemeManager.Instance.CardBrush,
             CornerRadius = new CornerRadius(4),
             Padding = new Thickness(8, 4, 8, 4)
         };

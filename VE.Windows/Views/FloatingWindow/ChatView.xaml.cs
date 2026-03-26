@@ -72,19 +72,17 @@ public partial class ChatView : UserControl
             _ => "system"
         };
 
-        var blue = new System.Windows.Media.SolidColorBrush(
-            (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#007CEC"));
+        var blue = BlueBrush;
         var transparent = System.Windows.Media.Brushes.Transparent;
         var white = System.Windows.Media.Brushes.White;
-        var gray = new System.Windows.Media.SolidColorBrush(
-            (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#878E92"));
+        var inactive = ThemeTextTertiaryBrush;
 
         ThemeSystem.Background = theme == "system" ? blue : transparent;
-        ThemeSystem.Foreground = theme == "system" ? white : gray;
+        ThemeSystem.Foreground = theme == "system" ? white : inactive;
         ThemeLight.Background = theme == "light" ? blue : transparent;
-        ThemeLight.Foreground = theme == "light" ? white : gray;
+        ThemeLight.Foreground = theme == "light" ? white : inactive;
         ThemeDark.Background = theme == "dark" ? blue : transparent;
-        ThemeDark.Foreground = theme == "dark" ? white : gray;
+        ThemeDark.Foreground = theme == "dark" ? white : inactive;
     }
 
     // ═══ USER INFO ═══
@@ -188,7 +186,7 @@ public partial class ChatView : UserControl
             ToggleWork.Background = BlueBrush;
             ToggleWork.Foreground = System.Windows.Media.Brushes.White;
             ToggleChat.Background = System.Windows.Media.Brushes.Transparent;
-            ToggleChat.Foreground = GrayBrush;
+            ToggleChat.Foreground = ThemeTextTertiaryBrush;
 
             ChatSidebar.Visibility = Visibility.Collapsed;
             WorkSidebar.Visibility = Visibility.Visible;
@@ -203,21 +201,35 @@ public partial class ChatView : UserControl
         UpdateWorkNavSelection("Connectors");
     }
 
+    private bool _isLoadingChat;
+
     private async void RecentChat_Click(object sender, RoutedEventArgs e)
     {
+        if (_isLoadingChat) return;
         if (sender is Button btn && btn.Tag is string sessionId)
         {
             FileLogger.Instance.Debug("ChatView", $"Loading chat: {sessionId}");
+            _isLoadingChat = true;
 
-            // Clear current chat and show messages area
+            // Clear current chat and show loading state
             _vm.ClearHistory();
             WelcomePanel.Visibility = Visibility.Collapsed;
             MessagesScroll.Visibility = Visibility.Visible;
 
+            // Set session ID so future messages continue this conversation
+            ChatManager.Instance.SetSessionId(sessionId);
+
             try
             {
                 var messages = await ChatService.Instance.GetSessionMessages(sessionId, 1, 50);
-                if (messages.Count == 0) return;
+                if (messages.Count == 0)
+                {
+                    // Show welcome panel if no messages found
+                    WelcomePanel.Visibility = Visibility.Visible;
+                    MessagesScroll.Visibility = Visibility.Collapsed;
+                    _isLoadingChat = false;
+                    return;
+                }
 
                 // Messages come in reverse order (newest first), so reverse them
                 messages.Reverse();
@@ -252,6 +264,13 @@ public partial class ChatView : UserControl
             catch (Exception ex)
             {
                 FileLogger.Instance.Error("ChatView", $"Load chat history failed: {ex.Message}");
+                // Show welcome panel on error so user isn't stuck on blank screen
+                WelcomePanel.Visibility = Visibility.Visible;
+                MessagesScroll.Visibility = Visibility.Collapsed;
+            }
+            finally
+            {
+                _isLoadingChat = false;
             }
         }
     }
@@ -260,8 +279,17 @@ public partial class ChatView : UserControl
 
     private static System.Windows.Media.SolidColorBrush BlueBrush =>
         new((System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#007CEC"));
-    private static System.Windows.Media.SolidColorBrush GrayBrush =>
-        new((System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#878E92"));
+
+    private static System.Windows.Media.Brush ThemeTextPrimaryBrush =>
+        Application.Current.Resources["ThemeTextPrimary"] as System.Windows.Media.Brush ?? System.Windows.Media.Brushes.White;
+    private static System.Windows.Media.Brush ThemeTextTertiaryBrush =>
+        Application.Current.Resources["ThemeTextTertiary"] as System.Windows.Media.Brush
+        ?? new System.Windows.Media.SolidColorBrush(
+            (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#878E92"));
+    private static System.Windows.Media.Brush ThemeTextSecondaryBrush2 =>
+        Application.Current.Resources["ThemeTextSecondary"] as System.Windows.Media.Brush
+        ?? new System.Windows.Media.SolidColorBrush(
+            (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#878E92"));
 
     private void ToggleChat_Click(object sender, RoutedEventArgs e)
     {
@@ -270,7 +298,7 @@ public partial class ChatView : UserControl
         ToggleChat.Background = BlueBrush;
         ToggleChat.Foreground = System.Windows.Media.Brushes.White;
         ToggleWork.Background = System.Windows.Media.Brushes.Transparent;
-        ToggleWork.Foreground = GrayBrush;
+        ToggleWork.Foreground = ThemeTextTertiaryBrush;
 
         // Swap sidebars
         ChatSidebar.Visibility = Visibility.Visible;
@@ -290,7 +318,7 @@ public partial class ChatView : UserControl
         ToggleWork.Background = BlueBrush;
         ToggleWork.Foreground = System.Windows.Media.Brushes.White;
         ToggleChat.Background = System.Windows.Media.Brushes.Transparent;
-        ToggleChat.Foreground = GrayBrush;
+        ToggleChat.Foreground = ThemeTextTertiaryBrush;
 
         // Swap sidebars
         ChatSidebar.Visibility = Visibility.Collapsed;
@@ -349,8 +377,7 @@ public partial class ChatView : UserControl
             WorkContent.Content = new TextBlock
             {
                 Text = $"{tab}\nComing soon",
-                Foreground = new System.Windows.Media.SolidColorBrush(
-                    (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#878E92")),
+                Foreground = ThemeTextSecondaryBrush2,
                 FontSize = 16,
                 TextAlignment = TextAlignment.Center,
                 HorizontalAlignment = HorizontalAlignment.Center,
@@ -372,9 +399,7 @@ public partial class ChatView : UserControl
         {
             var tag = btn.Tag as string;
             var isActive = tag == selected;
-            btn.Foreground = isActive
-                ? System.Windows.Media.Brushes.White
-                : GrayBrush;
+            btn.Foreground = isActive ? ThemeTextPrimaryBrush : ThemeTextTertiaryBrush;
             btn.FontWeight = isActive ? FontWeights.SemiBold : FontWeights.Normal;
         }
     }
@@ -637,19 +662,17 @@ public partial class ChatView : UserControl
 
     private void SetThemeButton(string theme)
     {
-        var blue = new System.Windows.Media.SolidColorBrush(
-            (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#007CEC"));
+        var blue = BlueBrush;
         var transparent = System.Windows.Media.Brushes.Transparent;
         var white = System.Windows.Media.Brushes.White;
-        var gray = new System.Windows.Media.SolidColorBrush(
-            (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#878E92"));
+        var inactive = ThemeTextTertiaryBrush;
 
         ThemeSystem.Background = theme == "system" ? blue : transparent;
-        ThemeSystem.Foreground = theme == "system" ? white : gray;
+        ThemeSystem.Foreground = theme == "system" ? white : inactive;
         ThemeLight.Background = theme == "light" ? blue : transparent;
-        ThemeLight.Foreground = theme == "light" ? white : gray;
+        ThemeLight.Foreground = theme == "light" ? white : inactive;
         ThemeDark.Background = theme == "dark" ? blue : transparent;
-        ThemeDark.Foreground = theme == "dark" ? white : gray;
+        ThemeDark.Foreground = theme == "dark" ? white : inactive;
 
         // Apply theme via ThemeManager
         VE.Windows.Theme.ThemeManager.Instance.CurrentTheme = theme switch

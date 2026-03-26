@@ -254,18 +254,23 @@ public class InputDialog : Window
         Width = 360; Height = label2 != null ? 240 : 180;
         WindowStartupLocation = WindowStartupLocation.CenterScreen;
         WindowStyle = WindowStyle.ToolWindow;
-        Background = new SolidColorBrush(Color.FromRgb(26, 26, 26));
+
+        var res = Application.Current.Resources;
+        var bgBrush = res["ThemeBg2"] as Brush ?? new SolidColorBrush(Color.FromRgb(26, 26, 26));
+        var cardBrush = res["ThemeCard"] as Brush ?? new SolidColorBrush(Color.FromRgb(37, 41, 45));
+        var textBrush = res["ThemeTextPrimary"] as Brush ?? Brushes.White;
+        Background = bgBrush;
 
         var stack = new StackPanel { Margin = new Thickness(16) };
 
-        stack.Children.Add(new TextBlock { Text = label1, Foreground = Brushes.White, FontSize = 12, Margin = new Thickness(0, 0, 0, 4) });
-        _input1 = new TextBox { Background = new SolidColorBrush(Color.FromRgb(37, 41, 45)), Foreground = Brushes.White, Padding = new Thickness(8, 6, 8, 6), FontSize = 13 };
+        stack.Children.Add(new TextBlock { Text = label1, Foreground = textBrush, FontSize = 12, Margin = new Thickness(0, 0, 0, 4) });
+        _input1 = new TextBox { Background = cardBrush, Foreground = textBrush, Padding = new Thickness(8, 6, 8, 6), FontSize = 13 };
         stack.Children.Add(_input1);
 
         if (label2 != null)
         {
-            stack.Children.Add(new TextBlock { Text = label2, Foreground = Brushes.White, FontSize = 12, Margin = new Thickness(0, 12, 0, 4) });
-            _input2 = new TextBox { Background = new SolidColorBrush(Color.FromRgb(37, 41, 45)), Foreground = Brushes.White, Padding = new Thickness(8, 6, 8, 6), FontSize = 13 };
+            stack.Children.Add(new TextBlock { Text = label2, Foreground = textBrush, FontSize = 12, Margin = new Thickness(0, 12, 0, 4) });
+            _input2 = new TextBox { Background = cardBrush, Foreground = textBrush, Padding = new Thickness(8, 6, 8, 6), FontSize = 13 };
             stack.Children.Add(_input2);
         }
 

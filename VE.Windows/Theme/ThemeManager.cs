@@ -36,34 +36,34 @@ public sealed class ThemeManager : INotifyPropertyChanged
     }
 
     // Theme-aware colors matching macOS VEColors
-    public Color Background => IsDarkMode ? ColorFromHex("#151719") : ColorFromHex("#F4F5F5");
+    public Color Background => IsDarkMode ? ColorFromHex("#151719") : ColorFromHex("#F0F1F3");
     public Color Background2 => IsDarkMode ? ColorFromHex("#1A1A1A") : ColorFromHex("#FFFFFF");
-    public Color SidebarBg => IsDarkMode ? ColorFromHex("#111315") : ColorFromHex("#E8E9EB");
-    public Color Card => IsDarkMode ? ColorFromHex("#25292D") : ColorFromHex("#F7F8F8");
+    public Color SidebarBg => IsDarkMode ? ColorFromHex("#111315") : ColorFromHex("#E2E4E7");
+    public Color Card => IsDarkMode ? ColorFromHex("#25292D") : ColorFromHex("#EBEDF0");
     public Color PopupBg => IsDarkMode ? ColorFromHex("#1E2024") : ColorFromHex("#FFFFFF");
     public Color Blue => ColorFromHex("#007CEC");
     public Color BlueHover => Color.FromArgb(204, 0, 124, 236);
-    public Color TextPrimary => IsDarkMode ? ColorFromHex("#F4F5F5") : ColorFromHex("#272B30");
-    public Color TextSecondary => IsDarkMode ? ColorFromHex("#878E92") : ColorFromHex("#6D737A");
+    public Color TextPrimary => IsDarkMode ? ColorFromHex("#F4F5F5") : ColorFromHex("#1A1D21");
+    public Color TextSecondary => IsDarkMode ? ColorFromHex("#878E92") : ColorFromHex("#5A6069");
     public Color TextTertiary => IsDarkMode ? ColorFromHex("#A0A4A8") : ColorFromHex("#6D737A");
-    public Color TextMuted => IsDarkMode ? ColorFromHex("#555555") : ColorFromHex("#AAAAAA");
-    public Color TextBody => IsDarkMode ? ColorFromHex("#DDDDDD") : ColorFromHex("#444444");
+    public Color TextMuted => IsDarkMode ? ColorFromHex("#555555") : ColorFromHex("#8C9197");
+    public Color TextBody => IsDarkMode ? ColorFromHex("#DDDDDD") : ColorFromHex("#3B3F44");
     public Color ButtonText => ColorFromHex("#FFFFFF");
     public Color Border => IsDarkMode
         ? Color.FromArgb(26, 244, 245, 245)
-        : Color.FromArgb(26, 0, 0, 0);
+        : ColorFromHex("#D0D3D6");
     public Color BorderMedium => IsDarkMode
         ? Color.FromArgb(51, 255, 255, 255)
-        : Color.FromArgb(51, 0, 0, 0);
+        : ColorFromHex("#B8BCC0");
     public Color BorderStrong => IsDarkMode
         ? Color.FromArgb(85, 255, 255, 255)
-        : Color.FromArgb(51, 0, 0, 0);
+        : ColorFromHex("#9DA2A8");
     public Color Hover => IsDarkMode
         ? Color.FromArgb(26, 255, 255, 255)
-        : Color.FromArgb(26, 0, 0, 0);
+        : ColorFromHex("#D8DBE0");
     public Color RowBg => IsDarkMode
         ? Color.FromArgb(13, 255, 255, 255)
-        : Color.FromArgb(13, 0, 0, 0);
+        : ColorFromHex("#E8EAED");
     public Color Red => ColorFromHex("#FF4B59");
     public Color Yellow => ColorFromHex("#FFC600");
     public Color Green => ColorFromHex("#00CA48");

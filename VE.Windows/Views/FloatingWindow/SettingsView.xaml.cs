@@ -22,6 +22,14 @@ public partial class SettingsView : UserControl
     {
         InitializeComponent();
         Loaded += OnLoaded;
+        IsVisibleChanged += (s, e) =>
+        {
+            if (IsVisible)
+            {
+                LoadProfileData();
+                LoadWorkspaceData();
+            }
+        };
     }
 
     private void OnLoaded(object sender, RoutedEventArgs e)
@@ -224,15 +232,17 @@ public partial class SettingsView : UserControl
 
     private void UpdateNavSelection(string selected)
     {
-        var gray = new System.Windows.Media.SolidColorBrush(
-            (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#A0A4A8"));
-        var white = System.Windows.Media.Brushes.White;
+        var activeBrush = FindResource("ThemeTextPrimary") as System.Windows.Media.Brush
+            ?? System.Windows.Media.Brushes.White;
+        var inactiveBrush = FindResource("ThemeTextTertiary") as System.Windows.Media.Brush
+            ?? new System.Windows.Media.SolidColorBrush(
+                (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#A0A4A8"));
 
         foreach (var btn in _navButtons)
         {
             var tag = btn.Tag as string;
             var isActive = tag == selected;
-            btn.Foreground = isActive ? white : gray;
+            btn.Foreground = isActive ? activeBrush : inactiveBrush;
             btn.FontWeight = isActive ? FontWeights.SemiBold : FontWeights.Normal;
         }
     }
