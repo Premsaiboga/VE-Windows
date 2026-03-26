@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.IO;
+using VE.Windows.Infrastructure;
 
 namespace VE.Windows.Helpers;
 
@@ -8,7 +9,7 @@ namespace VE.Windows.Helpers;
 /// Matches macOS Logger.swift: 5MB max file size, rotate to .old, thread-safe ConcurrentQueue.
 /// Format: [2026-03-15 14:30:22.123] [INFO] [Category] Message
 /// </summary>
-public sealed class FileLogger : IDisposable
+public sealed class FileLogger : IFileLogger, IDisposable
 {
     public static FileLogger Instance { get; } = new();
 

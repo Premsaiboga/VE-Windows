@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using VE.Windows.Helpers;
+using VE.Windows.Infrastructure;
 using VE.Windows.Services;
 
 namespace VE.Windows;
@@ -15,7 +16,7 @@ public enum UpdateState { None, Available, Downloading, ReadyToInstall }
 /// Equivalent to macOS VEAIViewCoordinator.
 /// All property setters dispatch to the UI thread via DispatcherHelper.
 /// </summary>
-public sealed class ViewCoordinator : INotifyPropertyChanged
+public sealed class ViewCoordinator : INotifyPropertyChanged, IViewCoordinator
 {
     public static ViewCoordinator Instance { get; } = new();
 

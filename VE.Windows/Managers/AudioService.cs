@@ -2,6 +2,7 @@ using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using NAudio.Wave;
 using VE.Windows.Helpers;
+using VE.Windows.Infrastructure;
 using VE.Windows.Models;
 
 namespace VE.Windows.Managers;
@@ -10,7 +11,7 @@ namespace VE.Windows.Managers;
 /// Audio capture service using NAudio.
 /// Equivalent to macOS UnifiedAudioService + AudioHelper.
 /// </summary>
-public sealed class AudioService : INotifyPropertyChanged, IDisposable
+public sealed class AudioService : INotifyPropertyChanged, IDisposable, IAudioService
 {
     public static AudioService Instance { get; } = new();
 

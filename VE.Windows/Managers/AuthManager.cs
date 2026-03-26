@@ -8,6 +8,7 @@ using Newtonsoft.Json;
 using VE.Windows.Helpers;
 using VE.Windows.Models;
 using VE.Windows.Services;
+using VE.Windows.Infrastructure;
 using VE.Windows.WebSocket;
 
 namespace VE.Windows.Managers;
@@ -16,7 +17,7 @@ namespace VE.Windows.Managers;
 /// Main authentication manager - handles OAuth flow, token storage, and session management.
 /// Equivalent to macOS AuthManager.
 /// </summary>
-public sealed class AuthManager : INotifyPropertyChanged
+public sealed class AuthManager : INotifyPropertyChanged, IAuthManager
 {
     public static AuthManager Instance { get; } = new();
 

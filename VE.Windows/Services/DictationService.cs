@@ -2,6 +2,7 @@ using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using VE.Windows.Helpers;
 using VE.Windows.Managers;
+using VE.Windows.Infrastructure;
 using VE.Windows.WebSocket;
 
 namespace VE.Windows.Services;
@@ -22,7 +23,7 @@ public enum DictationState
 /// with direct_agent="dictation". Sends audio chunks + end payload, receives enhanced_text.
 /// Pre-starts audio capture immediately (like macOS preStartAudioCapture) to avoid losing audio.
 /// </summary>
-public sealed class DictationService : INotifyPropertyChanged
+public sealed class DictationService : INotifyPropertyChanged, IDictationService
 {
     public static DictationService Instance { get; } = new();
 

@@ -1,6 +1,7 @@
 using System.IdentityModel.Tokens.Jwt;
 using Newtonsoft.Json;
 using VE.Windows.Helpers;
+using VE.Windows.Infrastructure;
 using VE.Windows.Managers;
 
 namespace VE.Windows.Services;
@@ -10,7 +11,7 @@ namespace VE.Windows.Services;
 /// Matches macOS AuthManager+TokenRefresh: scheduled timer, 30-second periodic check,
 /// SemaphoreSlim guard so only one refresh executes at a time (others await the same result).
 /// </summary>
-public sealed class TokenRefreshService : IDisposable
+public sealed class TokenRefreshService : ITokenRefreshService, IDisposable
 {
     public static TokenRefreshService Instance { get; } = new();
 

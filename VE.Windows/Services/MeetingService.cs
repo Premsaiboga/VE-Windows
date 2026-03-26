@@ -6,6 +6,7 @@ using Newtonsoft.Json.Linq;
 using VE.Windows.Helpers;
 using VE.Windows.Managers;
 using VE.Windows.Models;
+using VE.Windows.Infrastructure;
 using VE.Windows.WebSocket;
 
 namespace VE.Windows.Services;
@@ -24,7 +25,7 @@ public enum MeetingState
 /// Meeting service that matches macOS MeetingService.
 /// Uses GraphQL to create meeting, WebSocket for audio streaming and transcriptions.
 /// </summary>
-public sealed class MeetingService : INotifyPropertyChanged
+public sealed class MeetingService : INotifyPropertyChanged, IMeetingService
 {
     public static MeetingService Instance { get; } = new();
 

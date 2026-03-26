@@ -1,3 +1,4 @@
+using VE.Windows.Infrastructure;
 using VE.Windows.Managers;
 
 namespace VE.Windows.Services;
@@ -6,7 +7,7 @@ namespace VE.Windows.Services;
 /// Multi-region URL resolution matching macOS BaseURLService.
 /// Production endpoints only.
 /// </summary>
-public sealed class BaseURLService
+public sealed class BaseURLService : IBaseURLService
 {
     public static BaseURLService Instance { get; } = new();
 

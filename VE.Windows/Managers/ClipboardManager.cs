@@ -1,6 +1,7 @@
 using System.Runtime.InteropServices;
 using System.Windows;
 using VE.Windows.Helpers;
+using VE.Windows.Infrastructure;
 
 namespace VE.Windows.Managers;
 
@@ -10,7 +11,7 @@ namespace VE.Windows.Managers;
 /// WPF Clipboard.SetText lock issues (CLIPBRD_E_CANT_OPEN).
 /// Uses AttachThreadInput + SetForegroundWindow + SendInput for reliable paste on Windows.
 /// </summary>
-public sealed class ClipboardManager
+public sealed class ClipboardManager : IClipboardManager
 {
     public static ClipboardManager Instance { get; } = new();
 
