@@ -189,26 +189,27 @@ public sealed class KeyboardHookManager : IDisposable
             var isKeyDown = msg == WM_KEYDOWN || msg == WM_SYSKEYDOWN;
             var isKeyUp = msg == WM_KEYUP || msg == WM_SYSKEYUP;
 
+            // Check if this is one of our configured keys BEFORE try/catch
+            // so we ALWAYS swallow them even if handler throws
+            var settings = SettingsManager.Instance;
+            var predictionKey = settings.PredictionKeyCode;
+            var dictationKey = settings.DictationKeyCode;
+            bool isOurKey = MatchesKey(vkCode, predictionKey) || MatchesKey(vkCode, dictationKey);
+
             try
             {
-                // Check if this is one of our configured keys - SWALLOW it
-                var settings = SettingsManager.Instance;
-                var predictionKey = settings.PredictionKeyCode;
-                var dictationKey = settings.DictationKeyCode;
-                bool isOurKey = MatchesKey(vkCode, predictionKey) || MatchesKey(vkCode, dictationKey);
-
                 if (isKeyDown) HandleKeyDown(vkCode);
                 else if (isKeyUp) HandleKeyUp(vkCode);
-
-                // SWALLOW configured keys - return 1 to prevent them reaching other apps
-                if (isOurKey)
-                {
-                    return (IntPtr)1;
-                }
             }
             catch (Exception ex)
             {
                 FileLogger.Instance.Error("KeyboardHook", $"Error: {ex.Message}");
+            }
+
+            // SWALLOW configured keys — return 1 to block them from reaching ANY other app
+            if (isOurKey)
+            {
+                return (IntPtr)1;
             }
         }
 

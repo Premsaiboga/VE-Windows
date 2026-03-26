@@ -107,31 +107,18 @@ public partial class SettingsWindow : Window
         });
         panel.Children.Add(new TextBlock
         {
-            Text = "Configure which keys trigger prediction and dictation.",
+            Text = "Shortcut keys for prediction and dictation.",
             Foreground = ThemeManager.Instance.TextSecondaryBrush,
             FontSize = 13,
             Margin = new Thickness(0, 0, 0, 24)
         });
 
-        var settings = Models.SettingsManager.Instance;
+        // Fixed shortcut rows — F2 and F3 are permanent
+        AddShortcutRow(panel, "F2 (tap)", "Screenshot Prediction");
+        AddShortcutRow(panel, "F2 (hold)", "Voice + Screenshot Prediction");
+        AddShortcutRow(panel, "F3 (hold)", "Voice Dictation");
 
-        // Prediction key selector
-        AddConfigurableShortcutRow(panel, "AI Prediction",
-            "Tap for screenshot. Hold and speak for voice + screenshot.",
-            settings.PredictionKeyCode, (keyCode) =>
-            {
-                settings.PredictionKeyCode = keyCode;
-            });
-
-        // Dictation key selector
-        AddConfigurableShortcutRow(panel, "Voice Dictation",
-            "Hold to record. Release to transcribe and paste.",
-            settings.DictationKeyCode, (keyCode) =>
-            {
-                settings.DictationKeyCode = keyCode;
-            });
-
-        // Fixed shortcuts info
+        // Divider
         panel.Children.Add(new Border
         {
             Margin = new Thickness(0, 16, 0, 0),

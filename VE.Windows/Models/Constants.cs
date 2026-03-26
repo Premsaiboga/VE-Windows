@@ -191,17 +191,19 @@ public sealed class SettingsManager
         set => Set("InstructionModifierKey", value);
     }
 
-    // MARK: Configurable Shortcut Keys (virtual key codes)
-    // Default: F2 (0x71) for prediction, F3 (0x72) for dictation
+    // MARK: Shortcut Keys — FIXED to F2 and F3
+    // F2 tap = screenshot prediction, F2 hold = voice+screenshot prediction
+    // F3 hold = dictation recording, F3 release = transcribe and paste
+    // These are permanent and cannot be changed by the user.
     public int PredictionKeyCode
     {
-        get => Get("PredictionKeyCode", 0x71); // VK_F2
-        set => Set("PredictionKeyCode", value);
+        get => 0x71; // VK_F2 — always F2
+        set { } // No-op: key is fixed
     }
     public int DictationKeyCode
     {
-        get => Get("DictationKeyCode", 0x72); // VK_F3
-        set => Set("DictationKeyCode", value);
+        get => 0x72; // VK_F3 — always F3
+        set { } // No-op: key is fixed
     }
 
     // MARK: Microphone
